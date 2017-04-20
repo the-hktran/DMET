@@ -299,8 +299,8 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
         }
         else // Then remove the bias and lock in the orbitals.
         {
-            for (int i = 0; i < DensityMatrix.rows(); i++)
-            {
+           for (int i = 0; i < DensityMatrix.rows(); i++)
+           {
                 for (int j = 0; j < DensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
@@ -381,7 +381,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 /// </param>
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF)
 {
-	double SCFTol = 1E-6; // SCF will terminate when the DIIS error is below this amount. 
+	double SCFTol = 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
 
 	Output << "Beginning search for Solution " << SolnNum << std::endl;
@@ -405,7 +405,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
         Eigen::MatrixXd CoeffMatrixPrev = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO); // Two sequential coefficient matrices are stored for MOM.
         ContinueSCF = true;
         Count = 1;
-        while((ContinueSCF || Count < 15) && !Bias.empty()) // Do 15 times atleast, but skip if this is the first SCF.
+        while((ContinueSCF || Count < 5) && !Bias.empty()) // Do 15 times atleast, but skip if this is the first SCF.
         {
             std::cout << "SCF MetaD: Iteration " << Count << "...";
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
@@ -477,7 +477,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
         AllErrorMatrices.clear();
         ContinueSCF = true; // Reset for the next loop to start.
 
-        while(ContinueSCF || Count < 15)
+        while(ContinueSCF || Count < 5)
         {
             std::cout << "SCF MetaD: Iteration " << Count << "...";
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
@@ -524,11 +524,11 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             SCFCount++;
             if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
 
-            if(Count == 5)
-            {
-                AllFockMatrices.clear();
-                AllErrorMatrices.clear();
-            }
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
 
             if(Count % 200 == 0)
             {
@@ -591,6 +591,18 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 	std::cout << "SCF MetaD: Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
 	std::cout << "SCF MetaD: This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 	Output << "Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+    Output << "and orbitals:" << std::endl;
+    Output << "Basis\tMolecular Orbitals" << std::endl;
+    for(int mu = 0; mu < CoeffMatrix.rows(); mu++)
+    {
+        Output << mu + 1;
+        for(int i = 0; i < OccupiedOrbitals.size(); i++) // Loop through each molecular orbital
+        {
+            Output << "\t" << CoeffMatrix(mu, OccupiedOrbitals[i]); // Select the columns corresponding to the occupied orbitals.
+        }
+        Output << "\n";
+    }
+    
 	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
     return Energy + Input.Integrals["0 0 0 0"];

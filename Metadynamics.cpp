@@ -58,26 +58,6 @@ void NewDensityMatrix(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &CoeffMatr
 			DensityMatrix(i, j) = DensityElement;
 		}
 	}
-    // for (int i = 0; i < DensityMatrix.rows(); i++)
-	// {
-	// 	for (int j = 0; j < DensityMatrix.cols(); j++)
-	// 	{
-	// 		double DensityElement = 0;
-	// 		for (int k = 0; k < OccupiedOrbitals.size(); k++)
-	// 		{
-    //             if(k == ExcludedOcc)
-    //             {
-    //                 DensityElement += CoeffMatrix(i, VirtualOrbitals[IncludedVirt]) * CoeffMatrix(j, VirtualOrbitals[IncludedVirt]);
-    //             }
-    //             else
-    //             {
-	// 			    DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
-    //             }
-	// 		}
-	// 		DensityMatrix(i, j) = DensityElement;
-	// 	}
-	// }
-
 }
 
 /// <summary>
