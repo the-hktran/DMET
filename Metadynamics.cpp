@@ -143,7 +143,7 @@ double BiasMatrixElement(int Row, int Col, std::vector< std::tuple< Eigen::Matri
     return BiasElement;
 }
 
-int main(int argc, char* argv[])
+int InitMetadynamics(int argc, char* argv[])
 {
     InputObj Input;
     if(argc == 4)

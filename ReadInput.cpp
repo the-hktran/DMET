@@ -101,7 +101,7 @@ void InputObj::Set()
         for(int j = 0; j < NumAOImp; j++)
         {
             int ImpAO;
-            Integrals >> ImpAO;
+            IntegralsFile >> ImpAO;
             OrbitalsOnThisFragment.push_back(ImpAO);
         }
         for(int j = 0; j < NumAO; j++)
