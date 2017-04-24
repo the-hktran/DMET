@@ -12,13 +12,26 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 
-void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, const int NumAOImp, const int NumAOEnv)
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, bool isFullSystem);
+
+void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals)
 {
-    Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
+    // Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
+    Eigen::MatrixXd DensityEnv(FragmentOrbitals.size(), FragmentOrbitals.size());
+    for(int a = 0; a < FragmentOrbitals.size(); a++)
+    {
+        for(int b = 0; b < FragmentOrbitals.size(); b++)
+        {
+            DensityEnv(a, b) = DensityMatrix.coeffRef(FragmentOrbitals[a], FragmentOrbitals[b]);
+        }
+    }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
+
     RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
     RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
     RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
+    // Note that the orbitals have been reordered so that the fragment orbitals are first
 }
 
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d)
@@ -54,29 +67,27 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     return Vcdef;
 }
 
-Eigen::MatrixXd FormImpurityHamiltonian(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int NumAOImp, int NumOcc, double &ChemicalPotential)
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential)
 {
-    Eigen::MatrixXd HamImp(RotationMatrix.rows(), RotationMatrix.cols());// = RotationMatrix.transpose() * HCore * RotationMatrix;
-    for(int c = 0; c < HamImp.rows(); c++)
+    for(int c = 0; c < FockMatrix.rows(); c++) // c and d go over active orbitals
     {
-        for(int d = 0; d < HamImp.cols(); d++)
+        for(int d = 0; d < FockMatrix.cols(); d++)
         {
             double Hcd = OneElectronEmbedding(Integrals, RotationMatrix, c, d);
-            for(int u = 0; u < NumAOImp - NumOcc; u++)
+            for(int u = 0; u < NumAOImp - NumOcc; u++) // u goes over core orbitals
             {
                 int uu = RotationMatrix.rows() - 1 - u; // This indexes the core orbitals, which are at the end of the rotation matrix.
-                double Vcudu = TwoElectronEmbedding(Integrals, RotationMatrix, c, u, d, u);
-                double Vcuud = TwoElectronEmbedding(Integrals, RotationMatrix, c, u, u, d);
-                Hcd += (2 * Vcudu - Vcuud);
+                double Vcudu = TwoElectronEmbedding(Integrals, RotationMatrix, c, uu, d, uu);
+                double Vcuud = TwoElectronEmbedding(Integrals, RotationMatrix, c, uu, uu, d);
+                Hcd += DensityImp.coeffRef(c, d) * (2 * Vcudu - Vcuud);
             }
             if(c == d)
             {
                 Hcd -= ChemicalPotential;
             }
-            HamImp(c, d) = Hcd;
+            FockMatrix(c, d) = Hcd;
         }
     }
-    return HamImp;
 }
 
 int main(int argc, char* argv[])
@@ -92,54 +103,91 @@ int main(int argc, char* argv[])
     }
     Input.Set();
 
-    int NumAO = 4;
-    int NumAOImp = 2;
-    int NumAOEnv = NumAO - NumAOImp;
-    int NumOcc = 2;
+    std::ofstream Output(Input.OutputName);
+
+    int NumAO = Input.NumAO;
+    int NumOcc = Input.NumOcc;
+
+    int NumFragments = Input.NumFragments;
+    // std::vector< std::vector< int > > FragmentOrbitals(NumFragments);
+    // std::vector< std::vector< int > > EnvironmentOrbitals(NumFragments);
+    // FragmentOrbitals[0].push_back(0); FragmentOrbitals[0].push_back(1);
+    // EnvironmentOrbitals[0].push_back(2); EnvironmentOrbitals[0].push_back(3);
+    // FragmentOrbitals[1].push_back(2); FragmentOrbitals[1].push_back(3);
+    // EnvironmentOrbitals[1].push_back(0); EnvironmentOrbitals[1].push_back(1);
+
+    /*****   STEP 1 *****/
+    /* Solve for full system at the RHF level of theory */
+    Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+    
+    // Begin by defining some variables.
+    std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // SCF is capable of metadynamics, but we won't touch this for now.
+    Eigen::MatrixXd HCore(NumAO, NumAO);
+    Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Initialize to Zero
+    BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore;
+
+    /* Form S^-1/2, the orthogonalization transformation */
+    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
+    Eigen::SparseMatrix< double > LambdaSOrtho(Input.NumAO, Input.NumAO); // Holds the inverse sqrt matrix of eigenvalues of S ( Lambda^-1/2 )
+    typedef Eigen::Triplet<double> T;
+    std::vector<T> tripletList;
+    for(int i = 0; i < Input.NumAO; i++)
+    {
+        tripletList.push_back(T(i, i, 1 / sqrt(EigensystemS.eigenvalues()[i])));
+    }
+    LambdaSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
+    Eigen::MatrixXd SOrtho = EigensystemS.eigenvectors() * LambdaSOrtho * EigensystemS.eigenvectors().transpose(); // S^-1/2
 
     std::vector< int > OccupiedOrbitals;
-    std::vector< int > EmbeddedOccupiedOrbitals;
-
-    Eigen::MatrixXd FockMatrix(NumAO, NumAO);
-    Eigen::MatrixXd DensityMatrix(NumAO, NumAO);
-
-    for(int i = 0; i < NumAO; i++)
+    std::vector< int > VirtualOrbitals;
+    for(int i = 0; i < NumOcc; i++) // Fix the lowest MOs as the occupied MO.
     {
-        for(int j = 0; j < NumAO; j++)
-        {
-            DensityMatrix(i, j) = 1;
-        }
+        OccupiedOrbitals.push_back(i);
     }
-    /* Solve SCF and obtain density matrix */
-    /* Obtain Schmidt Decomposition */
-
-    /* The eigenvalues are ordered lowest to highest. So the first orbitals are the virtual orbitals, then bath, then core. */
-    Eigen::MatrixXd RotationMatrix(NumAO, NumAO);
-    SchmidtDecomposition(DensityMatrix, RotationMatrix, NumAOImp, NumAOEnv);
-    std::cout << RotationMatrix << std::endl;
-
-    /* Rotate Hamiltonian Matrix using Schmidt Decomposition */
-    double ChemicalPotential = 0;
-    Eigen::MatrixXd FockImp = FormImpurityHamiltonian(Input.Integrals, RotationMatrix, NumAOImp, NumOcc, ChemicalPotential);
-    std::cout << FockImp << std::endl;
-    /* Solve again */
-    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockImp(FockImp); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
-    Eigen::MatrixXd CoeffImp = EigensystemFockImp.eigenvectors();
-    Eigen::MatrixXd DensityImp(NumAO, NumAO);
-    for(int i = 0; i < NumAO; i++)
+    for(int i = NumOcc; i < NumAO; i++)
     {
-        for(int j = 0; j < NumAO; j++)
+        VirtualOrbitals.push_back(i);
+    }
+
+    std::vector< double > AllEnergies;
+    Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Don't think I need this.
+    int SCFCount = 0;
+    double ChemicalPotential = 0;
+
+    SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF);
+    
+    for(int x = 0; x < NumFragments; x++)
+    {
+        int NumAOImp = Input.FragmentOrbitals[x].size();
+        int NumAOEnv = NumAO - NumAOImp;
+        /*****   STEP 2   *****/
+        /* Obtain Schmidt Decomposition */
+
+        /* The eigenvalues are ordered lowest to highest. So the first orbitals are the virtual orbitals, then bath, then core. */
+        Eigen::MatrixXd RotationMatrix(NumAO, NumAO);
+        SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
+
+        /* Rotate Hamiltonian Matrix using Schmidt Decomposition */
+    
+        /* Solve again */
+        Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockImp(FockImp); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
+        Eigen::MatrixXd CoeffImp = EigensystemFockImp.eigenvectors();
+        Eigen::MatrixXd DensityImp(NumAO, NumAO);
+        for(int i = 0; i < NumAO; i++)
         {
-            DensityImp(i, j) = 0;
-            for(int k = 0; k < NumOcc; k++)
+            for(int j = 0; j < NumAO; j++)
             {
-                DensityImp(i, j) += CoeffImp(i, k) * CoeffImp(j, k);
+                DensityImp(i, j) = 0;
+                for(int k = 0; k < NumOcc; k++)
+                {
+                    DensityImp(i, j) += CoeffImp(i, k) * CoeffImp(j, k);
+                }
             }
         }
+        /* Match density to get u */
+            /* Change u */
+            /* Check SCF */
+        /* Repeat */
     }
-    /* Match density to get u */
-        /* Change u */
-        /* Check SCF */
-    /* Repeat */
     return 0;
 }

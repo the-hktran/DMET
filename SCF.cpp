@@ -17,6 +17,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
 double Metric(int NumElectrons, Eigen::MatrixXd &FirstDensityMatrix, Eigen::MatrixXd &SecondDensityMatrix);
 void ModifyBias(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, short int WhichSoln);
 void NewDensityMatrix(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &CoeffMatrix, std::vector<int> OccupiedOrbitals, std::vector<int> VirtualOrbitals);
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityImp, std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential);
 
 /// <summary>
 /// This generates a positive, random density matrix and then divides by the norm. I know that
@@ -278,7 +279,14 @@ double CalcMatrixRMS(Eigen::MatrixXd &Matrix)
 double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::MatrixXd &HCore, Eigen::MatrixXd &SOrtho, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, Eigen::MatrixXd &CoeffMatrix, std::vector< Eigen::MatrixXd > &AllFockMatrices, std::vector< Eigen::MatrixXd > &AllErrorMatrices, Eigen::MatrixXd &CoeffMatrixPrev, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals)
 {
     Eigen::MatrixXd FockMatrix(DensityMatrix.rows(), DensityMatrix.cols()); // This will hold the FockMatrix.
-    BuildFockMatrix(FockMatrix, DensityMatrix, Input.Integrals, Bias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
+    if(isFullSystem) 
+    {
+        BuildFockMatrix(FockMatrix, DensityMatrix, Input.Integrals, Bias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
+    }
+    else
+    {
+        BuildFockMatrixImp(Input.Integrals, RotationMatrix, Input.NumAOImp, Input.NumOcc, ChemicalPotential);
+    }
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
     
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
@@ -413,7 +421,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 EnergyPrev = Energy;
                 DensityMatrixPrev = DensityMatrix;
             }
-            Energy = SCFIteration(DensityMatrix, Input, HCore, SOrtho, Bias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals);
+            Energy = SCFIteration(DensityMatrix, Input, HCore, SOrtho, Bias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, isFullSystem, ChemicalPotential);
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();
@@ -486,6 +494,295 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 DensityMatrixPrev = DensityMatrix;
             }
             Energy = SCFIteration(DensityMatrix, Input, HCore, SOrtho, EmptyBias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals);
+            if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
+            {
+               DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();
+               if(fabs(DensityRMS) < SCFTol * SCFTol * (DensityMatrix.squaredNorm() + 1) && fabs(Energy - EnergyPrev) < SCFTol * (fabs(Energy) + 1))
+               {
+                   ContinueSCF = false;
+               }
+               else
+               {
+                   ContinueSCF = true;
+               }
+            }
+            else // Use DIIS, check DIIS error instead.
+            {
+                DIISError = AllErrorMatrices[AllErrorMatrices.size() - 1].squaredNorm();
+                if(fabs(DIISError) < SCFTol * SCFTol)
+                {
+                    ContinueSCF = false;
+                }
+                else
+                {
+                    ContinueSCF = true;
+                }
+            }
+            std::cout << " complete with an energy of " << Energy + Input.Integrals["0 0 0 0"];//  << " and DIIS error of " << DIISError << std::endl;
+            if(Input.Options[0])
+            {
+                std::cout << " and DIIS error of " << DIISError << std::endl;
+            }
+            else
+            {
+                std::cout << " and Density RMS of " << DensityRMS << std::endl;
+            }
+            Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+            Count++;
+            SCFCount++;
+            if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
+
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
+
+            if(Count % 200 == 0)
+            {
+                AllFockMatrices.clear();
+                AllErrorMatrices.clear();
+                // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
+                // GenerateRandomDensity(DensityMatrix);
+                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+            }
+        }
+
+        isUniqueSoln = true;
+        short int WhichSoln = -1; // If we found a solution we already visited, this will mark which of the previous solutions we are at.
+        if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
+        {
+            isUniqueSoln = false;
+        }
+        else
+        {
+            for(int i = 0; i < AllEnergies.size(); i++) // Compare energy with previous solutions.
+            {
+                if(fabs(Energy + Input.Integrals["0 0 0 0"] - AllEnergies[i]) < 1E-5) // Checks to see if new energy is equal to any previous energy.
+                {
+                    isUniqueSoln = false; // If it matches at one, set this flag to false so the SCF procedure can repeat for this solution.
+                    WhichSoln = i;
+                    break;
+                }
+            }
+            if(isUniqueSoln) // If it still looks good
+            {
+                for(int i = 0; i < Bias.size(); i++)
+                {
+                    if((DensityMatrix - std::get<0>(Bias[i])).squaredNorm() < 1E-3) // Means same density matrix as found before
+                    {
+                        isUniqueSoln = false;
+                        WhichSoln = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if(!isUniqueSoln) // If the flag is still false, we modify the bias and hope that this gives a better result.
+        {
+            std::cout << "SCF MetaD: Solution is not unique. Retrying solution " << SolnNum << "." << std::endl;
+            ModifyBias(Bias, WhichSoln); // Changes bias, usually means increase value of parameters.
+
+            /* We should also change the density matrix to converge to different solution, but it is not
+               obvious how we should do that. We could rotate two orbitals, but this may not be enough to
+               find a different solution. We could randomize the density matrix, but then we get 
+               unphysical results. */
+            if(Input.DensityOption == 0) NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
+            if(Input.DensityOption == 1) GenerateRandomDensity(DensityMatrix);
+            if(Input.DensityOption == 2) DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+        }
+    }
+
+    AllEnergies.push_back(Energy + Input.Integrals["0 0 0 0"]);
+
+	std::cout << "SCF MetaD: Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+	std::cout << "SCF MetaD: This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
+	Output << "Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+    Output << "and orbitals:" << std::endl;
+    Output << "Basis\tMolecular Orbitals" << std::endl;
+    for(int mu = 0; mu < CoeffMatrix.rows(); mu++)
+    {
+        Output << mu + 1;
+        for(int i = 0; i < OccupiedOrbitals.size(); i++) // Loop through each molecular orbital
+        {
+            Output << "\t" << CoeffMatrix(mu, OccupiedOrbitals[i]); // Select the columns corresponding to the occupied orbitals.
+        }
+        Output << "\n";
+    }
+    
+	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
+
+    return Energy + Input.Integrals["0 0 0 0"];
+}
+
+/* SCF for impurity */
+double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::MatrixXd &HCore, Eigen::MatrixXd &SOrtho, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, Eigen::MatrixXd &CoeffMatrix, std::vector< Eigen::MatrixXd > &AllFockMatrices, std::vector< Eigen::MatrixXd > &AllErrorMatrices, Eigen::MatrixXd &CoeffMatrixPrev, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
+{
+    Eigen::MatrixXd FockMatrix(DensityMatrix.rows(), DensityMatrix.cols()); // This will hold the FockMatrix.
+    BuildFockMatrix(FockMatrix, DensityMatrix, RotationMatrix, Input, ChemicalPotential);
+    AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
+    
+    Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
+    AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
+    DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
+
+    Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
+    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
+    CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
+
+	/* Density matrix: C(occ) * C(occ)^T */
+    if(Input.Options[1]) // Means use MOM
+    {
+        if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
+        {
+            MaximumOverlapMethod(DensityMatrix, CoeffMatrix, CoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, OccupiedOrbitals, VirtualOrbitals); // MoM 
+            CoeffMatrixPrev = CoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
+        }
+        else // Then remove the bias and lock in the orbitals.
+        {
+           for (int i = 0; i < DensityMatrix.rows(); i++)
+           {
+                for (int j = 0; j < DensityMatrix.cols(); j++)
+                {
+                    double DensityElement = 0;
+                    for (int k = 0; k < Input.NumOcc; k++)
+                    {
+                        DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
+                    }
+                    DensityMatrix(i, j) = DensityElement;
+                }
+            }
+        }
+    }
+    else // Means do not use MOM
+    {
+        for (int i = 0; i < DensityMatrix.rows(); i++)
+        {
+            for (int j = 0; j < DensityMatrix.cols(); j++)
+            {
+                double DensityElement = 0;
+                for (int k = 0; k < Input.NumOcc; k++)
+                {
+                    DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
+                }
+                DensityMatrix(i, j) = DensityElement;
+            }
+        }
+    }
+
+	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
+    double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
+    return Energy;
+}
+
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential)
+{
+	double SCFTol = 1E-8; // SCF will terminate when the DIIS error is below this amount. 
+    std::cout << std::fixed << std::setprecision(10);
+
+	Output << "Beginning search for Solution " << SolnNum << std::endl;
+	Output << "Iteration\tEnergy" << std::endl;
+	std::cout << "SCF MetaD: Beginning search for Solution " << SolnNum << std::endl;
+	clock_t ClockStart = clock();
+
+    double Energy = 1; // HF energy of SCF iteration.
+    double DIISError = 1; // Square sum of DIIS error matrix of the current iteration. Used to test convergence.
+    Eigen::MatrixXd DensityMatrixPrev; // Stores density matrix of the previous iteration to test density matrix convergence.
+    double EnergyPrev = 1; // Stores energy of previous iteration to test energy convergence.
+    double DensityRMS = 1; // Stores squared different between two sequential density matrices.
+    unsigned short int Count = 1; // Counts number of iterations.
+    bool isUniqueSoln = false; // Will tell us if the solution is unique by checking against all previous energies.
+    bool ContinueSCF = true; // Tells us when SCF is converged, based on whatever criterion is selected.
+    
+    while(!isUniqueSoln)
+    {
+        std::vector< Eigen::MatrixXd > AllFockMatrices; // Holds previous fock matrices for DIIS procedure.
+        std::vector< Eigen::MatrixXd > AllErrorMatrices; // Error matrices for DIIS
+        Eigen::MatrixXd CoeffMatrixPrev = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO); // Two sequential coefficient matrices are stored for MOM.
+        ContinueSCF = true;
+        Count = 1;
+        while((ContinueSCF || Count < 5) && !Bias.empty()) // Do 15 times atleast, but skip if this is the first SCF.
+        {
+            std::cout << "SCF MetaD: Iteration " << Count << "...";
+            if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
+            {
+                EnergyPrev = Energy;
+                DensityMatrixPrev = DensityMatrix;
+            }
+            Energy = SCFIteration(DensityMatrix, Input, HCore, SOrtho, Bias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, NumAOImp, Input.NumOcc, ChemicalPotential);
+            if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
+            {
+               DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();
+               if(fabs(DensityRMS) < SCFTol * SCFTol * (DensityMatrix.squaredNorm() + 1) && fabs(Energy - EnergyPrev) < SCFTol * SCFTol * (fabs(Energy) + 1))
+               {
+                   ContinueSCF = false;
+               }
+               else
+               {
+                   ContinueSCF = true;
+               }
+            }
+            else // Use DIIS, check DIIS error instead.
+            {
+                DIISError = CalcMatrixRMS(AllErrorMatrices[AllErrorMatrices.size() - 1]);
+                if(fabs(DIISError) < SCFTol * SCFTol)
+                {
+                    ContinueSCF = false;
+                }
+                else
+                {
+                    ContinueSCF = true;
+                }
+            }
+            std::cout << " complete with a biased energy of " << Energy + Input.Integrals["0 0 0 0"];
+            if(Input.Options[0])
+            {
+                std::cout << " and DIIS error of " << DIISError << std::endl;
+            }
+            else
+            {
+                std::cout << " and Density RMS of " << DensityRMS << std::endl;
+            }
+            Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl; // I planned to list the energy of each iteration, but there is a ridiculous amount of iterations.
+            Count++;
+            SCFCount++;
+            if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
+
+            /* This is a work-around that I put in. The first guess of the density is a zero matrix and this is not good. Unfortunately, DIIS
+               rarely corrects this so I find that it helps to clear the Fock and Error matrices after a few iterations and we have a more reasonable
+               guess of the coefficient, and thus density, matrices. Then DIIS converges to a reasonable solution. */
+            if(Count == 5)
+            {
+                AllFockMatrices.clear();
+                AllErrorMatrices.clear();
+            }
+
+            if(Count % 200 == 0) // Shouldn't take this long.
+            {
+                AllFockMatrices.clear();
+                AllErrorMatrices.clear();
+                // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
+                GenerateRandomDensity(DensityMatrix);
+                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+            }
+        } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
+
+        Count = 1;
+        std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // Same type as Bias, but it's empty so it's the same as having no bias.
+        AllFockMatrices.clear();
+        AllErrorMatrices.clear();
+        ContinueSCF = true; // Reset for the next loop to start.
+
+        while(ContinueSCF || Count < 5)
+        {
+            std::cout << "SCF MetaD: Iteration " << Count << "...";
+            if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
+            {
+                EnergyPrev = Energy;
+                DensityMatrixPrev = DensityMatrix;
+            }
+            Energy = SCFIteration(DensityMatrix, Input, HCore, SOrtho, EmptyBias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, RotationMatrix, NumAOImp, ChemicalPotential);
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();

@@ -6,6 +6,7 @@
 #include "ReadInput.h"
 #include <Eigen/Dense>
 #include <string>
+#include <algorithm>
 
 void InputObj::GetInputName()
 {
@@ -68,6 +69,9 @@ void InputObj::SetNames(std::string Int, std::string Overlap, std::string Out)
             1 1 0
             10000
             0.1 1
+            2
+            2 0 1
+            2 2 3
                 0.64985185942031   1   1   1   1
                 0.16712550470738   1   3   1   1
                 0.080102886434995  1   2   1   2
@@ -85,6 +89,31 @@ void InputObj::Set()
     Options.push_back(tmpBool1); // Use DIIS
     Options.push_back(tmpBool2); // Use MOM
     IntegralsFile >> MaxSCF >> StartNorm >> StartLambda;
+
+    /* DMET Stuff */
+    IntegralsFile >> NumFragments;
+    for(int i = 0; i < NumFragments; i++)
+    {
+        int NumAOImp;
+        IntegralsFile >> NumAOImp;
+        std::vector<int> OrbitalsOnThisFragment;
+        std::vector<int> OrbitalsOutsideThisFragment;
+        for(int j = 0; j < NumAOImp; j++)
+        {
+            int ImpAO;
+            Integrals >> ImpAO;
+            OrbitalsOnThisFragment.push_back(ImpAO);
+        }
+        for(int j = 0; j < NumAO; j++)
+        {
+            if(std::find(OrbitalsOnThisFragment.begin(), OrbitalsOnThisFragment.end(), j) != OrbitalsOnThisFragment.end())
+            {
+                OrbitalsOutsideThisFragment.push_back(j);
+            }
+        }
+        FragmentOrbitals.push_back(OrbitalsOnThisFragment);
+        EnvironmentOrbitals.push_back(OrbitalsOutsideThisFragment);
+    }
 
     double tmpDouble;
     int tmpInt1, tmpInt2, tmpInt3, tmpInt4;

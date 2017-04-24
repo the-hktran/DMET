@@ -28,4 +28,9 @@ class InputObj
         int MaxSCF = 5000;
         double StartNorm = 0.1;
         double StartLambda = 1;
+
+        /* Definitions for DMET */
+        int NumFragments;
+        std::vector< std::vector< int > > FragmentOrbitals;
+        std::vector< std::vector< int > > EnvironmentOrbitals;
 };
