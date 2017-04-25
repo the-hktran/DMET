@@ -620,15 +620,15 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     Eigen::MatrixXd HCore(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
     BuildFockMatrix(FockMatrix, HCore, DensityMatrix, RotationMatrix, Input, ChemicalPotential, FragmentIndex);
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
-    std::cout << "********************" << std::endl;
+
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * CASOverlap - CASOverlap * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
     DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
-    std::cout << "********************" << std::endl;
+
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
     CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
-    std::cout << "********************" << std::endl;
+
 	/* Density matrix: C(occ) * C(occ)^T */
     if(Input.Options[1]) // Means use MOM
     {
@@ -679,7 +679,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 	double SCFTol = 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
 
-	Output << "Beginning search for Solution " << SolnNum << std::endl;
+	Output << "Beginning calculation for Fragment " << FragmentIndex << std::endl;
 	Output << "Iteration\tEnergy" << std::endl;
 	std::cout << "SCF MetaD: Beginning search for Solution " << SolnNum << std::endl;
 	clock_t ClockStart = clock();
@@ -881,7 +881,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
         }
     }
 
-    AllEnergies.push_back(Energy + Input.Integrals["0 0 0 0"]);
+    AllEnergies.push_back(Energy);// + Input.Integrals["0 0 0 0"]);
 
 	std::cout << "SCF MetaD: Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
 	std::cout << "SCF MetaD: This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
@@ -900,5 +900,5 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
     
 	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
-    return Energy + Input.Integrals["0 0 0 0"];
+    return Energy + Input.Integrals["0 0 0 0"]; // Not necessary to return anything since energy is put into vector.
 }
