@@ -14,7 +14,7 @@
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
-double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex);
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 
 void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals)
 {
@@ -34,6 +34,78 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
     RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
+}
+
+/* This function projects a matrix in the full impurity - bath space into the impurity - active bath space */
+/* The matrix looks something like this
+    |----------------|----------------|----------------|----------------|
+    |                |                |                |                |
+    |                |                |                |                |
+    |    IMPURITY    |     I - BV     |     I - BA     |     I - BC     |
+    |                |                |                |                |
+    |                |                |                |                |
+    |----------------|----------------|----------------|----------------|
+    |                |                |                |                |
+    |                |                |                |                |
+    |                |   BATH VIRT    |    BV - BA     |    BV - BC     |
+    |                |                |                |                |
+    |                |                |                |                |
+    |----------------|----------------|----------------|----------------|
+    |                |                |                |                |
+    |                |                |                |                |
+    |                |                |    BATH ACT    |    BA - BC     |
+    |                |                |                |                |
+    |                |                |                |                |
+    |----------------|----------------|----------------|----------------|
+    |                |                |                |                |
+    |                |                |                |                |
+    |                |                |                |   BATH CORE    |
+    |                |                |                |                |
+    |                |                |                |                |
+    |----------------|----------------|----------------|----------------|
+
+    and we project it into
+    |----------------|----------------|
+    |                |                | 
+    |                |                | 
+    |    IMPURITY    |     I - BA     | 
+    |                |                | 
+    |                |                |
+    |----------------|----------------|
+    |                |                | 
+    |                |                | 
+    |                |   BATH ACT     | 
+    |                |                |
+    |                |                |
+    |----------------|----------------|
+                                                                                            */
+void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, int NumAOImp, int NumElectrons, int NumOcc)
+{
+    for(int i = 0; i < NewMatrix.rows(); i++)
+    {
+        int ii;
+        if(i > NumAOImp)
+        {
+            ii = i % NumAOImp + NumElectrons - NumAOImp - NumOcc;
+        }
+        else
+        {
+            ii = i;
+        }
+        for(int j = 0; j < NewMatrix.cols(); j++)
+        {
+            int jj;
+            if(j > NumAOImp)
+            {
+                jj = j % NumAOImp + NumElectrons - NumAOImp - NumOcc;
+            }
+            else
+            {
+                jj = j;
+            }
+            NewMatrix(i, j) = OldMatrix(ii, jj);
+        }
+    }
 }
 
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d)
@@ -69,7 +141,8 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     return Vcdef;
 }
 
-void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
+/* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
 {
     for(int c = 0; c < FockMatrix.rows(); c++) // c and d go over active orbitals. The first NumAOImp are the impurity orbitals, the next NumAOImp are bath orbitals, which sit in the middle of the basis ordering.
     {
@@ -94,12 +167,38 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityImp, E
                 dd = d;
             }
             double Hcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd);
+            HCore(c, d) = Hcd;
             for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // u goes over core orbitals
             {
                 int uu = RotationMatrix.rows() - 1 - u; // This indexes the core orbitals, which are at the end of the rotation matrix.
                 double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, dd, uu);
                 double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, uu, dd);
-                Hcd += DensityImp.coeffRef(cc, dd) * (2 * Vcudu - Vcuud);
+                Hcd += (2 * Vcudu - Vcuud);
+            }
+            for(int l = 0; l < FockMatrix.rows(); l++) // XC within active space.
+            {
+                int ll;
+                if(l > Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
+                {
+                    ll = l % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                }
+                else // means c is impurity orbital
+                {
+                    ll = l;
+                }
+                for(int k = 0; k < FockMatrix.cols(); k++)
+                {
+                    int kk;
+                    if(k > Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
+                    {
+                        kk = k % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                    }
+                    else // means c is impurity orbital
+                    {
+                        kk = k;
+                    }
+                    Hcd += 0.5 * DensityImp(l, k) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd, ll, kk);
+                }
             }
             if(c == d)
             {
@@ -191,10 +290,28 @@ int main(int argc, char* argv[])
 
         /* The eigenvalues are ordered lowest to highest. So the first orbitals are the virtual orbitals, then bath, then core. */
         Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+        // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
         SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
 
-        Eigen::MatrixXd RotatedDensity = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
-        SCF(EmptyBias, 1, RotatedDensity, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, NumAOImp, ChemicalPotential, x);
+        /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
+        // The meaning of the density isn't important since we optimize it with SCF anyways. 
+        Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+        // Rotate the overlap matrix.
+        Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix;
+        Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap);
+        Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO); // Holds the inverse sqrt matrix of eigenvalues of S ( Lambda^-1/2 )
+        std::vector<T> tripletList;
+        for(int i = 0; i < Input.NumAO; i++)
+        {
+            tripletList.push_back(T(i, i, 1 / sqrt(EigensystemRotS.eigenvalues()[i])));
+        }
+        LambdaRotSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
+        Eigen::MatrixXd RotSOrtho = EigensystemRotS.eigenvectors() * LambdaRotSOrtho * EigensystemRotS.eigenvectors().transpose();
+        // Then project the overlap matrix into CAS
+        Eigen::MatrixXd CASSOrtho(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+        ProjectCAS(CASSOrtho, RotSOrtho, 2 * Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
+        
+        SCF(EmptyBias, 1, CASDensity, Input, Output, CASSOrtho, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, NumAOImp, ChemicalPotential, x);
         AllEnergies.clear();
         /* Rotate Hamiltonian Matrix using Schmidt Decomposition */
     
