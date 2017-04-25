@@ -106,7 +106,7 @@ void InputObj::Set()
         }
         for(int j = 0; j < NumAO; j++)
         {
-            if(std::find(OrbitalsOnThisFragment.begin(), OrbitalsOnThisFragment.end(), j) != OrbitalsOnThisFragment.end())
+            if(std::find(OrbitalsOnThisFragment.begin(), OrbitalsOnThisFragment.end(), j) == OrbitalsOnThisFragment.end())
             {
                 OrbitalsOutsideThisFragment.push_back(j);
             }

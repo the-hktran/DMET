@@ -618,19 +618,46 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 *****************************************************************************************************************************/
 double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::MatrixXd &HCore, Eigen::MatrixXd &SOrtho, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, Eigen::MatrixXd &CoeffMatrix, std::vector< Eigen::MatrixXd > &AllFockMatrices, std::vector< Eigen::MatrixXd > &AllErrorMatrices, Eigen::MatrixXd &CoeffMatrixPrev, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int FragmentIndex)
 {
-    Eigen::MatrixXd FockMatrix(DensityMatrix.rows(), DensityMatrix.cols()); // This will hold the FockMatrix.
+    Eigen::MatrixXd FockMatrix(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size()); // This will hold the FockMatrix.
     BuildFockMatrix(FockMatrix, DensityMatrix, RotationMatrix, Input, ChemicalPotential, FragmentIndex);
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
-    Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
+
+    Eigen::MatrixXd CASDensity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
+    Eigen::MatrixXd CASOverlap = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
+    Eigen::MatrixXd CASOverlapOrtho = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
+    for(int i = 0; i < CASDensity.rows(); i++)
+    {
+        int ii;
+        if(i > Input.FragmentOrbitals[FragmentIndex].size())
+        {
+            ii = i % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+        }
+        else
+        {
+            ii = i;
+        }
+        for(int j = 0; j < CASDensity.cols(); j++)
+        {
+            int jj;
+            if(j > Input.FragmentOrbitals[FragmentIndex].size())
+            {
+                jj = j % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+            }
+            else
+            {
+                jj = j;
+            }   
+            CASDensity(i, j) = DensityMatrix(ii, jj);
+            // CASOverlap(i, j) = Input.OverlapMatrix(ii, jj);
+        }
+    }
+    Eigen::MatrixXd ErrorMatrix = FockMatrix * CASDensity * CASOverlap - CASOverlap * CASDensity * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
     DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
 
-    std::cout << FockMatrix << std::endl;
-
-    Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
+    Eigen::MatrixXd FockOrtho = CASOverlapOrtho.transpose() * FockMatrix * CASOverlapOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
-    CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
-
+    CoeffMatrix = CASOverlapOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
 	/* Density matrix: C(occ) * C(occ)^T */
     if(Input.Options[1]) // Means use MOM
     {
