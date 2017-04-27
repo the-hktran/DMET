@@ -16,12 +16,12 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 
-double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, int NumOcc)
+double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, std::vector< std::vector< int > > FragmentOrbitals, int NumOcc)
 {
     double CF = 0;
     for(int x = 0; x < FragmentDensities.size(); x++) // sum over fragments
     {
-        for(int i = 0; i < FragmentDensities[x].rows(); i++) // sum over diagonal matrix elements
+        for(int i = 0; i < FragmentOrbitals[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
         {
             CF += FragmentDensities[x](i, i);
         }
@@ -99,7 +99,7 @@ void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, int NumA
         int ii;
         if(i >= NumAOImp)
         {
-            ii = i % NumAOImp + NumElectrons - NumAOImp - NumOcc;
+            ii = i + NumElectrons - NumAOImp - NumOcc;
         }
         else
         {
@@ -110,7 +110,7 @@ void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, int NumA
             int jj;
             if(j >= NumAOImp)
             {
-                jj = j % NumAOImp + NumElectrons - NumAOImp - NumOcc;
+                jj = j + NumElectrons - NumAOImp - NumOcc;
             }
             else
             {
@@ -162,7 +162,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
         int cc;
         if(c >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
         {
-            cc = c % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+            cc = c + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // plus N_virt
         }
         else // means c is impurity orbital
         {
@@ -173,7 +173,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             int dd;
             if(d >= Input.FragmentOrbitals[FragmentIndex].size()) // Means d is a bath orbitals
             {
-                dd = d % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                dd = d + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // plus N_virt
             }
             else // means d is impurity orbital
             {
@@ -193,7 +193,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
                 int ll;
                 if(l >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
                 {
-                    ll = l % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                    ll = l + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
                 }
                 else // means c is impurity orbital
                 {
@@ -204,13 +204,13 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
                     int kk;
                     if(k >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
                     {
-                        kk = k % Input.FragmentOrbitals[FragmentIndex].size() + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                        kk = k + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
                     }
                     else // means c is impurity orbital
                     {
                         kk = k;
                     }
-                    Hcd += 0.5 * DensityImp(l, k) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd, ll, kk);
+                    Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd, ll, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk));
                 }
             }
             if(c == d && c < Input.FragmentOrbitals[FragmentIndex].size())
@@ -256,10 +256,10 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd HCore(NumAO, NumAO);
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Initialize to Zero
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore;
-    for(int i = 0; i < Input.NumOcc; i++)
-    {
-        DensityMatrix(i, i) = 1;
-    }
+    // for(int i = 0; i < Input.NumOcc; i++)
+    // {
+    //     DensityMatrix(i, i) = 1;
+    // }
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -292,6 +292,7 @@ int main(int argc, char* argv[])
     // Solve the full system using RHF.
     SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF);
     AllEnergies.clear();
+    Output << DensityMatrix << std::endl;
     
     // Now start cycling through each fragment.
     double CostChemicalPotential = 1;
@@ -314,6 +315,11 @@ int main(int argc, char* argv[])
             /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
             // The meaning of the density isn't important since we optimize it with SCF anyways. 
             Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+            Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
+            ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
+            std::cout << CASDensity << std::endl;
+            std::string tmpstring;
+            std::getline(std::cin, tmpstring);
             // Rotate the overlap matrix.
             Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix;
             Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap);
@@ -341,9 +347,11 @@ int main(int argc, char* argv[])
                 /* Check SCF */
             /* Repeat */
         }
-        CostChemicalPotential = CalcCostChemPot(FragmentDensities, Input.NumOcc);
-        ChemicalPotential = CostChemicalPotential;
-        std::cout << CostChemicalPotential << std::endl;
+        CostChemicalPotential = CalcCostChemPot(FragmentDensities, Input.FragmentOrbitals, Input.NumOcc);
+        ChemicalPotential += 0.1;
+        std::cout << "CHEMICAL POTENTIAL: " << CostChemicalPotential << std::endl;
+        Output << "CHEMICAL POTENTIAL: " << ChemicalPotential << std::endl;
+        Output << "COST: " << CostChemicalPotential << std::endl;
         /* Change mu somehow */
     }
     return 0;

@@ -33,9 +33,10 @@ void GenerateRandomDensity(Eigen::MatrixXd &DensityMatrix)
 {
     for(int i = 0; i < DensityMatrix.rows(); i++)
     {
-        for(int j = 0; j < DensityMatrix.cols(); j++)
+        for(int j = i; j < DensityMatrix.cols(); j++)
         {
             DensityMatrix(i, j) = rand() / RAND_MAX;
+            DensityMatrix(j, i) = DensityMatrix(i, j);
         }
     }
     DensityMatrix / DensityMatrix.trace();
@@ -329,6 +330,8 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             }
         }
     }
+
+    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
@@ -669,6 +672,8 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
         }
     }
 
+    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
+
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
     return Energy;
@@ -681,6 +686,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 
 	Output << "Beginning calculation for Fragment " << FragmentIndex << std::endl;
 	Output << "Iteration\tEnergy" << std::endl;
+    std::cout << "SCF MetaD: Calculation for Fragment " << FragmentIndex << std::endl;
 	std::cout << "SCF MetaD: Beginning search for Solution " << SolnNum << std::endl;
 	clock_t ClockStart = clock();
 
@@ -742,7 +748,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             {
                 std::cout << " and Density RMS of " << DensityRMS << std::endl;
             }
-            Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl; // I planned to list the energy of each iteration, but there is a ridiculous amount of iterations.
+            // Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl; // I planned to list the energy of each iteration, but there is a ridiculous amount of iterations.
             Count++;
             SCFCount++;
             if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
@@ -756,7 +762,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
             }
 
-            if(Count % 200 == 0) // Shouldn't take this long.
+            if(Count % 100 == 0) // Shouldn't take this long.
             {
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
@@ -814,7 +820,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             {
                 std::cout << " and Density RMS of " << DensityRMS << std::endl;
             }
-            Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+            // Output << Count << "\t" << Energy + Input.Integrals["0 0 0 0"] << std::endl;
             Count++;
             SCFCount++;
             if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
@@ -825,12 +831,12 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             //     AllErrorMatrices.clear();
             // }
 
-            if(Count % 200 == 0)
+            if(Count % 100 == 0)
             {
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                // GenerateRandomDensity(DensityMatrix);
+                GenerateRandomDensity(DensityMatrix);
                 // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
             }
         }
@@ -897,6 +903,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
         }
         Output << "\n";
     }
+
+    Output << "\nDENSITY\n" << DensityMatrix << std::endl;
     
 	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
