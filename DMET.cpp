@@ -40,12 +40,35 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
             DensityEnv(a, b) = DensityMatrix.coeffRef(EnvironmentOrbitals[a], EnvironmentOrbitals[b]);
         }
     }
+
+    Eigen::MatrixXd DensityImp(FragmentOrbitals.size(), FragmentOrbitals.size());
+    for(int i = 0; i < FragmentOrbitals.size(); i++)
+    {
+        for(int j = 0; j < FragmentOrbitals.size(); j++)
+        {
+            DensityImp(i, j) = DensityMatrix.coeffRef(FragmentOrbitals[i], FragmentOrbitals[j]);
+        }
+    }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
 
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
-    RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
-    RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
+    // RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
+    // First, put the identity matrix in the blocks ocrresponding to the impurity.
+    for(int i = 0; i < NumAOImp; i++)
+    {
+        RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
+    }
+    // Then put the eigenvector matrix for the environment in the environment blocks.
+    for(int a = 0; a < NumAOEnv; a++)
+    {
+        for(int b = 0; b < NumAOEnv; b++)
+        {
+            RotationMatrix(EnvironmentOrbitals[a], EnvironmentOrbitals[b]) = ESDensityEnv.eigenvectors().col(b)[a];
+        }
+    }
+    // RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
+    // RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
 }
 
@@ -94,31 +117,8 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
                                                                                             */
 void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, int NumAOImp, int NumElectrons, int NumOcc)
 {
-    for(int i = 0; i < NewMatrix.rows(); i++)
-    {
-        int ii;
-        if(i >= NumAOImp)
-        {
-            ii = i + NumElectrons - NumAOImp - NumOcc;
-        }
-        else
-        {
-            ii = i;
-        }
-        for(int j = 0; j < NewMatrix.cols(); j++)
-        {
-            int jj;
-            if(j >= NumAOImp)
-            {
-                jj = j + NumElectrons - NumAOImp - NumOcc;
-            }
-            else
-            {
-                jj = j;
-            }
-            NewMatrix(i, j) = OldMatrix(ii, jj);
-        }
-    }
+    /* Get the impurity block */
+    
 }
 
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d)
@@ -256,10 +256,10 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd HCore(NumAO, NumAO);
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Initialize to Zero
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore;
-    // for(int i = 0; i < Input.NumOcc; i++)
-    // {
-    //     DensityMatrix(i, i) = 1;
-    // }
+    for(int i = 0; i < Input.NumOcc; i++)
+    {
+        DensityMatrix(i, i) = 1;
+    }
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -292,34 +292,28 @@ int main(int argc, char* argv[])
     // Solve the full system using RHF.
     SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF);
     AllEnergies.clear();
-    Output << DensityMatrix << std::endl;
     
     // Now start cycling through each fragment.
     double CostChemicalPotential = 1;
-    while(fabs(CostChemicalPotential)  > 1E-6)
-    {
+    //while(fabs(CostChemicalPotential)  > 1E-6)
+    //{
         std::vector< std::vector< double > > FragmentEnergies;
         std::vector< Eigen::MatrixXd > FragmentDensities;
         for(int x = 0; x < NumFragments; x++)
         {
             int NumAOImp = Input.FragmentOrbitals[x].size();
             int NumAOEnv = NumAO - NumAOImp;
-            /*****   STEP 2   *****/
-            /* Obtain Schmidt Decomposition */
 
-            /* The eigenvalues are ordered lowest to highest. So the first orbitals are the virtual orbitals, then bath, then core. */
             Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
             // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
             SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
 
             /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
-            // The meaning of the density isn't important since we optimize it with SCF anyways. 
+            // Rotate the density matrix, which gives us an initial starting point. The actual density matrix is not that important
+            // since it is optimized in SCF anyways.
             Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
             Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
             ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
-            std::cout << CASDensity << std::endl;
-            std::string tmpstring;
-            std::getline(std::cin, tmpstring);
             // Rotate the overlap matrix.
             Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix;
             Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap);
@@ -353,6 +347,6 @@ int main(int argc, char* argv[])
         Output << "CHEMICAL POTENTIAL: " << ChemicalPotential << std::endl;
         Output << "COST: " << CostChemicalPotential << std::endl;
         /* Change mu somehow */
-    }
+    //}
     return 0;
 }

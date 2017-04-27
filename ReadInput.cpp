@@ -134,15 +134,15 @@ void InputObj::Set()
     }
     NumOcc = (NumElectrons + 1) / 2; // Floor division. This is RHF so just divide electrons by two.
 
-    OverlapMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO);
-	/*std::ifstream OverlapFile(OverlapInput.c_str());
+    //OverlapMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO);
+	std::ifstream OverlapFile(OverlapInput.c_str());
     OverlapMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
     while(!OverlapFile.eof())
     {
         OverlapFile >> tmpInt1 >> tmpInt2 >> tmpDouble;
         OverlapMatrix(tmpInt1 - 1 ,tmpInt2 - 1) = tmpDouble;
         OverlapMatrix(tmpInt2 - 1, tmpInt1 - 1) = tmpDouble;
-    }*/
+    }
     // Read the overlap input here. Since Q-Chem uses a MO basis, we just set the overlap to be the identity. I should fix this when
     // I use something other than Q-Chem, but then I would have to change the integrals too, so...
 
