@@ -51,10 +51,12 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
 
+    std::cout << ESDensityEnv.eigenvalues() << std::endl;
+
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
-    // RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
-    // First, put the identity matrix in the blocks ocrresponding to the impurity.
+    RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
+    // // First, put the identity matrix in the blocks ocrresponding to the impurity.
     for(int i = 0; i < NumAOImp; i++)
     {
         RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
@@ -115,10 +117,88 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     |                |                |
     |----------------|----------------|
                                                                                             */
-void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, int NumAOImp, int NumElectrons, int NumOcc)
+void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumAO, int NumOcc)
 {
-    /* Get the impurity block */
-    
+    int NumEnvVirt = NumAO - FragmentOrbitals.size() - NumOcc;
+    /* First determine where the impurity block lies */
+    int OrbitalsBefore;
+    if(FragmentOrbitals[0] < NumEnvVirt)
+    {
+        OrbitalsBefore = 0;
+    }
+    else
+    {
+        OrbitalsBefore = FragmentOrbitals[0] - NumEnvVirt;
+        if(OrbitalsBefore > FragmentOrbitals.size())
+        {
+            OrbitalsBefore = FragmentOrbitals.size();
+        }
+    }
+
+    for(int i = 0; i < NewMatrix.rows(); i++)
+    {
+        int OldRow;
+        if(i < OrbitalsBefore)
+        {
+            OldRow = EnvironmentOrbitals[NumEnvVirt + i];
+        }
+        else
+        {
+            if(i < FragmentOrbitals.size() + OrbitalsBefore)
+            {
+                OldRow = FragmentOrbitals[i - OrbitalsBefore];
+            }
+            else
+            {
+                OldRow = EnvironmentOrbitals[NumEnvVirt + i - FragmentOrbitals.size()];
+            }
+        }
+        for(int j = 0; j < NewMatrix.cols(); j++)
+        {
+            int OldCol;
+            if(j < OrbitalsBefore)
+            {
+                OldCol = EnvironmentOrbitals[NumEnvVirt + j];
+            }
+            else
+            {
+                if(j < FragmentOrbitals.size() + OrbitalsBefore)
+                {
+                    OldCol = FragmentOrbitals[j - OrbitalsBefore];
+                }
+                else
+                {
+                    OldCol = EnvironmentOrbitals[NumEnvVirt + j - FragmentOrbitals.size()];
+                }
+            }
+            NewMatrix(i, j) = OldMatrix.coeffRef(OldRow, OldCol);       
+        }
+    }
+    // for(int i = 0; i < NewMatrix.rows(); i++)
+    // {
+    //     int ii;
+    //     if(i >= NumAOImp)
+    //     {
+    //         ii = i + NumElectrons - NumAOImp - NumOcc;
+    //     }
+    //     else
+    //     {
+    //         ii = i;
+    //     }
+    //     for(int j = 0; j < NewMatrix.cols(); j++)
+    //     {
+    //         int jj;
+    //         if(j >= NumAOImp)
+    //         {
+    //             jj = j + NumElectrons - NumAOImp - NumOcc;
+    //         }
+    //         else
+    //         {
+    //             jj = j;
+    //         }
+    //         NewMatrix(i, j) = OldMatrix(ii, jj);
+    //     }
+    // }
 }
 
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d)
@@ -128,7 +208,7 @@ double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     {
         for(int q = 0; q < RotationMatrix.rows(); q++)
         {
-            hcd += RotationMatrix(p, c) * Integrals[std::to_string(c + 1) + " " + std::to_string(d + 1) + " 0 0"] * RotationMatrix(q, d);
+            hcd += RotationMatrix(p, c) * Integrals[std::to_string(p + 1) + " " + std::to_string(q + 1) + " 0 0"] * RotationMatrix(q, d);
         }
     }
     return hcd;
@@ -307,14 +387,12 @@ int main(int argc, char* argv[])
             Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
             // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
             SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
-
             /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
-            // Rotate the density matrix, which gives us an initial starting point. The actual density matrix is not that important
-            // since it is optimized in SCF anyways.
             Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
             Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
-            ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
+            ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
             // Rotate the overlap matrix.
+
             Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix;
             Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap);
             Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO); // Holds the inverse sqrt matrix of eigenvalues of S ( Lambda^-1/2 )
@@ -326,11 +404,12 @@ int main(int argc, char* argv[])
             LambdaRotSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
             Eigen::MatrixXd RotSOrtho = EigensystemRotS.eigenvectors() * LambdaRotSOrtho * EigensystemRotS.eigenvectors().transpose();
             // Then project the overlap matrix into CAS
+
             Eigen::MatrixXd CASSOrtho(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
             Eigen::MatrixXd CASOverlap(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
-            ProjectCAS(CASSOrtho, RotSOrtho, 2 * Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
-            ProjectCAS(CASOverlap, RotOverlap, 2 * Input.FragmentOrbitals[x].size(), Input.NumElectrons, Input.NumOcc);
-            
+            ProjectCAS(CASSOrtho, RotSOrtho, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
+            ProjectCAS(CASOverlap, RotOverlap, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
+
             std::vector<double> tmpVec;
             FragmentEnergies.push_back(tmpVec);
             SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, NumAOImp, ChemicalPotential, x);

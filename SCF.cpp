@@ -331,8 +331,6 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
         }
     }
 
-    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
-
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
     return Energy;
@@ -631,8 +629,10 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
     CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
+    std::cout << "\nCOEFF\n" << EigensystemFockOrtho.eigenvalues() << std::endl;
 
 	/* Density matrix: C(occ) * C(occ)^T */
+    int FragmentOcc = Input.NumOcc; // This is core + active, if this is higher than all env states, something is wrong.
     if(Input.Options[1]) // Means use MOM
     {
         if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
@@ -647,7 +647,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
                 for (int j = 0; j < DensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < Input.NumOcc; k++)
+                    for (int k = 0; k < FragmentOcc; k++)
                     {
                         DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
                     }
@@ -663,7 +663,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             for (int j = 0; j < DensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < Input.NumOcc; k++)
+                for (int k = 0; k < FragmentOcc; k++)
                 {
                     DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
                 }
@@ -671,8 +671,6 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             }
         }
     }
-
-    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
@@ -762,7 +760,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
             }
 
-            if(Count % 100 == 0) // Shouldn't take this long.
+            if(Count % 20 == 0) // Shouldn't take this long.
             {
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
@@ -825,14 +823,15 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             SCFCount++;
             if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
 
-            // if(Count == 5)
-            // {
-            //     AllFockMatrices.clear();
-            //     AllErrorMatrices.clear();
-            // }
-
-            if(Count % 100 == 0)
+            if(Count == 5)
             {
+                AllFockMatrices.clear();
+                AllErrorMatrices.clear();
+            }
+
+            if(Count % 20 == 0)
+            {
+                Count = 1;
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
@@ -892,19 +891,19 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 	std::cout << "SCF MetaD: Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
 	std::cout << "SCF MetaD: This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 	Output << "Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
-    Output << "and orbitals:" << std::endl;
-    Output << "Basis\tMolecular Orbitals" << std::endl;
-    for(int mu = 0; mu < CoeffMatrix.rows(); mu++)
-    {
-        Output << mu + 1;
-        for(int i = 0; i < OccupiedOrbitals.size(); i++) // Loop through each molecular orbital
-        {
-            Output << "\t" << CoeffMatrix(mu, OccupiedOrbitals[i]); // Select the columns corresponding to the occupied orbitals.
-        }
-        Output << "\n";
-    }
+    // Output << "and orbitals:" << std::endl;
+    // Output << "Basis\tMolecular Orbitals" << std::endl;
+    // for(int mu = 0; mu < CoeffMatrix.rows(); mu++)
+    // {
+    //     Output << mu + 1;
+    //     for(int i = 0; i < OccupiedOrbitals.size(); i++) // Loop through each molecular orbital
+    //     {
+    //         Output << "\t" << CoeffMatrix(mu, OccupiedOrbitals[i]); // Select the columns corresponding to the occupied orbitals.
+    //     }
+    //     Output << "\n";
+    // }
 
-    Output << "\nDENSITY\n" << DensityMatrix << std::endl;
+    // Output << "\nDENSITY\n" << DensityMatrix << std::endl;
     
 	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
