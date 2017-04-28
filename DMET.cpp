@@ -237,63 +237,89 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
 /* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
 {
-    for(int c = 0; c < FockMatrix.rows(); c++) // c and d go over active orbitals. The first NumAOImp are the impurity orbitals, the next NumAOImp are bath orbitals, which sit in the middle of the basis ordering.
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+    int NumBathBefore = 0;
+    for(int i = 0; i < Input.EnvironmentOrbitals[FragmentIndex].size() - NumVirt; i++)
+    {
+        NumBathBefore = i;
+        if(Input.EnvironmentOrbitals[FragmentIndex][i + NumVirt] < Input.FragmentOrbitals[FragmentIndex][i + NumVirt])
+        {
+            break;
+        }
+        
+    }
+    for(int c = 0; c < FockMatrix.rows(); c++)
     {
         int cc;
-        if(c >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
+        if(c < NumBathBefore)
         {
-            cc = c + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // plus N_virt
+            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt];
         }
-        else // means c is impurity orbital
+        else if(c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
         {
-            cc = c;
+            cc = Input.FragmentOrbitals[FragmentIndex][c - NumBathBefore];
         }
-        for(int d = 0; d < FockMatrix.cols(); d++)
+        else
+        {
+            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
+        }
+        for(int d = c; d < FockMatrix.cols(); d++)
         {
             int dd;
-            if(d >= Input.FragmentOrbitals[FragmentIndex].size()) // Means d is a bath orbitals
+            if(d < NumBathBefore)
             {
-                dd = d + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // plus N_virt
+                dd = Input.EnvironmentOrbitals[FragmentIndex][d + NumVirt];
             }
-            else // means d is impurity orbital
+            else if(d < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
             {
-                dd = d;
+                dd = Input.FragmentOrbitals[FragmentIndex][d - NumBathBefore];
+            }
+            else
+            {
+                dd = Input.EnvironmentOrbitals[FragmentIndex][d - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
             }
             double Hcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd);
             HCore(c, d) = Hcd;
-            for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // u goes over core orbitals
+            for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++)
             {
-                int uu = RotationMatrix.rows() - 1 - u; // This indexes the core orbitals, which are at the end of the rotation matrix.
+                int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
                 double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, dd, uu);
                 double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, uu, dd);
-                Hcd += (2 * Vcudu - Vcuud);
             }
             for(int l = 0; l < FockMatrix.rows(); l++) // XC within active space.
             {
                 int ll;
-                if(l >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
+                if(l < NumBathBefore)
                 {
-                    ll = l + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                    ll = Input.EnvironmentOrbitals[FragmentIndex][l + NumVirt];
                 }
-                else // means c is impurity orbital
+                else if(l < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
                 {
-                    ll = l;
+                    ll = Input.FragmentOrbitals[FragmentIndex][l - NumBathBefore];
+                }
+                else
+                {
+                    ll = Input.EnvironmentOrbitals[FragmentIndex][l - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
                 }
                 for(int k = 0; k < FockMatrix.cols(); k++)
                 {
                     int kk;
-                    if(k >= Input.FragmentOrbitals[FragmentIndex].size()) // Means c is a bath orbitals
+                    if(k < NumBathBefore)
                     {
-                        kk = k + Input.NumElectrons - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc; // mod plus N_virt
+                        kk = Input.EnvironmentOrbitals[FragmentIndex][k + NumVirt];
                     }
-                    else // means c is impurity orbital
+                    else if(k < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
                     {
-                        kk = k;
+                        kk = Input.FragmentOrbitals[FragmentIndex][k - NumBathBefore];
+                    }
+                    else
+                    {
+                        kk = Input.EnvironmentOrbitals[FragmentIndex][k - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
                     }
                     Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd, ll, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk));
                 }
-            }
-            if(c == d && c < Input.FragmentOrbitals[FragmentIndex].size())
+            } // end loop over active orbital XC
+            if(c == d && c >= NumBathBefore && c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
             {
                 Hcd -= ChemicalPotential;
             }
