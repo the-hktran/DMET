@@ -621,7 +621,8 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     Eigen::MatrixXd HCore(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
     BuildFockMatrix(FockMatrix, HCore, DensityMatrix, RotationMatrix, Input, ChemicalPotential, FragmentIndex);
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
-
+    
+    CASOverlap = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * CASOverlap - CASOverlap * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
     DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
@@ -629,10 +630,9 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
     CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
-    std::cout << "\nCOEFF\n" << EigensystemFockOrtho.eigenvalues() << std::endl;
 
 	/* Density matrix: C(occ) * C(occ)^T */
-    int FragmentOcc = Input.NumOcc; // This is core + active, if this is higher than all env states, something is wrong.
+    int FragmentOcc = Input.FragmentOrbitals[FragmentIndex].size(); // What should this be??
     if(Input.Options[1]) // Means use MOM
     {
         if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.

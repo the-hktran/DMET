@@ -51,8 +51,6 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
 
-    std::cout << ESDensityEnv.eigenvalues() << std::endl;
-
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
     RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
@@ -276,15 +274,16 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             }
             else
             {
-                dd = Input.EnvironmentOrbitals[FragmentIndex][d - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
+                dd = Input.EnvironmentOrbitals[FragmentIndex][d + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
             }
             double Hcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd);
             HCore(c, d) = Hcd;
-            for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++)
+            for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
             {
                 int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
                 double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, dd, uu);
                 double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, uu, dd);
+                Hcd += (2 * Vcudu - Vcuud);
             }
             for(int l = 0; l < FockMatrix.rows(); l++) // XC within active space.
             {
@@ -299,7 +298,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
                 }
                 else
                 {
-                    ll = Input.EnvironmentOrbitals[FragmentIndex][l - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
+                    ll = Input.EnvironmentOrbitals[FragmentIndex][l + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
                 }
                 for(int k = 0; k < FockMatrix.cols(); k++)
                 {
@@ -314,9 +313,9 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
                     }
                     else
                     {
-                        kk = Input.EnvironmentOrbitals[FragmentIndex][k - NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
+                        kk = Input.EnvironmentOrbitals[FragmentIndex][k + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
                     }
-                    Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd, ll, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk));
+                    Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, kk, ll, dd));
                 }
             } // end loop over active orbital XC
             if(c == d && c >= NumBathBefore && c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
@@ -324,8 +323,13 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
                 Hcd -= ChemicalPotential;
             }
             FockMatrix(c, d) = Hcd;
+            FockMatrix(d, c) = Hcd;
         }
     }
+    // std::cout << "\nDENSITY\n" << DensityImp << std::endl;
+    // std::cout << "\nFOCK\n" << FockMatrix << std::endl;
+    // std::string tmpstring;
+    // std::getline(std::cin, tmpstring);
 }
 
 int main(int argc, char* argv[])
