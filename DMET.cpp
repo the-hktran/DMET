@@ -21,59 +21,62 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
     int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
     int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
     int NumBathBefore = 0;
-    for(int i = 0; i < Input.EnvironmentOrbitals[FragmentIndex].size() - NumVirt - NumCore; i++)
+
+    int NextFragPos = 0;
+    int CurrentBathPos = 0;
+    while(BathPos.size() < Input.FragmentOrbitals[FragmentIndex].size() || FragmentPos.size() < Input.FragmentOrbitals[FragmentIndex].size()) // Because there are Nimp bath orbitals.
     {
-        if(Input.EnvironmentOrbitals[FragmentIndex][i + NumVirt] < Input.FragmentOrbitals[FragmentIndex][0])
+        if(NextFragPos < Input.FragmentOrbitals[FragmentIndex].size() && CurrentBathPos < Input.FragmentOrbitals[FragmentIndex].size())
         {
-            NumBathBefore++;
-        } 
-    }
-    for(int i = 0; i < 2 * Input.FragmentOrbitals[FragmentIndex].size(); i++) // Loop through each active space state.
-    {
-        if(i < NumBathBefore)
-        {
-            BathPos.push_back(i);
-        }
-        else if(i < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-        {
-            FragmentPos.push_back(i);
+            if(Input.EnvironmentOrbitals[FragmentIndex][CurrentBathPos + NumVirt] < Input.FragmentOrbitals[FragmentIndex][NextFragPos])
+            {
+                BathPos.push_back(CurrentBathPos + NextFragPos);
+                CurrentBathPos++;
+            }
+            else
+            {
+                FragmentPos.push_back(CurrentBathPos + NextFragPos);
+                NextFragPos++;
+            }
         }
         else
         {
-            BathPos.push_back(i);
+            if(NextFragPos == Input.FragmentOrbitals[FragmentIndex].size())
+            {
+                BathPos.push_back(CurrentBathPos + NextFragPos);
+                CurrentBathPos++;
+            }
+            else
+            {
+                FragmentPos.push_back(CurrentBathPos + NextFragPos);
+                NextFragPos++;
+            }
         }
     }
 }
 
-int ReturnOrbital(int c, InputObj Input, int FragmentIndex)
+// Takes index on the reduced space consisting of only impurity and bath orbitals and returns the actual orbital that index
+// points to.
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
 {
     int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
-    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
-    int NumBathBefore = 0;
-    for(int i = 0; i < Input.EnvironmentOrbitals[FragmentIndex].size() - NumVirt - NumCore; i++)
+    int Orbital;
+    std::vector< int > FragPos;
+    std::vector< int > BathPos;
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+    auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
+    if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
     {
-        if(Input.EnvironmentOrbitals[FragmentIndex][i + NumVirt] < Input.FragmentOrbitals[FragmentIndex][0])
-        {
-            NumBathBefore++;
-        } 
+        PosOfIndex = std::find(BathPos.begin(), BathPos.end(),c);
+        auto IndexOnList = std::distance(BathPos.begin(), PosOfIndex);
+        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt];
     }
-    int cc;
-    // for(int c = 0; c < 2 * Input.FragmentOrbitals[FragmentIndex].size(); c++)
-    // {
-        if(c < NumBathBefore)
-        {
-            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt];
-        }
-        else if(c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-        {
-            cc = Input.FragmentOrbitals[FragmentIndex][c - NumBathBefore];
-        }
-        else
-        {
-            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
-        }
-    // }
-    return cc;
+    else 
+    {
+        auto IndexOnList = std::distance(FragPos.begin(), PosOfIndex);
+        Orbital = Input.FragmentOrbitals[FragmentIndex][IndexOnList];
+    }
+    return Orbital;
 }
 
 double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj Input)
@@ -383,7 +386,6 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             if(c == d && c >= NumBathBefore && c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
             {
                 Hcd -= ChemicalPotential;
-                std::cout << "hi" << std::endl;
             }
             FockMatrix(c, d) = Hcd;
             FockMatrix(d, c) = Hcd;
@@ -405,23 +407,32 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
 //     else
 //     {
 //         Input.GetInputName();
-//     }
-//     Input.Set();
-
-//     std::ofstream Output(Input.OutputName);
-
-//     std::vector< int > FragPos;
-//     std::vector< int > BathPos;
-//     GetCASPos(Input, 1, FragPos, BathPos);
 //     for(int i = 0; i < FragPos.size(); i++)
 //     {
 //         std::cout << FragPos[i] << "\t";
 //     }
-//     std::cout << std::endl;
+//     std::cout << std::endl << "BATH" << std::endl;
 //     for(int i = 0; i < BathPos.size(); i++)
 //     {
 //         std::cout << BathPos[i] << "\t";
 //     }
+//     std::cout << "\n";
+//     std::cout << ReducedIndexToOrbital(0, Input, 2) << std::endl;
+//     return 0;
+// }    std::vector< int > BathPos;
+//     GetCASPos(Input, 2, FragPos, BathPos);
+//     std::cout << "FRAG" << std::endl;
+//     for(int i = 0; i < FragPos.size(); i++)
+//     {
+//         std::cout << FragPos[i] << "\t";
+//     }
+//     std::cout << std::endl << "BATH" << std::endl;
+//     for(int i = 0; i < BathPos.size(); i++)
+//     {
+//         std::cout << BathPos[i] << "\t";
+//     }
+//     std::cout << "\n";
+//     std::cout << ReducedIndexToOrbital(0, Input, 2) << std::endl;
 //     return 0;
 // }
 

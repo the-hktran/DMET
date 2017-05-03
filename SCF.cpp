@@ -18,6 +18,7 @@ double Metric(int NumElectrons, Eigen::MatrixXd &FirstDensityMatrix, Eigen::Matr
 void ModifyBias(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, short int WhichSoln);
 void NewDensityMatrix(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &CoeffMatrix, std::vector<int> OccupiedOrbitals, std::vector<int> VirtualOrbitals);
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex);
+void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 
 /// <summary>
 /// This generates a positive, random density matrix and then divides by the norm. I know that
@@ -634,45 +635,48 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 
 	/* Density matrix: C(occ) * C(occ)^T */
     int FragmentOcc = Input.FragmentOrbitals[FragmentIndex].size(); // What should this be??
-    DensityMatrix = CoeffMatrix * CoeffMatrix.transpose();
-    // if(Input.Options[1]) // Means use MOM
-    // {
-    //     if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
-    //     {
-    //         MaximumOverlapMethod(DensityMatrix, CoeffMatrix, CoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, OccupiedOrbitals, VirtualOrbitals); // MoM 
-    //         CoeffMatrixPrev = CoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
-    //     }
-    //     else // Then remove the bias and lock in the orbitals.
-    //     {
-    //        for (int i = 0; i < DensityMatrix.rows(); i++)
-    //        {
-    //             for (int j = 0; j < DensityMatrix.cols(); j++)
-    //             {
-    //                 double DensityElement = 0;
-    //                 for (int k = 0; k < 2; k++)
-    //                 {
-    //                     DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
-    //                 }
-    //                 DensityMatrix(i, j) = DensityElement;
-    //             }
-    //         }
-    //     }
-    // }
-    // else // Means do not use MOM
-    // {
-    //     for (int i = 0; i < DensityMatrix.rows(); i++)
-    //     {
-    //         for (int j = 0; j < DensityMatrix.cols(); j++)
-    //         {
-    //             double DensityElement = 0;
-    //             for (int k = 0; k < 2; k++)
-    //             {
-    //                 DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
-    //             }
-    //             DensityMatrix(i, j) = DensityElement;
-    //         }
-    //     }
-    // }
+    std::vector< int > FragPos;
+    std::vector< int > BathPos;
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+    //DensityMatrix = CoeffMatrix * CoeffMatrix.transpose();
+    if(Input.Options[1]) // Means use MOM
+    {
+        if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
+        {
+            MaximumOverlapMethod(DensityMatrix, CoeffMatrix, CoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, OccupiedOrbitals, VirtualOrbitals); // MoM 
+            CoeffMatrixPrev = CoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
+        }
+        else // Then remove the bias and lock in the orbitals.
+        {
+           for (int i = 0; i < DensityMatrix.rows(); i++)
+           {
+                for (int j = 0; j < DensityMatrix.cols(); j++)
+                {
+                    double DensityElement = 0;
+                    for (int k = 0; k < FragPos.size(); k++)
+                    {
+                        DensityElement += CoeffMatrix(i, FragPos[k]) * CoeffMatrix(j, FragPos[k]);
+                    }
+                    DensityMatrix(i, j) = DensityElement;
+                }
+            }
+        }
+    }
+    else // Means do not use MOM
+    {
+        for (int i = 0; i < DensityMatrix.rows(); i++)
+        {
+            for (int j = 0; j < DensityMatrix.cols(); j++)
+            {
+                double DensityElement = 0;
+                for (int k = 0; k < FragPos.size(); k++)
+                {
+                    DensityElement += CoeffMatrix(i, FragPos[k]) * CoeffMatrix(j, FragPos[k]);
+                }
+                DensityMatrix(i, j) = DensityElement;
+            }
+        }
+    }
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     /* For each fragment, we sum over a rectangle, one dimension covering the impurity and the other covering the impurity and bath */
