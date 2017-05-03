@@ -624,6 +624,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     
     CASOverlap = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * CASOverlap - CASOverlap * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
+    //std::cout << "\nERRORMAT\n" << ErrorMatrix << std::endl;
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
     DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
 
@@ -633,47 +634,74 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 
 	/* Density matrix: C(occ) * C(occ)^T */
     int FragmentOcc = Input.FragmentOrbitals[FragmentIndex].size(); // What should this be??
-    if(Input.Options[1]) // Means use MOM
-    {
-        if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
-        {
-            MaximumOverlapMethod(DensityMatrix, CoeffMatrix, CoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, OccupiedOrbitals, VirtualOrbitals); // MoM 
-            CoeffMatrixPrev = CoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
-        }
-        else // Then remove the bias and lock in the orbitals.
-        {
-           for (int i = 0; i < DensityMatrix.rows(); i++)
-           {
-                for (int j = 0; j < DensityMatrix.cols(); j++)
-                {
-                    double DensityElement = 0;
-                    for (int k = 0; k < FragmentOcc; k++)
-                    {
-                        DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
-                    }
-                    DensityMatrix(i, j) = DensityElement;
-                }
-            }
-        }
-    }
-    else // Means do not use MOM
-    {
-        for (int i = 0; i < DensityMatrix.rows(); i++)
-        {
-            for (int j = 0; j < DensityMatrix.cols(); j++)
-            {
-                double DensityElement = 0;
-                for (int k = 0; k < FragmentOcc; k++)
-                {
-                    DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
-                }
-                DensityMatrix(i, j) = DensityElement;
-            }
-        }
-    }
+    DensityMatrix = CoeffMatrix * CoeffMatrix.transpose();
+    // if(Input.Options[1]) // Means use MOM
+    // {
+    //     if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
+    //     {
+    //         MaximumOverlapMethod(DensityMatrix, CoeffMatrix, CoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, OccupiedOrbitals, VirtualOrbitals); // MoM 
+    //         CoeffMatrixPrev = CoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
+    //     }
+    //     else // Then remove the bias and lock in the orbitals.
+    //     {
+    //        for (int i = 0; i < DensityMatrix.rows(); i++)
+    //        {
+    //             for (int j = 0; j < DensityMatrix.cols(); j++)
+    //             {
+    //                 double DensityElement = 0;
+    //                 for (int k = 0; k < 2; k++)
+    //                 {
+    //                     DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
+    //                 }
+    //                 DensityMatrix(i, j) = DensityElement;
+    //             }
+    //         }
+    //     }
+    // }
+    // else // Means do not use MOM
+    // {
+    //     for (int i = 0; i < DensityMatrix.rows(); i++)
+    //     {
+    //         for (int j = 0; j < DensityMatrix.cols(); j++)
+    //         {
+    //             double DensityElement = 0;
+    //             for (int k = 0; k < 2; k++)
+    //             {
+    //                 DensityElement += CoeffMatrix(i, OccupiedOrbitals[k]) * CoeffMatrix(j, OccupiedOrbitals[k]);
+    //             }
+    //             DensityMatrix(i, j) = DensityElement;
+    //         }
+    //     }
+    // }
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
-    double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
+    /* For each fragment, we sum over a rectangle, one dimension covering the impurity and the other covering the impurity and bath */
+    Eigen::MatrixXd EMat = DensityMatrix.cwiseProduct(HCore + FockMatrix);
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
+    int NumBathBefore = 0;
+    for(int i = 0; i < Input.EnvironmentOrbitals[FragmentIndex].size() - NumVirt - NumCore; i++)
+    {
+        if(Input.EnvironmentOrbitals[FragmentIndex][i + NumVirt] < Input.FragmentOrbitals[FragmentIndex][0])
+        {
+            NumBathBefore++;
+        }
+    }
+    double Energy = 0;
+    // std::cout << "NumVirt: " << NumVirt << std::endl;
+    // std::cout << "NumBathBefore: " << NumBathBefore << std::endl;
+    for(int p = 0; p < Input.FragmentOrbitals[FragmentIndex].size(); p++)
+    {
+        for(int q = 0; q < EMat.cols(); q++)
+        {
+            Energy += EMat.coeffRef(NumBathBefore + p, q);
+            // std::cout << NumBathBefore + p << "\t" << q << std::endl;
+        }
+    }
+    // std::cout << EMat << std::endl;
+    // std::cout << Energy << std::endl;
+    // std::string tmpstring;
+    // std::getline(std::cin, tmpstring);
     return Energy;
 }
 
@@ -842,12 +870,12 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 
         isUniqueSoln = true;
         short int WhichSoln = -1; // If we found a solution we already visited, this will mark which of the previous solutions we are at.
-        if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
-        {
-            isUniqueSoln = false;
-        }
-        else
-        {
+        // if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
+        // {
+        //     isUniqueSoln = false;
+        // }
+        // else
+        // {
             for(int i = 0; i < AllEnergies.size(); i++) // Compare energy with previous solutions.
             {
                 if(fabs(Energy + Input.Integrals["0 0 0 0"] - AllEnergies[i]) < 1E-5) // Checks to see if new energy is equal to any previous energy.
@@ -869,7 +897,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                     }
                 }
             }
-        }
+        // }
 
         if(!isUniqueSoln) // If the flag is still false, we modify the bias and hope that this gives a better result.
         {
@@ -891,6 +919,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 	std::cout << "SCF MetaD: Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
 	std::cout << "SCF MetaD: This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 	Output << "Solution " << SolnNum << " has converged with energy " << Energy + Input.Integrals["0 0 0 0"] << std::endl;
+
+    Output << "\nDENSITY\n" << DensityMatrix << std::endl;
     // Output << "and orbitals:" << std::endl;
     // Output << "Basis\tMolecular Orbitals" << std::endl;
     // for(int mu = 0; mu < CoeffMatrix.rows(); mu++)
