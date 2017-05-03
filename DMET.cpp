@@ -238,31 +238,6 @@ void ProjectCAS(Eigen::MatrixXd &NewMatrix, Eigen::MatrixXd &OldMatrix, std::vec
             NewMatrix(i, j) = OldMatrix.coeffRef(OldRow, OldCol);       
         }
     }
-    // for(int i = 0; i < NewMatrix.rows(); i++)
-    // {
-    //     int ii;
-    //     if(i >= NumAOImp)
-    //     {
-    //         ii = i + NumElectrons - NumAOImp - NumOcc;
-    //     }
-    //     else
-    //     {
-    //         ii = i;
-    //     }
-    //     for(int j = 0; j < NewMatrix.cols(); j++)
-    //     {
-    //         int jj;
-    //         if(j >= NumAOImp)
-    //         {
-    //             jj = j + NumElectrons - NumAOImp - NumOcc;
-    //         }
-    //         else
-    //         {
-    //             jj = j;
-    //         }
-    //         NewMatrix(i, j) = OldMatrix(ii, jj);
-    //     }
-    // }
 }
 
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d)
@@ -301,46 +276,12 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
 /* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
 {
-    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
-    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
-    int NumBathBefore = 0;
-    for(int i = 0; i < Input.EnvironmentOrbitals[FragmentIndex].size() - NumVirt - NumCore; i++)
-    {
-        if(Input.EnvironmentOrbitals[FragmentIndex][i + NumVirt] < Input.FragmentOrbitals[FragmentIndex][0])
-        {
-            NumBathBefore++;
-        } 
-    }
     for(int c = 0; c < FockMatrix.rows(); c++)
     {
-        int cc;
-        if(c < NumBathBefore)
-        {
-            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt];
-        }
-        else if(c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-        {
-            cc = Input.FragmentOrbitals[FragmentIndex][c - NumBathBefore];
-        }
-        else
-        {
-            cc = Input.EnvironmentOrbitals[FragmentIndex][c + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
-        }
+        int cc = ReducedIndexToOrbital(c, Input, FragmentIndex);
         for(int d = c; d < FockMatrix.cols(); d++)
         {
-            int dd;
-            if(d < NumBathBefore)
-            {
-                dd = Input.EnvironmentOrbitals[FragmentIndex][d + NumVirt];
-            }
-            else if(d < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-            {
-                dd = Input.FragmentOrbitals[FragmentIndex][d - NumBathBefore];
-            }
-            else
-            {
-                dd = Input.EnvironmentOrbitals[FragmentIndex][d + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
-            }
+            int dd = ReducedIndexToOrbital(d, Input, FragmentIndex);
             double Hcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd);
             HCore(c, d) = Hcd;
             for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
@@ -352,38 +293,17 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             }
             for(int l = 0; l < FockMatrix.rows(); l++) // XC within active space.
             {
-                int ll;
-                if(l < NumBathBefore)
-                {
-                    ll = Input.EnvironmentOrbitals[FragmentIndex][l + NumVirt];
-                }
-                else if(l < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-                {
-                    ll = Input.FragmentOrbitals[FragmentIndex][l - NumBathBefore];
-                }
-                else
-                {
-                    ll = Input.EnvironmentOrbitals[FragmentIndex][l + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
-                }
+                int ll = ReducedIndexToOrbital(l, Input, FragmentIndex);
                 for(int k = 0; k < FockMatrix.cols(); k++)
                 {
-                    int kk;
-                    if(k < NumBathBefore)
-                    {
-                        kk = Input.EnvironmentOrbitals[FragmentIndex][k + NumVirt];
-                    }
-                    else if(k < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
-                    {
-                        kk = Input.FragmentOrbitals[FragmentIndex][k - NumBathBefore];
-                    }
-                    else
-                    {
-                        kk = Input.EnvironmentOrbitals[FragmentIndex][k + NumVirt - Input.FragmentOrbitals[FragmentIndex].size()];
-                    }
+                    int kk = ReducedIndexToOrbital(k, Input, FragmentIndex);
                     Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, kk, ll, dd));
                 }
             } // end loop over active orbital XC
-            if(c == d && c >= NumBathBefore && c < NumBathBefore + Input.FragmentOrbitals[FragmentIndex].size())
+            std::vector< int > FragPos;
+            std::vector< int > BathPos;
+            GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+            if(c == d && (std::find(FragPos.begin(), FragPos.end(), c) != FragPos.end()))
             {
                 Hcd -= ChemicalPotential;
             }
