@@ -15,6 +15,7 @@
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex);
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, std::vector< Eigen::MatrixXd > DMETPotential);
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos)
 {
@@ -77,6 +78,23 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
         Orbital = Input.FragmentOrbitals[FragmentIndex][IndexOnList];
     }
     return Orbital;
+}
+
+double CalcCostDMETPot(std::vector<Eigen::MatrixXd> FragmentDensities, Eigen::MatrixXd FullDensity, InputObj Input)
+{
+    /* This matches the diagonal of the density matrices */
+    double CF = 0;
+    for(int x = 0; x < Input.NumFragments; x++)
+    {
+        std::vector<int> FragPos, BathPos;
+        GetCASPos(Input, x, FragPos, BathPos);
+        for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
+        {
+            CF += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * 
+                  (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i]));
+        }
+    }
+    return CF;
 }
 
 double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj Input)
@@ -423,13 +441,19 @@ int main(int argc, char* argv[])
     int SCFCount = 0;
     double ChemicalPotential = 0;
 
+    std::vector< Eigen::MatrixXd > DMETPotential(Input.NumFragments);
+    for(int x = 0; x < Input.NumFragments; x++)
+    {
+        DMETPotential[x] = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
+    }
+
     // Solve the full system using RHF.
-    SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF);
+    SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential);
     AllEnergies.clear();
     
     // Now start cycling through each fragment.
     double CostChemicalPotential = 1;
-    while(fabs(CostChemicalPotential)  > 1E-6)
+    while(fabs(CostChemicalPotential) > 1E-6)
     {
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments);
         std::vector< Eigen::MatrixXd > FragmentDensities;
