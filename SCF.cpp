@@ -622,6 +622,9 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     }
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
     
+    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
+    std::cout << "\nDENSITY\n" << DensityMatrix << std::endl;
+
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
     DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
@@ -916,6 +919,11 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     BuildFockMatrix(FockMatrix, HCore, DensityMatrix, RotationMatrix, Input, ChemicalPotential, FragmentIndex);
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
     
+    // std::cout << "\nFOCK\n" << FockMatrix << std::endl;
+    // std::cout << "\nDENSITY\n" << DensityMatrix << std::endl;
+    //     std::string tmpstring;
+    // std::getline(std::cin, tmpstring);
+
     CASOverlap = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * CASOverlap - CASOverlap * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     //std::cout << "\nERRORMAT\n" << ErrorMatrix << std::endl;
@@ -931,7 +939,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     std::vector< int > FragPos;
     std::vector< int > BathPos;
     GetCASPos(Input, FragmentIndex, FragPos, BathPos);
-    //DensityMatrix = CoeffMatrix * CoeffMatrix.transpose();
+
     if(Input.Options[1]) // Means use MOM
     {
         if(!Bias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
@@ -970,6 +978,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             }
         }
     }
+    // DensityMatrix = CoeffMatrix * CoeffMatrix.transpose();
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     /* For each fragment, we sum over a rectangle, one dimension covering the impurity and the other covering the impurity and bath */
@@ -1090,8 +1099,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensity(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -1160,8 +1169,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensity(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
             }
         }
 

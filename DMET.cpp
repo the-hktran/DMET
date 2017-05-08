@@ -324,6 +324,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             if(c == d && (std::find(FragPos.begin(), FragPos.end(), c) != FragPos.end()))
             {
                 Hcd -= ChemicalPotential;
+                std::cout << c << "\t" << d << std::endl;
             }
             FockMatrix(c, d) = Hcd;
             FockMatrix(d, c) = Hcd;
@@ -465,6 +466,7 @@ int main(int argc, char* argv[])
             Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
             // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
             SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
+
             /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
             Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
             Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
@@ -500,6 +502,13 @@ int main(int argc, char* argv[])
         }
         CostChemicalPotential = CalcCostChemPot(FragmentDensities, Input);
         ChemicalPotential += 0.1;
+        double DMETEnergy = 0;
+        for(int x = 0; x < Input.NumFragments; x++)
+        {
+            DMETEnergy += FragmentEnergies[x][0];
+        }
+        DMETEnergy += Input.Integrals["0 0 0 0"];
+        std::cout << "ENERGY\t" << DMETEnergy << std::endl;
         std::cout << "MU - COST: " << ChemicalPotential << "\t" << CostChemicalPotential << std::endl;
         Output << "CHEMICAL POTENTIAL: " << ChemicalPotential << std::endl;
         Output << "COST: " << CostChemicalPotential << std::endl;
