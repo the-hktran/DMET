@@ -912,7 +912,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 ******************************* OVERLOADED FUNCTIONS FOR IMPURITY SCF ********************************************************
 ******************************************************************************************************************************
 *****************************************************************************************************************************/
-double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, Eigen::MatrixXd &CoeffMatrix, std::vector< Eigen::MatrixXd > &AllFockMatrices, std::vector< Eigen::MatrixXd > &AllErrorMatrices, Eigen::MatrixXd &CoeffMatrixPrev, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int FragmentIndex)
+double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, Eigen::MatrixXd &CoeffMatrix, std::vector< Eigen::MatrixXd > &AllFockMatrices, std::vector< Eigen::MatrixXd > &AllErrorMatrices, Eigen::MatrixXd &CoeffMatrixPrev, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, double ChemicalPotential, int FragmentIndex)
 {
     Eigen::MatrixXd FockMatrix(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size()); // This will hold the FockMatrix.
     Eigen::MatrixXd HCore(2 * Input.FragmentOrbitals[FragmentIndex].size(), 2 * Input.FragmentOrbitals[FragmentIndex].size());
@@ -935,7 +935,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     CoeffMatrix = SOrtho * EigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.
 
 	/* Density matrix: C(occ) * C(occ)^T */
-    int FragmentOcc = Input.FragmentOrbitals[FragmentIndex].size(); // What should this be??
+    // int FragmentOcc = Input.FragmentOrbitals[FragmentIndex].size(); // What should this be??
     std::vector< int > FragPos;
     std::vector< int > BathPos;
     GetCASPos(Input, FragmentIndex, FragPos, BathPos);
@@ -954,9 +954,9 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
                 for (int j = 0; j < DensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < FragPos.size(); k++)
+                    for (int k = 0; k < FragmentOcc; k++)
                     {
-                        DensityElement += CoeffMatrix(i, FragPos[k]) * CoeffMatrix(j, FragPos[k]);
+                        DensityElement += CoeffMatrix(i, k) * CoeffMatrix(j,k);
                     }
                     DensityMatrix(i, j) = DensityElement;
                 }
@@ -970,9 +970,9 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             for (int j = 0; j < DensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < FragPos.size(); k++)
+                for (int k = 0; k < FragmentOcc; k++)
                 {
-                    DensityElement += CoeffMatrix(i, FragPos[k]) * CoeffMatrix(j, FragPos[k]);
+                    DensityElement += CoeffMatrix(i, k) * CoeffMatrix(j, k);
                 }
                 DensityMatrix(i, j) = DensityElement;
             }
@@ -996,11 +996,11 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     double Energy = 0;
     // std::cout << "NumVirt: " << NumVirt << std::endl;
     // std::cout << "NumBathBefore: " << NumBathBefore << std::endl;
-    for(int p = 0; p < Input.FragmentOrbitals[FragmentIndex].size(); p++)
+    for(int p = 0; p < FragPos.size(); p++)
     {
         for(int q = 0; q < EMat.cols(); q++)
         {
-            Energy += EMat.coeffRef(NumBathBefore + p, q);
+            Energy += EMat.coeffRef(FragPos[p], q);
             // std::cout << NumBathBefore + p << "\t" << q << std::endl;
         }
     }
@@ -1011,7 +1011,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     return Energy;
 }
 
-double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex)
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex)
 {
 	double SCFTol = 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
@@ -1046,7 +1046,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 EnergyPrev = Energy;
                 DensityMatrixPrev = DensityMatrix;
             }
-            Energy = SCFIteration(DensityMatrix, Input, CASOverlap, SOrtho, Bias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, RotationMatrix, ChemicalPotential, FragmentIndex);
+            Energy = SCFIteration(DensityMatrix, Input, CASOverlap, SOrtho, Bias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, RotationMatrix, FragmentOcc, ChemicalPotential, FragmentIndex);
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();
@@ -1094,7 +1094,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
             }
 
-            if(Count % 20 == 0) // Shouldn't take this long.
+            if(Count % 50 == 0) // Shouldn't take this long.
             {
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
@@ -1118,7 +1118,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 EnergyPrev = Energy;
                 DensityMatrixPrev = DensityMatrix;
             }
-            Energy = SCFIteration(DensityMatrix, Input, CASOverlap, SOrtho, EmptyBias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, RotationMatrix, ChemicalPotential, FragmentIndex);
+            Energy = SCFIteration(DensityMatrix, Input, CASOverlap, SOrtho, EmptyBias, CoeffMatrix, AllFockMatrices, AllErrorMatrices, CoeffMatrixPrev, OccupiedOrbitals, VirtualOrbitals, RotationMatrix, FragmentOcc, ChemicalPotential, FragmentIndex);
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (DensityMatrix - DensityMatrixPrev).squaredNorm();
@@ -1163,7 +1163,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
             }
 
-            if(Count % 20 == 0)
+            if(Count % 50 == 0)
             {
                 Count = 1;
                 AllFockMatrices.clear();

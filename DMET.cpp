@@ -14,7 +14,7 @@
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
-double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, int NumAOImp, double ChemicalPotential, int FragmentIndex);
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, std::vector< Eigen::MatrixXd > DMETPotential);
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos)
@@ -111,10 +111,11 @@ double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj 
         }
     }
     CF -= Input.NumOcc;
+    CF = CF * CF;
     return CF;
 }
 
-void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals)
+void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, double &FragmentOcc, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt)
 {
     // Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
     Eigen::MatrixXd DensityEnv(EnvironmentOrbitals.size(), EnvironmentOrbitals.size());
@@ -135,14 +136,22 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
         }
     }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
+    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityImp(DensityImp);
 
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
     RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
     // // First, put the identity matrix in the blocks ocrresponding to the impurity.
+    // for(int i = 0; i < NumAOImp; i++)
+    // {
+    //     RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
+    // }
     for(int i = 0; i < NumAOImp; i++)
     {
-        RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
+        for(int j = 0; j < NumAOImp; j++)
+        {
+            RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[j]) = ESDensityImp.eigenvectors().col(j)[i];
+        }
     }
     // Then put the eigenvector matrix for the environment in the environment blocks.
     for(int a = 0; a < NumAOEnv; a++)
@@ -155,6 +164,14 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     // RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
     // RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
+
+    FragmentOcc = 0;
+    for(int i = 0; i < NumAOImp; i++)
+    {
+        FragmentOcc += ESDensityImp.eigenvalues()[i];
+        FragmentOcc += ESDensityEnv.eigenvalues()[i + NumEnvVirt];
+    }
+
 }
 
 /* This function projects a matrix in the full impurity - bath space into the impurity - active bath space */
@@ -324,7 +341,6 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
             if(c == d && (std::find(FragPos.begin(), FragPos.end(), c) != FragPos.end()))
             {
                 Hcd -= ChemicalPotential;
-                std::cout << c << "\t" << d << std::endl;
             }
             FockMatrix(c, d) = Hcd;
             FockMatrix(d, c) = Hcd;
@@ -440,7 +456,6 @@ int main(int argc, char* argv[])
     std::vector< double > AllEnergies;
     Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Don't think I need this.
     int SCFCount = 0;
-    double ChemicalPotential = 0;
 
     std::vector< Eigen::MatrixXd > DMETPotential(Input.NumFragments);
     for(int x = 0; x < Input.NumFragments; x++)
@@ -448,13 +463,23 @@ int main(int argc, char* argv[])
         DMETPotential[x] = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
     }
 
+    double CostPotential = 100;
+    double CostPotentialPrev = 0;
+    double dCostPotential = 1;
+    
+
     // Solve the full system using RHF.
     SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential);
     AllEnergies.clear();
     
     // Now start cycling through each fragment.
-    double CostChemicalPotential = 1;
-    while(fabs(CostChemicalPotential) > 1E-6)
+    double ChemicalPotential = 0;
+    double CostMu = 100;
+    double CostMuPrev = 0;
+    double dCostMu = 1;
+    double StepSizeMu = 0.2;
+    double IterationsMu = 0;
+    while(fabs(CostMu - CostMuPrev) > 1E-12)
     {
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments);
         std::vector< Eigen::MatrixXd > FragmentDensities;
@@ -464,8 +489,10 @@ int main(int argc, char* argv[])
             int NumAOEnv = NumAO - NumAOImp;
 
             Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+            double FragmentOcc = 0;
+            int NumEnvVirt = NumAO - NumAOImp - NumOcc;
             // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
-            SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x]);
+            SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
 
             /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
             Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
@@ -492,7 +519,7 @@ int main(int argc, char* argv[])
 
             std::vector<double> tmpVec;
             // FragmentEnergies.push_back(tmpVec);
-            SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, NumAOImp, ChemicalPotential, x);
+            SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
             FragmentDensities.push_back(CASDensity);
 
             /* Match density to get u */
@@ -500,8 +527,8 @@ int main(int argc, char* argv[])
                 /* Check SCF */
             /* Repeat */
         }
-        CostChemicalPotential = CalcCostChemPot(FragmentDensities, Input);
-        ChemicalPotential += 0.1;
+        CostMuPrev = CostMu;
+        CostMu = CalcCostChemPot(FragmentDensities, Input);
         double DMETEnergy = 0;
         for(int x = 0; x < Input.NumFragments; x++)
         {
@@ -509,10 +536,17 @@ int main(int argc, char* argv[])
         }
         DMETEnergy += Input.Integrals["0 0 0 0"];
         std::cout << "ENERGY\t" << DMETEnergy << std::endl;
-        std::cout << "MU - COST: " << ChemicalPotential << "\t" << CostChemicalPotential << std::endl;
-        Output << "CHEMICAL POTENTIAL: " << ChemicalPotential << std::endl;
-        Output << "COST: " << CostChemicalPotential << std::endl;
+        std::cout << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
+        Output << "ENERGY\t" << DMETEnergy << std::endl;
+        Output << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
         /* Change mu somehow */
+        IterationsMu++;
+        // if(IterationsMu == 1) continue;
+        if((CostMu - CostMuPrev) > 0)
+        {
+            StepSizeMu /= -2;
+        }
+        ChemicalPotential += StepSizeMu;
     }
     return 0;
 }
