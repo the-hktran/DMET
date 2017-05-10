@@ -11,7 +11,8 @@
 #include <stdlib.h> 
 #include <algorithm> // std::sort
 #include <iomanip>
-#include <pair>
+
+void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 
 double CalcdDrr(int r, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
@@ -51,7 +52,7 @@ void BFGS(Eigen::MatrixXd &Hessian, Eigen::VectorXd Gradient, Eigen::VectorXd Gr
     Eigen::VectorXd s = a * p;
     x = x + s;
     Eigen::VectorXd y = Gradient - GradientPrev;
-    Hessian = Hessian + (y * y.transpose()) / (y.dot(s)) - (Hessian * s * s.transpose() * B) / (s.transpose() * B * s);
+    Hessian = Hessian + (y * y.transpose()) / (y.dot(s)) - (Hessian * s * s.transpose() * Hessian) / (s.transpose() * Hessian * s);
 }
 
 int CalcTotalPositions(std::vector< std::vector< std::pair< int, int > > > &PotentialPositions)
@@ -64,7 +65,7 @@ int CalcTotalPositions(std::vector< std::vector< std::pair< int, int > > > &Pote
     return TotPos;
 }
 
-Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd &CoeffMatrix, Eigen::VectorXd OrbitalEV, InputObj Input)
+Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd &CoeffMatrix, Eigen::VectorXd OrbitalEV, InputObj Input, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd Gradient(TotPos);
@@ -73,8 +74,8 @@ Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, 
     {
         for(int i = 0; i < PotentialPositions[x].size(); i++)
         {
-            Eigen::MatrixXd Z = CalcZMatrix(PotentialPositions[x][i].first, PotentialPositions[x][i].second, PotentialElements[x][i], CoeffMatrix, Input.OccupiedOrbitals[x], Input.VirtualOrbitals[x], OrbitalEV);
-            double dDrr = CalcdDrr(r, Z, CoeffMatrix, Input.OccupiedOrbitals[x], Input.VirtualOrbitals[x]);
+            Eigen::MatrixXd Z = CalcZMatrix(PotentialPositions[x][i].first, PotentialPositions[x][i].second, PotentialElements[x][i], CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, OrbitalEV);
+            double dDrr = CalcdDrr(r, Z, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             Gradient[TotIndex] = dDrr;
             TotIndex++;
         }
@@ -111,11 +112,13 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< double > Pot
     }
 }
 
-Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV)
+// Returns the full gradient of the cost function.
+Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > FragmentOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
 {
     std::vector< std::vector< std::pair< int, int > > > PotentialPositions;
     SetUVector(PotentialPositions, Input);
     int TotPos = CalcTotalPositions(PotentialPositions);
+
     Eigen::VectorXd GradCF = Eigen::VectorXd::Zero(TotPos);
 
     for(int x = 0; x < Input.NumFragments; x++)
@@ -124,10 +127,9 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< double > >
         GetCASPos(Input, x, FragPos, BathPos);
         for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
         {
-            Eigen::VectorXd GradDrr = CalcRRGradient(FragmentOrbitals[x][i], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input)
-            CF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * 
-                  * GradDrr;
+            Eigen::VectorXd GradDrr = CalcRRGradient(Input.FragmentOrbitals[x][i], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, FragmentOrbitals);
+            GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * GradDrr;
         }
     }
-    return CF;
+    return GradCF;
 }
