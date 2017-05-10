@@ -471,13 +471,13 @@ int main(int argc, char* argv[])
         SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
         
         // Now start cycling through each fragment.
-        double ChemicalPotential = 0;
+        double ChemicalPotential = -0.75;
         double CostMu = 100;
         double CostMuPrev = 0;
         double dCostMu = 1;
         double StepSizeMu = 0.2;
         double IterationsMu = 0;
-        while(fabs(CostMu - CostMuPrev) > 1E-12)
+        while(fabs(CostMu - CostMuPrev) > 1E-8)
         {
             // std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments);
             for(int x = 0; x < NumFragments; x++)
@@ -549,12 +549,18 @@ int main(int argc, char* argv[])
         DMETPotentialPrev = DMETPotential;
         UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm();
+        std::cout << "DMET Potential\n" << DMETPotential << std::endl;
+
         double DMETEnergy = 0;
         for(int x = 0; x < Input.NumFragments; x++)
         {
             DMETEnergy += FragmentEnergies[x][0];
         }
         DMETEnergy += Input.Integrals["0 0 0 0"];
+        std::cout << "ENERGY: " << DMETEnergy << std::endl;
+
+        std::string tmpstring;
+        std::getline(std::cin, tmpstring);
     }
     return 0;
 }

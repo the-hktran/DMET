@@ -38,21 +38,23 @@ Eigen::MatrixXd CalcZMatrix(int k, int l, double ukl, Eigen::MatrixXd &CoeffMatr
     {
         for(int i = 0; i < OccupiedOrbitals.size(); i++)
         {
-            Z(a, i) = CoeffMatrix.coeffRef(k, VirtualOrbitals[a]) * ukl * CoeffMatrix.coeffRef(l, OccupiedOrbitals[i]) / (OrbitalEV[VirtualOrbitals[a]] - OrbitalEV[OccupiedOrbitals[i]]);
+            Z(a, i) = CoeffMatrix.coeffRef(k, VirtualOrbitals[a]) * 1 * CoeffMatrix.coeffRef(l, OccupiedOrbitals[i]) / (OrbitalEV[VirtualOrbitals[a]] - OrbitalEV[OccupiedOrbitals[i]]);
         }
     }
     return Z;
 }
 
-void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd s, Eigen::VectorXd Gradient, Eigen::VectorXd &x)
+void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x)
 {
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
-    double a = 0.1;
+    std::cout << "p\n" << p << std::endl;
+    std::cout << "Gradient\n" << Gradient << std::endl;
+    double a = 10000;
     s = a * p;
     x = x + s;
 }
-void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
+void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
 {
     Eigen::VectorXd y = Gradient - GradientPrev;
     Hessian = Hessian + (y * y.transpose()) / (y.dot(s)) - (Hessian * s * s.transpose() * Hessian) / (s.transpose() * Hessian * s);
@@ -68,6 +70,7 @@ int CalcTotalPositions(std::vector< std::vector< std::pair< int, int > > > &Pote
     return TotPos;
 }
 
+// This is del D_rr, which is part of the full derivative
 Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd &CoeffMatrix, Eigen::VectorXd OrbitalEV, InputObj Input, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
@@ -121,6 +124,7 @@ Eigen::VectorXd FragUVectorToFullUVector(std::vector< std::vector< double > > &P
             PosIndex++;
         }
     }
+    return PotentialElementsVec;
 }
 
 void FullUVectorToFragUVector(std::vector< std::vector< double > > &PotentialElements, Eigen::VectorXd PotentialElementsVec)
@@ -149,6 +153,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 }
 
 // Returns the full gradient of the cost function.
+// del (sum_x sum_r (D_rr^x - D_rr)^2 = sum_x sum_r [2 * (D_rr^x - D_rr) * del D_rr]
 Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > &PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
@@ -173,15 +178,12 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     // They are divided by fragment, to make some of the code neater.
     std::vector< std::vector< std::pair< int, int > > > PotentialPositions;
     std::vector< std::vector< double > > PotentialElements;
-
     SetUVector(PotentialPositions, PotentialElements, DMETPotential, Input); // This sets up the previous vectors.
-
     Eigen::VectorXd GradCF = CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
-
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos);
-    Eigen::MatrixXd Hessian = Eigen::MatrixXd::Zero(TotPos, TotPos);
+    Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
     while(fabs(NormOfGrad) > 1E-8)
