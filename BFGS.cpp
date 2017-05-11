@@ -14,23 +14,29 @@
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 
-double CalcdDrr(int r, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
+double CalcdDrs(int r, int s, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
     Eigen::VectorXd rComponentOcc(OccupiedOrbitals.size());
     Eigen::VectorXd rComponentVir(VirtualOrbitals.size());
+    Eigen::VectorXd sComponentOcc(OccupiedOrbitals.size());
+    Eigen::VectorXd sComponentVir(VirtualOrbitals.size());
     for(int i = 0; i < OccupiedOrbitals.size(); i++)
     {
         rComponentOcc[i] = CoeffMatrix.coeffRef(r, OccupiedOrbitals[i]);
+        sComponentOcc[i] = CoeffMatrix.coeffRef(s, OccupiedOrbitals[i]);
     }
     for(int a = 0; a < VirtualOrbitals.size(); a++)
     {
         rComponentVir[a] = CoeffMatrix.coeffRef(r, VirtualOrbitals[a]);
+        sComponentVir[a] = CoeffMatrix.coeffRef(s, VirtualOrbitals[a]);
     }
 
-    double dDrr = (rComponentOcc.transpose() * Z.transpose() * rComponentVir + rComponentVir.transpose() * Z * rComponentOcc).sum();
-    return dDrr;
+    double dDrs = (rComponentOcc.transpose() * Z.transpose() * sComponentVir + rComponentVir.transpose() * Z * sComponentOcc).sum();
+    return dDrs;
 }
 
+// Assuming H1 has one nonzero element at u_kl and the rest are zero, the resulting matrix element of Z is the dot product of the
+// kth row and the lth row of the coefficient matrix, divided by the difference in orbital eigenvalues.
 Eigen::MatrixXd CalcZMatrix(int k, int l, double ukl, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, Eigen::VectorXd OrbitalEV)
 {
     Eigen::MatrixXd Z(VirtualOrbitals.size(), OccupiedOrbitals.size());
@@ -50,7 +56,7 @@ void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
     std::cout << "p\n" << p << std::endl;
     std::cout << "Gradient\n" << Gradient << std::endl;
-    double a = 10000;
+    double a = 1;
     s = a * p;
     x = x + s;
 }
@@ -71,7 +77,7 @@ int CalcTotalPositions(std::vector< std::vector< std::pair< int, int > > > &Pote
 }
 
 // This is del D_rr, which is part of the full derivative
-Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd &CoeffMatrix, Eigen::VectorXd OrbitalEV, InputObj Input, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
+Eigen::VectorXd CalcRSGradient(int r, int s, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > PotentialElements, Eigen::MatrixXd &CoeffMatrix, Eigen::VectorXd OrbitalEV, InputObj Input, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd Gradient(TotPos);
@@ -81,9 +87,10 @@ Eigen::VectorXd CalcRRGradient(int r, std::vector< std::vector< std::pair< int, 
         for(int i = 0; i < PotentialPositions[x].size(); i++)
         {
             Eigen::MatrixXd Z = CalcZMatrix(PotentialPositions[x][i].first, PotentialPositions[x][i].second, PotentialElements[x][i], CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, OrbitalEV);
-            double dDrr = CalcdDrr(r, Z, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
+            double dDrr = CalcdDrs(r, s, Z, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             Gradient[TotIndex] = dDrr;
             TotIndex++;
+            std::cout << "Z\t" << r << "\n" << Z << std::endl;
         }
     }
 
@@ -100,7 +107,7 @@ void SetUVector(std::vector< std::vector< std::pair< int, int > > > &PotentialPo
         std::vector< double > FragmentPotentialElements;
         for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
         {
-            for(int j = i; j < Input.FragmentOrbitals[x].size(); j++)
+            for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++) // Changed this to start from 0 instead of i
             {
                 std::pair< int, int > tmpPair = std::make_pair(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]);
                 FragmentPotentialPositions.push_back(tmpPair);
@@ -147,7 +154,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
         for(int i = 0; i < PotentialPositions[x].size(); i++)
         {
             DMETPotential(PotentialPositions[x][i].first, PotentialPositions[x][i].second) = PotentialElements[x][i];
-            DMETPotential(PotentialPositions[x][i].second, PotentialPositions[x][i].first) = PotentialElements[x][i];
+            // DMETPotential(PotentialPositions[x][i].second, PotentialPositions[x][i].first) = PotentialElements[x][i]; // Changed this since we take derivatives of symmetric elements separately.
         }
     }
 }
@@ -165,35 +172,61 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair<
         GetCASPos(Input, x, FragPos, BathPos);
         for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
         {
-            Eigen::VectorXd GradDrr = CalcRRGradient(Input.FragmentOrbitals[x][i], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
+            Eigen::VectorXd GradDrr = CalcRSGradient(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
             GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * GradDrr;
         }
     }
     return GradCF;
 }
 
-void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
+void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::ofstream &Output)
 {
     // First vector holds the positions of the nonzero elements, the second holds the values at each of those posisions.
     // They are divided by fragment, to make some of the code neater.
     std::vector< std::vector< std::pair< int, int > > > PotentialPositions;
     std::vector< std::vector< double > > PotentialElements;
     SetUVector(PotentialPositions, PotentialElements, DMETPotential, Input); // This sets up the previous vectors.
+    std::cout << "\nPositions - Value\n";
+    for(int i = 0; i < PotentialPositions.size(); i++)
+    {
+        for(int j = 0; j < PotentialPositions[i].size(); j++)
+        {
+            std::cout << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
+            Output << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
+        }
+    }
+
     Eigen::VectorXd GradCF = CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
+    std::cout << "CoeffMatrix\n" << CoeffMatrix << std::endl;
+    Output << "CoeffMatrix\n" << CoeffMatrix << std::endl;  
+    std::cout << "OrbitalEV\n" << OrbitalEV << std::endl;
+    Output << "OrbitalEV\n" << OrbitalEV << std::endl; 
+    std::cout << "GradCF\n" << GradCF << std::endl;
+    Output << "GradCF\n" << GradCF << std::endl;
+
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos);
+    std::cout << "PotElementVec\n" << PotentialElementsVec << std::endl;
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
     while(fabs(NormOfGrad) > 1E-8)
     {
         BFGS_1(Hessian, s, GradCF, PotentialElementsVec);
+        std::cout << "s\n" << s << std::endl;
+        Output << "s\n" << s << std::endl;
+        std::cout << "New Potential Values\n" << PotentialElementsVec << std::endl;
+        Output << "New Potential Values\n" << PotentialElementsVec << std::endl;
         PrevGrad = GradCF;
         FullUVectorToFragUVector(PotentialElements, PotentialElementsVec);
         CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
+        std::cout << "New GradCF\n" << GradCF << std::endl;
+        Output << "New GradCF\n" << GradCF << std::endl;
         NormOfGrad = (GradCF - PrevGrad).squaredNorm();
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
+    std::cout << "DMETPot\n" << DMETPotential << std::endl;
+    Output << "DMETPot\n" << DMETPotential << std::endl;
 }
