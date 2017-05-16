@@ -18,6 +18,24 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::ofstream &Output);
 
+
+/* 
+   The purpose of this function is to distinguish between fragment or bath orbital in the active space basis.
+   The vectors FragmentPos and BathPos hold the index for the impurity and bath orbitals, respectively, in the active space basis
+   which is of size 2 * N_imp. This is necessary because the impurity and bath orbitals may not be cleanly separated.
+
+   For example, consider a system with 5 orbitals: 0 1 2 3 4
+   Make the impurity orbitals the two orbitals: 2 4
+   And suppose we have 1 virtual orbital.
+   Then we rotate the orbitals and we have: 0' 1' 2 3' 4 where the prime denotes that the bath orbitals are rotated.
+   The bath orbitals are organized so that the virtual orbitals are first, then the active bath, then the core orbitals.
+   So the impurity orbitals are still 2 and 4 and the bath orbitals are 1 and 3.
+   The CAS ordering would look like this:
+        Orbital Number:     1  2  3  4
+        Index in CAS:       0  1  2  3
+        Imp or Bath:        B  I  B  I
+   So in this case, FragPos = [1, 3] and BathPos = [0, 2], the index of the orbitals in the CAS indexing scheme.
+*/ 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos)
 {
     int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
@@ -26,10 +44,17 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
 
     int NextFragPos = 0;
     int CurrentBathPos = 0;
-    while(BathPos.size() < Input.FragmentOrbitals[FragmentIndex].size() || FragmentPos.size() < Input.FragmentOrbitals[FragmentIndex].size()) // Because there are Nimp bath orbitals.
+    /* The idea of the following loop is as follows. We are going to loop through each orbital and check whether we are looking at an impurity
+       or active bath orbital. Then we add the count for how many times we've been through the loop into the correct vector. */
+    // We loop through each orbital until both vectors have N_imp elements.
+    while(BathPos.size() < Input.FragmentOrbitals[FragmentIndex].size() || FragmentPos.size() < Input.FragmentOrbitals[FragmentIndex].size())
     {
-        if(NextFragPos < Input.FragmentOrbitals[FragmentIndex].size() && CurrentBathPos < Input.FragmentOrbitals[FragmentIndex].size())
+        if(NextFragPos < Input.FragmentOrbitals[FragmentIndex].size() && CurrentBathPos < Input.FragmentOrbitals[FragmentIndex].size()) // Means neither vector is "full"
         {
+            /* The first condition checks whether the next unaccounted active bath orbital is before the next unaccounted impurity
+               orbital. If that is true, then that means we should mark the next index as a bath orbital. We add the number of times 
+               we've been through the loop into the BathPos, and then start looking at the next bath orbital by incrementing CurrentBathPos.
+               If it is false, it means the next impurity orbital is before the next bath orbital, so we do the opposite */
             if(Input.EnvironmentOrbitals[FragmentIndex][CurrentBathPos + NumVirt] < Input.FragmentOrbitals[FragmentIndex][NextFragPos])
             {
                 BathPos.push_back(CurrentBathPos + NextFragPos);
@@ -41,7 +66,7 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
                 NextFragPos++;
             }
         }
-        else
+        else // Means one of the vectors is full, so just add the next few orbitals into the not full one until the size is appropriate.
         {
             if(NextFragPos == Input.FragmentOrbitals[FragmentIndex].size())
             {
@@ -57,8 +82,18 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
     }
 }
 
-// Takes index on the reduced space consisting of only impurity and bath orbitals and returns the actual orbital that index
-// points to.
+/* 
+   Takes index on the reduced space consisting of only impurity and bath orbitals and returns the actual orbital that index 
+   For example, consider the example above the previous function. In that case
+        Orbitals:   0 1 2 3 4
+        CAS Index:  . 0 1 2 3
+   where 2 and 4 are impurity orbitals. The CAS space has dimension 4 and if we are in position 3 (index 2), we want to know that
+   we are in orbital 3. This function takes the index (2) and gives the orbital (3). What this does is it takes the index and checks
+   whether than index is in the list of impurity or bath orbitals. Then it checks to see in what position that index is on. So if we
+   are looking at index 2 in the example, we know FragPos = [1, 3] and BathPos = [0, 2]. So index 2 is in BathPos. Then we count
+   which number element it is in the list, so in this case 2 is the second element in BathPos. Then we simply take the second
+   active bath orbital as the orbital it is pointing to.
+*/
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
 {
     int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
@@ -71,7 +106,7 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
     {
         PosOfIndex = std::find(BathPos.begin(), BathPos.end(),c);
         auto IndexOnList = std::distance(BathPos.begin(), PosOfIndex);
-        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt];
+        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt]; // Add NumVirt because the virtual orbitals are before the bath active orbitals.
     }
     else 
     {
@@ -142,18 +177,20 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
     RotationMatrix = Eigen::MatrixXd::Zero(NumAOImp + NumAOEnv, NumAOImp + NumAOEnv);
-    // // First, put the identity matrix in the blocks ocrresponding to the impurity.
-    // for(int i = 0; i < NumAOImp; i++)
-    // {
-    //     RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
-    // }
+
+    // First, put the identity matrix in the blocks ocrresponding to the impurity.
     for(int i = 0; i < NumAOImp; i++)
     {
-        for(int j = 0; j < NumAOImp; j++)
-        {
-            RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[j]) = ESDensityImp.eigenvectors().col(j)[i];
-        }
+        RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[i]) = 1;
     }
+    // for(int i = 0; i < NumAOImp; i++)
+    // {
+    //     for(int j = 0; j < NumAOImp; j++)
+    //     {
+    //         RotationMatrix(FragmentOrbitals[i], FragmentOrbitals[j]) = ESDensityImp.eigenvectors().col(j)[i];
+    //     }
+    // }
+
     // Then put the eigenvector matrix for the environment in the environment blocks.
     for(int a = 0; a < NumAOEnv; a++)
     {
@@ -394,6 +431,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
 
 int main(int argc, char* argv[])
 {
+    /* Read from the input */
     InputObj Input;
     if(argc == 4)
     {
@@ -409,24 +447,14 @@ int main(int argc, char* argv[])
 
     int NumAO = Input.NumAO;
     int NumOcc = Input.NumOcc;
-
     int NumFragments = Input.NumFragments;
-    // std::vector< std::vector< int > > FragmentOrbitals(NumFragments);
-    // std::vector< std::vector< int > > EnvironmentOrbitals(NumFragments);
-    // FragmentOrbitals[0].push_back(0); FragmentOrbitals[0].push_back(1);
-    // EnvironmentOrbitals[0].push_back(2); EnvironmentOrbitals[0].push_back(3);
-    // FragmentOrbitals[1].push_back(2); FragmentOrbitals[1].push_back(3);
-    // EnvironmentOrbitals[1].push_back(0); EnvironmentOrbitals[1].push_back(1);
-
-    /*****   STEP 1 *****/
-    /* Solve for full system at the RHF level of theory */
     
     // Begin by defining some variables.
-    std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // SCF is capable of metadynamics, but we won't touch this for now.
-    Eigen::MatrixXd HCore(NumAO, NumAO);
-    Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Initialize to Zero
-    BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore;
-    for(int i = 0; i < Input.NumOcc; i++)
+    std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
+    Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
+    Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+    BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
+    for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
     {
         DensityMatrix(i, i) = 1;
     }
@@ -443,9 +471,11 @@ int main(int argc, char* argv[])
     LambdaSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
     Eigen::MatrixXd SOrtho = EigensystemS.eigenvectors() * LambdaSOrtho * EigensystemS.eigenvectors().transpose(); // S^-1/2
 
+    /* These are the list of occupied and virtual orbitals of the full system calculation. This is necessary in case I want
+       to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
     std::vector< int > OccupiedOrbitals;
     std::vector< int > VirtualOrbitals;
-    for(int i = 0; i < NumOcc; i++) // Fix the lowest MOs as the occupied MO.
+    for(int i = 0; i < NumOcc; i++).
     {
         OccupiedOrbitals.push_back(i);
     }
@@ -454,52 +484,60 @@ int main(int argc, char* argv[])
         VirtualOrbitals.push_back(i);
     }
 
-    Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Don't think I need this.
-    int SCFCount = 0;
+    Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
+    int SCFCount = 0; // Counts how many SCF iterations have been done in total.
 
-    Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
-    Eigen::MatrixXd DMETPotentialPrev = DMETPotential;
+    Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Correlation potential. Will be optimize to match density matrices.
+    Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
 
     double DMETPotentialChange = 1;
-    while(fabs(DMETPotentialChange) > 1E-8)
+    while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
     {
-        // Solve the full system using RHF.
-        Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation.
+        // STEP 1: Solve the full system at the RHF level of theory.
+        Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
+        // These hold the density matrix and energies of each impurity.
         std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
-        std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments);
+        std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments); // Vector of double incase multiple solutions are desired from one impurity.
         std::vector< double > AllEnergies;
+
+        /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
+           We retreive the density matrix, coefficient matrix, and orbital EVs */
         SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
         
-        // Now start cycling through each fragment.
-        double ChemicalPotential = -0.75;
-        double CostMu = 100;
+        // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
+        double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
+        double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
-        double dCostMu = 1;
-        double StepSizeMu = 0.2;
-        double IterationsMu = 0;
-        while(fabs(CostMu - CostMuPrev) > 1E-8)
+        double StepSizeMu = 0.2; // How much to change chemical potential by each iteration. No good reason to choosing this number.
+        while(fabs(CostMu - CostMuPrev) > 1E-8) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
-            // std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments);
-            for(int x = 0; x < NumFragments; x++)
+            for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
-                int NumAOImp = Input.FragmentOrbitals[x].size();
-                int NumAOEnv = NumAO - NumAOImp;
+                // The density matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
+                int NumAOImp = Input.FragmentOrbitals[x].size(); // Number of impurity states.
+                int NumAOEnv = NumAO - NumAOImp; // The rest of the states.
 
-                Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
-                double FragmentOcc = 0;
-                int NumEnvVirt = NumAO - NumAOImp - NumOcc;
-                // This defines the bath space for the given impurity space. The density matrix is of the full system and it does not change.
+                Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // The matrix of our orbital rotation.
+                double FragmentOcc = 0; // Holds diagonal of impurity density matrix. This is likely a bad way to determine number of electrons.
+                int NumEnvVirt = NumAO - NumAOImp - NumOcc; // Number of virtual (environment) orbitals in the bath.
+                
+                // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
+                /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
+                   is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
 
                 /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
-                Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                
+                // First we rotate the density. Not needed but it should put us closer to the true answer.
+                Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); 
                 Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
                 ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
-                // Rotate the overlap matrix.
-                
-                Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix;
-                Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap);
-                Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO); // Holds the inverse sqrt matrix of eigenvalues of S ( Lambda^-1/2 )
+
+                // Rotate the overlap matrix. Very necessary to do SCF inside the impurity. Also the reason we need to keep the ordering of orbitals consistent */
+                Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix; // R^T S R = Rotated S
+                Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap); // Project out rows and columns not belonging to active impurity and bath space.
+                // Now use rotated S to get S^-1/2 in the rotated basis.
+                Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO);
                 std::vector<T> tripletList;
                 for(int i = 0; i < Input.NumAO; i++)
                 {
@@ -507,51 +545,43 @@ int main(int argc, char* argv[])
                 }
                 LambdaRotSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
                 Eigen::MatrixXd RotSOrtho = EigensystemRotS.eigenvectors() * LambdaRotSOrtho * EigensystemRotS.eigenvectors().transpose();
-                // Then project the overlap matrix into CAS
 
+                // Finally, project the rotated S and S^-1/2 into the CAS.
                 Eigen::MatrixXd CASSOrtho(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
                 Eigen::MatrixXd CASOverlap(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
                 ProjectCAS(CASSOrtho, RotSOrtho, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
                 ProjectCAS(CASOverlap, RotOverlap, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
 
+                // Some definitions I don't really need but I need it for the SCF function.
                 std::vector<double> tmpVec;
-                // FragmentEnergies.push_back(tmpVec);
                 FragmentEnergies[x].clear();
                 Eigen::MatrixXd FragmentCoeff;
+                // Now, run the impurity solver, which here is SCF.
                 SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
-                FragmentDensities[x] = CASDensity;
-
-                /* Match density to get u */
-                    /* Change u */
-                    /* Check SCF */
-                /* Repeat */
+                FragmentDensities[x] = CASDensity; // Save the density matrix after SCF calculation has converged.
             }
+            // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
             CostMu = CalcCostChemPot(FragmentDensities, Input);
-            // double DMETEnergy = 0;
-            // for(int x = 0; x < Input.NumFragments; x++)
-            // {
-            //     DMETEnergy += FragmentEnergies[x][0];
-            // }
-            // DMETEnergy += Input.Integrals["0 0 0 0"];
-            // std::cout << "ENERGY\t" << DMETEnergy << std::endl;
+
             std::cout << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
-            // Output << "ENERGY\t" << DMETEnergy << std::endl;
             Output << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
             /* Change mu somehow */
-            IterationsMu++;
-            // if(IterationsMu == 1) continue;
-            if((CostMu - CostMuPrev) > 0)
+            if((CostMu - CostMuPrev) > 0) // Means d(Cost) > 0, so the cost increased in this step.
             {
-                StepSizeMu /= -2;
+                StepSizeMu /= -2; // Move the opposite way and refine stepsize. This underflows sometime.
             }
-            ChemicalPotential += StepSizeMu;
+            ChemicalPotential += StepSizeMu; // Change chemical potential.
         }
+        // Now the number of electrons are converged and each fragment is calculated.
+        // Optimize the correlation potential to match the density matrix.
         DMETPotentialPrev = DMETPotential;
+        // The following does BFGS to optimize the match and change the correlation potential.
         UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output);
-        DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm();
+        DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         std::cout << "DMET Potential\n" << DMETPotential << std::endl;
 
+        // Calculate full systme energy from each fragment energy.
         double DMETEnergy = 0;
         for(int x = 0; x < Input.NumFragments; x++)
         {
@@ -559,9 +589,6 @@ int main(int argc, char* argv[])
         }
         DMETEnergy += Input.Integrals["0 0 0 0"];
         std::cout << "ENERGY: " << DMETEnergy << std::endl;
-
-        std::string tmpstring;
-        std::getline(std::cin, tmpstring);
     }
     return 0;
 }
