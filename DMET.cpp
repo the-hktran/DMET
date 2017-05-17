@@ -475,7 +475,7 @@ int main(int argc, char* argv[])
        to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
     std::vector< int > OccupiedOrbitals;
     std::vector< int > VirtualOrbitals;
-    for(int i = 0; i < NumOcc; i++).
+    for(int i = 0; i < NumOcc; i++)
     {
         OccupiedOrbitals.push_back(i);
     }

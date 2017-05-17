@@ -14,6 +14,7 @@
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 
+/* Calculates the derivative of the low level density matrix with respect to potential matrix element u_rs */
 double CalcdDrs(int r, int s, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
 {
     Eigen::VectorXd rComponentOcc(OccupiedOrbitals.size());
