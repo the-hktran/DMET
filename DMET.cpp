@@ -503,7 +503,7 @@ int main(int argc, char* argv[])
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
         SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        
+
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.

@@ -17,6 +17,8 @@
 #include <Eigen/SpectrA/Util/SelectionRule.h>
 
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
+double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
+double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
 
 int BinomialCoeff(int n, int k) // n choose k
 {
@@ -211,7 +213,7 @@ std::vector<unsigned short int> ListDifference(std::vector<bool> BraString, std:
 }
 
 /* This function calculated <mn||kl> and takes as arguments, the orbital numbers, the spin of the orbitals, and the map */
-float TwoElectronIntegral(unsigned short int m, unsigned short int n, unsigned short int k, unsigned short int l, bool m_isAlpha, bool n_isAlpha, bool k_isAlpha, bool l_isAlpha, std::map<std::string, double> &Integrals)
+float TwoElectronIntegral(unsigned short int m, unsigned short int n, unsigned short int k, unsigned short int l, bool m_isAlpha, bool n_isAlpha, bool k_isAlpha, bool l_isAlpha, std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix)
 {
     double mknl = 0; // First term. (mk|nl)
     double mlnk = 0; // Second term. (ml|nk)
@@ -223,7 +225,8 @@ float TwoElectronIntegral(unsigned short int m, unsigned short int n, unsigned s
     }
     else
     {
-        mknl = Integrals[std::to_string(m) + " " + std::to_string(k) + " " + std::to_string(n) + " " + std::to_string(l)];
+        mknl = TwoElectronEmbedding(Integrals, RotationMatrix, m - 1, n - 1, k - 1, l - 1);
+        // Integrals[std::to_string(m) + " " + std::to_string(k) + " " + std::to_string(n) + " " + std::to_string(l)];
     }
     /* Now, the second term */
     if((m_isAlpha != l_isAlpha) || (n_isAlpha != k_isAlpha))
@@ -232,7 +235,8 @@ float TwoElectronIntegral(unsigned short int m, unsigned short int n, unsigned s
     }
     else
     {
-        mlnk = Integrals[std::to_string(m) + " " + std::to_string(l) + " " + std::to_string(n) + " " + std::to_string(k)];
+        mlnk = TwoElectronEmbedding(Integrals, RotationMatrix, m - 1, n - 1, l - 1, k - 1);
+        // Integrals[std::to_string(m) + " " + std::to_string(l) + " " + std::to_string(n) + " " + std::to_string(k)];
     }
     return mknl - mlnk;
 }
@@ -255,22 +259,26 @@ short int CountOrbitalPosition(unsigned short int Orbital, bool isAlpha, std::ve
     return Count;
 }
 
-void ImpurityFCI(InputObj &Input, int FragmentIndex)
+void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix)
 {
     int NumAOImp = Input.FragmentOrbitals[x].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
     int NumCore = Input.NumOcc - NumAOImp;
 
     /* There doesn't seem to be any method that chooses number of electrons */
-    int aElectrons = 2 * NumAOImp;
-    int bElectrons = 2 * NumAOImp;
+    int aElectrons = Input.NumOcc; // 2 * NumAOImp + NumCore;
+    int bElectrons = Input.NumOcc; // 2 * NumAOImp + NumCore;
+    int aElectronsCAS = NumAOImp; // N_occ - N_core
+    int bElectronsCAS = NumAOImp;
     int aOrbitals = Input.NumAO;
     int bOrbitals = Input.NumAO;
-    int aCAS = 2 * NumAOImp + NumAOVirt;
-    int bCAS = 2 * NumAOImp + NumAOVirt;
+    int aCAS = NumAOImp + NumVirt;
+    int bCAS = NumAOImp + NumVirt;
     int NumberOfEV = Input.NumberOfEV; // Number of eigenvalues desired from Davidson Diagonalization
-    int aDim = BinomialCoeff(aCAS, aElectrons);
-    int bDim = BinomialCoeff(bCAS, bElectrons);
+    // int aDim = BinomialCoeff(aOrbitals, aElectrons);
+    // int bDim = BinomialCoeff(bOrbitals, bElectrons);
+    int aDim = BinomialCoeff(aCAS, aElectronsCAS);
+    int bDim = BinomialCoeff(bCAS, aElectronsCAS);
     int Dim = aDim * bDim;
     int L = NumberOfEV + 50; // Dimension of starting subspace in Davidson Diagonalization
     if(L > Dim)
@@ -283,11 +291,12 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
     std::vector< std::vector<bool> > aStrings;
     std::vector< std::vector<bool> > bStrings;
 
-    std::ofstream Output(Input.OutputName);
-    Output << "FCI Calculation\n\nInput File: " << Input.InputName << "\n\nNumber of Alpha Electrons: " << aElectrons << 
-    "\nNumber of Alpha Orbitals: " << aOrbitals << "\nNumber of Beta Electrons: " << bElectrons << "\nNumber of Beta Orbitals: "
-    << bOrbitals << "\nDimension of Space: " << aDim << " x " << bDim << " = " << Dim << "\n\nLooking for " << NumberOfEV << 
-    " solutions.\n" << std::endl;
+    // std::ofstream Output(Input.OutputName);
+    // Output << "FCI Calculation\n\nInput File: " << Input.InputName << "\n\nNumber of Alpha Electrons: " << aElectrons << 
+    // "\nNumber of Alpha Orbitals: " << aOrbitals << "\nNumber of Beta Electrons: " << bElectrons << "\nNumber of Beta Orbitals: "
+    // << bOrbitals << "\nDimension of Space: " << aDim << " x " << bDim << " = " << Dim << "\n\nLooking for " << NumberOfEV << 
+    // " solutions.\n" << std::endl;
+
     // clock_t Start = clock();
     double Start = omp_get_wtime();
 
@@ -295,21 +304,21 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
     for(int i = 0; i < aDim; i++)
     {
         std::vector<bool> tmpVec;
-        for(int j = 0; j < NumCore; j++) // This loop adds the core orbitals and enforces that they be occupied.
+        GetOrbitalString(i, aElectronsCAS, aOrbitals, tmpVec); // Get binary string for active space orbitals.
+        for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
-            tmpVec.push_back(true);
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[c], true);
         }
-        GetOrbitalString(i, aElectrons, aOrbitals, tmpVec); // Then tack on the active space orbitals.
         aStrings.push_back(tmpVec);
     }
     for(int i = 0; i < bDim; i++)
     {
-        for(int j = 0; j < NumCore; j++) 
-        {
-            tmpVec.push_back(true);
-        }
         std::vector<bool> tmpVec;
-        GetOrbitalString(i, bElectrons, bOrbitals, tmpVec);
+        GetOrbitalString(i, aElectronsCAS, aOrbitals, tmpVec); // Get binary string for active space orbitals.
+        for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
+        {
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[c], true);
+        }
         bStrings.push_back(tmpVec);
     }
 
@@ -366,9 +375,9 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
 
     unsigned int NonzeroElements = Dim + aSingleDifference.size() * bDim * 2 + bSingleDifference.size() * aDim * 2 + aDoubleDifference.size() * bDim * 2
     + bDoubleDifference.size() * aDim * 2 + aSingleDifference.size() * bSingleDifference.size() * 4;
-    Output << "Number of alpha singles: " << aSingleDifference.size() << "\nNumber of beta singles: " << bSingleDifference.size() 
-    << "\nNumber of alpha doubles: " << aDoubleDifference.size() << "\nNumber of beta doubles: " << bDoubleDifference.size() 
-    << "\nChecking " << NonzeroElements << " elements.\n" << std::endl;
+    //Output << "Number of alpha singles: " << aSingleDifference.size() << "\nNumber of beta singles: " << bSingleDifference.size() 
+    //<< "\nNumber of alpha doubles: " << aDoubleDifference.size() << "\nNumber of beta doubles: " << bDoubleDifference.size() 
+    //<< "\nChecking " << NonzeroElements << " elements.\n" << std::endl;
 
     std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;;
     Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
@@ -414,11 +423,11 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
             /* One electron operator */
             for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
             {
-                tmpDoubleD += Input.Integrals[std::to_string(aOrbitalList[i][ii]) + " " + std::to_string(aOrbitalList[i][ii]) + " 0 0"]; // h_ii
+                tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
             }
             for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
             {
-                tmpDoubleD += Input.Integrals[std::to_string(bOrbitalList[j][jj]) + " " + std::to_string(bOrbitalList[j][jj]) + " 0 0"];
+                tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[i][ii] - 1, bOrbitalList[i][ii] - 1);
             }
             /* Two electron operator in the notation <mn||mn> */
             std::vector<unsigned short int> abOrbitalList = aOrbitalList[i]; // List of all orbitals, starting with alpha.
@@ -431,7 +440,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
                     bool m_isAlpha = true;
                     if(n > aElectrons - 1) n_isAlpha = false; // Means we have looped through the alpha orbitals and are now looking at a beta orbital
                     if(m > aElectrons - 1) m_isAlpha = false;
-                    tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals);
+                    tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
@@ -441,7 +450,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
         tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
     }
     std::cout << "FCI: ...diagonal elements completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    Output << "Diagonal elements generated in " << (omp_get_wtime() - Timer)  << " seconds." << std::endl;
+    // Output << "Diagonal elements generated in " << (omp_get_wtime() - Timer)  << " seconds." << std::endl;
     // Timer = clock();
     Timer = omp_get_wtime();
 
@@ -494,7 +503,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
         unsigned int Index1, Index2;
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
-        tmpDouble1 += Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
+        tmpDouble1 += OneElectronEmbedding(Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
         // Now, two electron contribution
         for(unsigned int j = 0; j < bDim; j++)
         {
@@ -507,7 +516,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
                 bool n_isAlpha = true; // Checks if we are looking at an alpha electron.
                 if(n > aElectrons - 1) n_isAlpha = false; // There are aElectrons alpha orbitals at the front of the list. After this, we are done looping over alpha orbitals.
                 if(n + 1 == pos_m) continue; // n shouldn't loop over different orbitals. We're looping over ket orbitals, so ignore the m.
-                tmpDouble2 += TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(aSingleDifference[i])[1], KetOrbitalList[n], true, n_isAlpha, true, n_isAlpha, Input.Integrals);
+                tmpDouble2 += TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(aSingleDifference[i])[1], KetOrbitalList[n], true, n_isAlpha, true, n_isAlpha, Input.Integrals, RotationMatrix);
                 // For this case, we know that m and p orbitals are alpha. n may or may not be alpha depending on the index of the sum.
             }
 
@@ -557,7 +566,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
         unsigned int Index1, Index2;
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
-        tmpDouble1 += Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
+        tmpDouble1 += OneElectronEmbedding(Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
         // Now, two electron contribution
         for(unsigned int j = 0; j < aDim; j++)
         {
@@ -570,7 +579,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
                 bool n_isAlpha = true; // Checks if we are looking at an alpha electron.
                 if(n > aElectrons - 1) n_isAlpha = false; // Finished looping over all alpha electrons.
                 if(n + 1 == pos_m) continue; // n shouldn't loop over different orbitals. We're looping over ket orbitals, so ignore the m.
-                tmpDouble2 += TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(bSingleDifference[i])[1], KetOrbitalList[n], false, n_isAlpha, false, n_isAlpha, Input.Integrals);
+                tmpDouble2 += TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(bSingleDifference[i])[1], KetOrbitalList[n], false, n_isAlpha, false, n_isAlpha, Input.Integrals, RotationMatrix);
                 // In this case, both the unique orbitals are beta orbitals.
             }
 
@@ -612,7 +621,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
                we only need to calculate the two electron integral involving the two differing orbitals and we know that
                both of these orbitals hold alpha electrons. */
             double tmpDouble;
-            tmpDouble = TwoElectronIntegral(std::get<3>(aDoubleDifference[i])[0], std::get<3>(aDoubleDifference[i])[1], std::get<3>(aDoubleDifference[i])[2], std::get<3>(aDoubleDifference[i])[3], true, true, true, true, Input.Integrals);
+            tmpDouble = TwoElectronIntegral(std::get<3>(aDoubleDifference[i])[0], std::get<3>(aDoubleDifference[i])[1], std::get<3>(aDoubleDifference[i])[2], std::get<3>(aDoubleDifference[i])[3], true, true, true, true, Input.Integrals, RotationMatrix);
             // The four electron differences, all of them alpha electrons.
 
             if(fabs(tmpDouble) < MatTol) continue;
@@ -639,7 +648,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
         for(unsigned int j = 0; j < aDim; j++)
         {
             double tmpDouble;
-            tmpDouble = TwoElectronIntegral(std::get<3>(bDoubleDifference[i])[0], std::get<3>(bDoubleDifference[i])[1], std::get<3>(bDoubleDifference[i])[2], std::get<3>(bDoubleDifference[i])[3], false, false, false, false, Input.Integrals);
+            tmpDouble = TwoElectronIntegral(std::get<3>(bDoubleDifference[i])[0], std::get<3>(bDoubleDifference[i])[1], std::get<3>(bDoubleDifference[i])[2], std::get<3>(bDoubleDifference[i])[3], false, false, false, false, Input.Integrals, RotationMatrix);
             // The four electron differences, all of them beta electrons.
 
             if(fabs(tmpDouble) < MatTol) continue;
@@ -676,7 +685,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex)
         for(unsigned int j = 0; j < bSingleDifference.size() - H2OMemoryWorkAround; j++)
         {
             double tmpDouble;
-            tmpDouble = TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], std::get<3>(bSingleDifference[j])[0], std::get<3>(aSingleDifference[i])[1], std::get<3>(bSingleDifference[j])[1], true, false, true, false, Input.Integrals);
+            tmpDouble = TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], std::get<3>(bSingleDifference[j])[0], std::get<3>(aSingleDifference[i])[1], std::get<3>(bSingleDifference[j])[1], true, false, true, false, Input.Integrals, RotationMatrix);
             /* There is one alpha and one beta orbital mismatched between the bra and ket. According to the formula, we put the bra unique orbitals in first,
                which are the first two arguments, the first one alpha and the second one beta. Then the next two arguments are the unique orbitals
                of the ket. We know whether these electrons are alpha or beta. */
