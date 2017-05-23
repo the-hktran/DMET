@@ -17,6 +17,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::ofstream &Output);
+void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential);
 
 
 /* 
@@ -557,6 +558,7 @@ int main(int argc, char* argv[])
                 FragmentEnergies[x].clear();
                 Eigen::MatrixXd FragmentCoeff;
                 // Now, run the impurity solver, which here is SCF.
+                ImpurityFCI(Input, x, RotationMatrix, ChemicalPotential);
                 SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = CASDensity; // Save the density matrix after SCF calculation has converged.
             }

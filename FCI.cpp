@@ -259,31 +259,66 @@ short int CountOrbitalPosition(unsigned short int Orbital, bool isAlpha, std::ve
     return Count;
 }
 
-void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix)
+short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetString, std::vector<int> FragmentOrbitals)
 {
-    int NumAOImp = Input.FragmentOrbitals[x].size();
+    short int Count = 0;
+    for(int i = 0; i < FragmentOrbitals.size(); i++)
+    {
+        if(BraString[FragmentOrbitals[i]])
+        {
+            if(KetString[FragmentOrbitals[i]])
+            {
+                Count++;
+            }
+        }
+    }
+    return Count;
+}
+
+// This is here for debugging purposes.
+void PrintBinaryStrings(std::vector< std::vector< bool > > Strings)
+{
+    for(int i = 0; i < Strings.size(); i++)
+    {
+        for(int j = 0; j < Strings[i].size(); j++)
+        {
+            std::cout << Strings[i][j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+void PauseHere()
+{
+    std::string tmpstring;
+    std::getline(std::cin, tmpstring);
+}
+
+void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
+{
+    int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
     int NumCore = Input.NumOcc - NumAOImp;
 
     /* There doesn't seem to be any method that chooses number of electrons */
     int aElectrons = Input.NumOcc; // 2 * NumAOImp + NumCore;
     int bElectrons = Input.NumOcc; // 2 * NumAOImp + NumCore;
-    int aElectronsCAS = NumAOImp; // N_occ - N_core
+    int aElectronsCAS = NumAOImp; // N_occ - N_core?????????????
     int bElectronsCAS = NumAOImp;
     int aOrbitals = Input.NumAO;
     int bOrbitals = Input.NumAO;
-    int aCAS = NumAOImp + NumVirt;
-    int bCAS = NumAOImp + NumVirt;
-    int NumberOfEV = Input.NumberOfEV; // Number of eigenvalues desired from Davidson Diagonalization
+    int aCAS = 2 * NumAOImp + NumVirt;
+    int bCAS = 2 * NumAOImp + NumVirt;
+    int NumberOfEV = 1; // Input.NumberOfEV; // Number of eigenvalues desired from Davidson Diagonalization
     // int aDim = BinomialCoeff(aOrbitals, aElectrons);
     // int bDim = BinomialCoeff(bOrbitals, bElectrons);
     int aDim = BinomialCoeff(aCAS, aElectronsCAS);
     int bDim = BinomialCoeff(bCAS, aElectronsCAS);
     int Dim = aDim * bDim;
     int L = NumberOfEV + 50; // Dimension of starting subspace in Davidson Diagonalization
-    if(L > Dim)
+    while(L > Dim)
     {
-        L = NumberOfEV;
+        L /= 10;
     }
 
     double MatTol = 1E-12; // Zeros elements below this threshold, significiantly reduces storage requirements.
@@ -304,20 +339,20 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     for(int i = 0; i < aDim; i++)
     {
         std::vector<bool> tmpVec;
-        GetOrbitalString(i, aElectronsCAS, aOrbitals, tmpVec); // Get binary string for active space orbitals.
+        GetOrbitalString(i, aElectronsCAS, aCAS, tmpVec); // Get binary string for active space orbitals.
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
-            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[c], true);
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][c], true);
         }
         aStrings.push_back(tmpVec);
     }
     for(int i = 0; i < bDim; i++)
     {
         std::vector<bool> tmpVec;
-        GetOrbitalString(i, aElectronsCAS, aOrbitals, tmpVec); // Get binary string for active space orbitals.
+        GetOrbitalString(i, bElectronsCAS, bCAS, tmpVec); // Get binary string for active space orbitals.
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
-            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[c], true);
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][c], true);
         }
         bStrings.push_back(tmpVec);
     }
@@ -326,6 +361,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > aDoubleDifference;
     unsigned short int tmpInt;
     std::tuple<unsigned short int, unsigned short int, short int, std::vector<unsigned short int>> tmpTuple;
+
     for(unsigned int i = 0; i < aDim; i++)
     {
         for(unsigned int j = i + 1; j < aDim; j++)
@@ -344,10 +380,10 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
                 std::vector<unsigned short int> tmpVec = ListDifference(aStrings[i], aStrings[j]);
                 tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
                 aDoubleDifference.push_back(tmpTuple);
-
             }
         }
     }
+
     std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > bSingleDifference;
     std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > bDoubleDifference;
     for(unsigned int i = 0; i < bDim; i++)
@@ -368,7 +404,6 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
                 std::vector<unsigned short int> tmpVec = ListDifference(bStrings[i], bStrings[j]);
                 tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
                 bDoubleDifference.push_back(tmpTuple);
-
             }
         }
     }
@@ -379,7 +414,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     //<< "\nNumber of alpha doubles: " << aDoubleDifference.size() << "\nNumber of beta doubles: " << bDoubleDifference.size() 
     //<< "\nChecking " << NonzeroElements << " elements.\n" << std::endl;
 
-    std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;;
+    std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;
     Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
     // Ham.reserve(Eigen::VectorXi::Constant(Dim,NonzeroElements));
     // clock_t Timer = clock();
@@ -427,7 +462,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
             }
             for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
             {
-                tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[i][ii] - 1, bOrbitalList[i][ii] - 1);
+                tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
             }
             /* Two electron operator in the notation <mn||mn> */
             std::vector<unsigned short int> abOrbitalList = aOrbitalList[i]; // List of all orbitals, starting with alpha.
@@ -443,6 +478,9 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
                     tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
+            int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]);
+            NumSameImp = NumSameImp + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
+            tmpDoubleD = tmpDoubleD - ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
         }
@@ -503,7 +541,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
         unsigned int Index1, Index2;
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
-        tmpDouble1 += OneElectronEmbedding(Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
+        tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
         // Now, two electron contribution
         for(unsigned int j = 0; j < bDim; j++)
         {
@@ -566,7 +604,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
         unsigned int Index1, Index2;
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
-        tmpDouble1 += OneElectronEmbedding(Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
+        tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
         // Now, two electron contribution
         for(unsigned int j = 0; j < aDim; j++)
         {
@@ -598,7 +636,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     }
 
     std::cout << "FCI: ...elements differing by one spin-orbital completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    Output << "Elements differing by one spin-orbital generated in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+    // Output << "Elements differing by one spin-orbital generated in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
 
     // Timer = clock();
     Timer = omp_get_wtime();
@@ -735,7 +773,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
 
 
     std::cout << "FCI: ...elements differing by two spin-orbitals completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    Output << "Elements differing by two spin-orbitals generated in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+    // Output << "Elements differing by two spin-orbitals generated in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
 
     // for(int Thread = 0; Thread < NumThreads; Thread++)
     // {
@@ -747,7 +785,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     std::vector<T>().swap(tripletList); // This clears the memory, but I'm unsure if it does or doesn't increase the memory usage to do so
 
     std::cout << "FCI: Hamiltonian initialization took " << (omp_get_wtime() - Start) << " seconds." << std::endl;
-    Output << "\nHamiltonian initialization took " << (omp_get_wtime() - Start) << " seconds." << std::endl;
+    // Output << "\nHamiltonian initialization took " << (omp_get_wtime() - Start) << " seconds." << std::endl;
 
     /* Prints matrix, used for error checking on my part */
     // Eigen::MatrixXf HD = Ham;
@@ -761,28 +799,28 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     Davidson(Ham, Dim, NumberOfEV, L, DavidsonEV);
     std::cout << "FCI: ...done" << std::endl;
     std::cout << "FCI: Davidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    Output << "\nDavidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
+    // Output << "\nDavidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
     for(int k = 0; k < NumberOfEV; k++)
     {
-        Output << "\n" << DavidsonEV[k];
+        // Output << "\n" << DavidsonEV[k];
     }
 
     /* This section is for direct diagonalization. Uncomment if desired. */
-    // Timer = omp_get_wtime();
-    // std::cout << "FCI: Beginning Direct Diagonalization... ";
-    // Eigen::MatrixXf HamDense = Ham;
-    // Eigen::SelfAdjointEigenSolver< Eigen::MatrixXf > HamEV;
-    // HamEV.compute(HamDense);
+    Timer = omp_get_wtime();
+    std::cout << "FCI: Beginning Direct Diagonalization... ";
+    Eigen::MatrixXf HamDense = Ham;
+    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXf > HamEV;
+    HamEV.compute(HamDense);
 
-    // std::cout << " done" << std::endl;
-    // std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    // Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
-    // std::cout << "FCI: The eigenvaues are";
-    // for(int k = 0; k < NumberOfEV; k++)
-    // {
-    //     std::cout << "\n" << HamEV.eigenvalues()[k];
-    //     Output << "\n" << HamEV.eigenvalues()[k];
-    // }
+    std::cout << " done" << std::endl;
+    std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+ //   Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
+    std::cout << "FCI: The eigenvaues are";
+    for(int k = 0; k < NumberOfEV; k++)
+    {
+        std::cout << "\n" << HamEV.eigenvalues()[k];
+//        Output << "\n" << HamEV.eigenvalues()[k];
+    }
 
     /* This part is not needed */
     // Spectra::SparseGenMatProd<float> op(Ham);
@@ -796,10 +834,10 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     // Output << HamEV.eigenvalues() << std::endl;
     
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
-    Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
+    // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
 
     // std::ofstream OutputHamiltonian(Input.OutputName + ".ham");
     // OutputHamiltonian << HamDense << std::endl;
 
-    return 0;
+    // return 0;
 }
