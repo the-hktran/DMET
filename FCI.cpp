@@ -19,6 +19,8 @@
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
+void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
 
 int BinomialCoeff(int n, int k) // n choose k
 {
@@ -275,6 +277,99 @@ short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetSt
     return Count;
 }
 
+double Calc1RDMElement(int i, int j, std::vector<bool> aStrings, std::vector<bool> bStrings)
+{
+    for(int p = 0; p < aStrings.size(); p++)
+    
+}
+
+int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<bool> KetBefore, int KetRemoved)
+{
+    std::vector<bool> BraAfter, KetAfter;
+    for(int i = 0; i < BraBefore.size(); i++)
+    {
+        if(i == BraRemoved)
+        {
+            continue;
+        }
+        else
+        {
+            BraAfter.push_back(BraBefore[i]);
+        }
+    }
+    for(int i = 0; i < KetBefore.size(); i++)
+    {
+        if(i == KetRemoved)
+        {
+            continue;
+        }
+        else
+        {
+            KetAfter.push_back(KetBefore[i]);
+        }
+    }
+    int Diff = CountDifferences(BraAfter, KetAfter);
+    return Diff;
+}
+
+Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXd &Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
+{
+    std::vector<int> FragPos;
+    std::vector<int> BathPos;
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+
+    int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
+    int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
+    Eigen::MatrixXd DensityMatrix(2 * NumAOImp, 2 * NumAOImp);
+    for(int i = 0; i < 2 * NumAOImp; i++)
+    {
+        for(int j = 0; j < 2 * NumAOImp; j++)
+        {
+            double Dij = 0;
+            /* We are looking at element < a_i^\dagger a_j > so this kills any element in the bra without orbital i and any element in the
+               ket with orbital j. */
+            // Determine which orbital we are looking at, since i and j loop over the CAS index and not the real orbitals.
+            int iOrbital = ReducedIndexToOrbital(i, Input, FragmentIndex);
+            int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
+            // Now check which determinants have this orbital.
+            std::vector< std::pair< int, int > > iContainingDets;
+            std::vector< std::pair< int, int > > jContainingDets;
+            for(int m = 0; m < aStrings.size(); m++)
+            {
+                for(int n = 0; n < bStrings.size(); n++)
+                {
+                    std::pair tmpPair;
+                    if(aStrings[m][iOrbital] && bStrings[n][iOrbital])
+                    {
+                        tmpPair = std::make_pair(m, n);
+                        iContainingDets.push_back(tmpPair);
+                    }
+                    if(aStrings[m][jOrbital] && bStrings[n][jOrbital])
+                    {
+                        tmpPair = std::make_pair(m, n);
+                        jContainingDets.push_back(tmpPair);
+                    }
+                } // end loop over b strings
+            } // end loop over a strings
+            for(int l = 0; l < iContainingDets.size(); l++)
+            {
+                for(int k = 0; k < jContainingDets; k++)
+                {
+                    int Diff = AnnihilateAndCount(aStrings[iContainingDets[l].first], iOrbital, aStrings[jContainingDets[k].first], jOrbital)
+                             + AnnihilateAndCount(bStrings[iContainingDets[l].second], jOrbital, bStrings[jContainingDets[k].second], jOrbital);
+                    if(Diff > 0)
+                    {
+                        continue;
+                    }
+                    Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size(0)] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size(0)];
+                }
+            }
+            DensityMatrix(i, j) = Dij;
+        } // end loop over j
+    } // end loop over i
+    return DensityMatrix;
+}
+
 // This is here for debugging purposes.
 void PrintBinaryStrings(std::vector< std::vector< bool > > Strings)
 {
@@ -342,7 +437,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
         GetOrbitalString(i, aElectronsCAS, aCAS, tmpVec); // Get binary string for active space orbitals.
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
-            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][c], true);
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
         }
         aStrings.push_back(tmpVec);
     }
@@ -352,7 +447,7 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
         GetOrbitalString(i, bElectronsCAS, bCAS, tmpVec); // Get binary string for active space orbitals.
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
-            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][c], true);
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
         }
         bStrings.push_back(tmpVec);
     }
