@@ -277,12 +277,6 @@ short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetSt
     return Count;
 }
 
-double Calc1RDMElement(int i, int j, std::vector<bool> aStrings, std::vector<bool> bStrings)
-{
-    for(int p = 0; p < aStrings.size(); p++)
-    
-}
-
 int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<bool> KetBefore, int KetRemoved)
 {
     std::vector<bool> BraAfter, KetAfter;
@@ -312,7 +306,7 @@ int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<
     return Diff;
 }
 
-Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXd &Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
+Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
     std::vector<int> FragPos;
     std::vector<int> BathPos;
@@ -331,37 +325,43 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXd &Ei
             // Determine which orbital we are looking at, since i and j loop over the CAS index and not the real orbitals.
             int iOrbital = ReducedIndexToOrbital(i, Input, FragmentIndex);
             int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
-            // Now check which determinants have this orbital.
-            std::vector< std::pair< int, int > > iContainingDets;
-            std::vector< std::pair< int, int > > jContainingDets;
+            // Now check which determinants have this orbital in both alpha and beta determinants, since we annihilate both.
+            std::vector< std::pair< int, int > > iContainingDets; // Which alpha and beta determinant pairs that both contain i.
+            std::vector< std::pair< int, int > > jContainingDets; // Which alpha and beta determinant pairs that both contain j.
             for(int m = 0; m < aStrings.size(); m++)
             {
                 for(int n = 0; n < bStrings.size(); n++)
                 {
-                    std::pair tmpPair;
-                    if(aStrings[m][iOrbital] && bStrings[n][iOrbital])
+                    std::pair<int, int> tmpPair;
+                    if(aStrings[m][iOrbital] && bStrings[n][iOrbital]) // Both contain i
                     {
                         tmpPair = std::make_pair(m, n);
                         iContainingDets.push_back(tmpPair);
                     }
-                    if(aStrings[m][jOrbital] && bStrings[n][jOrbital])
+                    if(aStrings[m][jOrbital] && bStrings[n][jOrbital]) // Both contain j
                     {
                         tmpPair = std::make_pair(m, n);
                         jContainingDets.push_back(tmpPair);
                     }
                 } // end loop over b strings
             } // end loop over a strings
+            /* Now we calculate the element <alpha|alpha><beta|beta> after removing the orbitals associated with the annihilation operator.
+               Since we are looking at <a_i^\dagger a_j>, the iOrbital is removed from the alpha bra and the j orbital is removed from the
+               alpha ket. Then the differences between the new bra and ket are calculated. Then the same is done for the beta bra and KetString
+               and the differences are totalled. The alpha and beta kets are done separately since the integrals over alpha and beta orbitals
+               are done separately. If there is any difference, the integrals go to zero since the determinants are orthogonal. If there is
+               no difference, the coefficients corresponding to the determinants are added multipled and added to the matrix element. */
             for(int l = 0; l < iContainingDets.size(); l++)
             {
-                for(int k = 0; k < jContainingDets; k++)
+                for(int k = 0; k < jContainingDets.size(); k++)
                 {
                     int Diff = AnnihilateAndCount(aStrings[iContainingDets[l].first], iOrbital, aStrings[jContainingDets[k].first], jOrbital)
-                             + AnnihilateAndCount(bStrings[iContainingDets[l].second], jOrbital, bStrings[jContainingDets[k].second], jOrbital);
-                    if(Diff > 0)
+                             + AnnihilateAndCount(bStrings[iContainingDets[l].second], iOrbital, bStrings[jContainingDets[k].second], jOrbital);
+                    if(Diff > 0) // Different determinants, orthogonal and integrals to zero
                     {
                         continue;
                     }
-                    Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size(0)] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size(0)];
+                    Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size()] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size()];
                 }
             }
             DensityMatrix(i, j) = Dij;
@@ -389,7 +389,7 @@ void PauseHere()
     std::getline(std::cin, tmpstring);
 }
 
-void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
+std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
 {
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -888,17 +888,18 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     // PrintHam << HD << std::endl;
     // return 0;
     
-    Timer = omp_get_wtime();
-    std::cout << "FCI: Beginning Davidson Diagonalization... " << std::endl;
-    std::vector< double > DavidsonEV;
-    Davidson(Ham, Dim, NumberOfEV, L, DavidsonEV);
-    std::cout << "FCI: ...done" << std::endl;
-    std::cout << "FCI: Davidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    // Output << "\nDavidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
-    for(int k = 0; k < NumberOfEV; k++)
-    {
-        // Output << "\n" << DavidsonEV[k];
-    }
+    /* These section is for Davidson diagonalization */
+    // Timer = omp_get_wtime();
+    // std::cout << "FCI: Beginning Davidson Diagonalization... " << std::endl;
+    // std::vector< double > DavidsonEV;
+    // Davidson(Ham, Dim, NumberOfEV, L, DavidsonEV);
+    // std::cout << "FCI: ...done" << std::endl;
+    // std::cout << "FCI: Davidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+    // // Output << "\nDavidson Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
+    // for(int k = 0; k < NumberOfEV; k++)
+    // {
+    //     // Output << "\n" << DavidsonEV[k];
+    // }
 
     /* This section is for direct diagonalization. Uncomment if desired. */
     Timer = omp_get_wtime();
@@ -911,22 +912,15 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
  //   Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
     std::cout << "FCI: The eigenvaues are";
+    std::vector< double > FCIEnergies;
     for(int k = 0; k < NumberOfEV; k++)
     {
+        FCIEnergies.push_back(HamEV.eigenvalues()[k]);
         std::cout << "\n" << HamEV.eigenvalues()[k];
 //        Output << "\n" << HamEV.eigenvalues()[k];
     }
 
-    /* This part is not needed */
-    // Spectra::SparseGenMatProd<float> op(Ham);
-    // Spectra::SymEigsSolver< float, Spectra::LARGEST_MAGN, Spectra::SparseGenMatProd<float> > HamEV(&op, NumberOfEV, Dim / 10);
-    // HamEV.init();
-    // int nconv = HamEV.compute();
-    // std::cout << " done" << std::endl;
-    // std::cout << "FCI: The eigenvalues are\n" << HamEV.eigenvalues() << std::endl;
-    // std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
-    // Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
-    // Output << HamEV.eigenvalues() << std::endl;
+    DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
     
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
@@ -934,5 +928,5 @@ void ImpurityFCI(InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMa
     // std::ofstream OutputHamiltonian(Input.OutputName + ".ham");
     // OutputHamiltonian << HamDense << std::endl;
 
-    // return 0;
+    return FCIEnergies;
 }
