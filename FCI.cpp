@@ -608,6 +608,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 
     std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;
     Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
+	Eigen::MatrixXf HCore = Eigen::MatrixXf::Zero(Dim, Dim); // One particle Hamiltonian.
     // Ham.reserve(Eigen::VectorXi::Constant(Dim,NonzeroElements));
     // clock_t Timer = clock();
     double Timer = omp_get_wtime();
@@ -646,7 +647,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         {
             double tmpDoubleD = 0;
             /* Zero electron operator */
-            tmpDoubleD += NuclearEnergy; // Nuclear potential.
+            // tmpDoubleD += NuclearEnergy; // Nuclear potential.
             /* One electron operator */
             for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
             {
@@ -656,6 +657,13 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
             }
+
+			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]);
+			NumSameImp = NumSameImp + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
+			tmpDoubleD = tmpDoubleD - ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
+
+			HCore(i + j * aDim, i + j * aDim) += tmpDoubleD;
+
             /* Two electron operator in the notation <mn||mn> */
             std::vector<unsigned short int> abOrbitalList = aOrbitalList[i]; // List of all orbitals, starting with alpha.
             abOrbitalList.insert(abOrbitalList.end(), bOrbitalList[j].begin(), bOrbitalList[j].end());
@@ -670,9 +678,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                     tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
-            int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]);
-            NumSameImp = NumSameImp + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
-            tmpDoubleD = tmpDoubleD - ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
         }
@@ -759,6 +764,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
+			HCore(Index1, Index2) += (double)std::get<2>(aSingleDifference[i]) * tmpDouble1;
+			HCore(Index2, Index1) += (double)std::get<2>(aSingleDifference[i]) * tmpDouble1;
         }
         #pragma omp critical
         tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
@@ -822,6 +829,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
+			HCore(Index1, Index2) += (double)std::get<2>(bSingleDifference[i]) * tmpDouble1;
+			HCore(Index1, Index2) += (double)std::get<2>(bSingleDifference[i]) * tmpDouble1;
         }
         #pragma omp critical
         tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
