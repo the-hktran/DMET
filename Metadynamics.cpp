@@ -39,7 +39,7 @@ void NewDensityMatrix(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &CoeffMatr
 
     double Cos = 1 - 2 * (rand() / RAND_MAX); // A random value between -1 and 1;
     double Sin = sqrt(1 - Cos * Cos); // Corresponding sin value.
-    rand() % 2 == 0 ? : Sin = -1 * Sin; // Random parity.
+	rand() % 2 == 0 ? Sin = Sin : Sin = -1 * Sin; // Random parity.
 
     Eigen::MatrixXd RotatedCoeff = CoeffMatrix;
     for (int i = 0; i < RotatedCoeff.rows(); i++)

@@ -15,6 +15,7 @@
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
 #include <Eigen/SpectrA/Util/SelectionRule.h>
+#include <unsupported/Eigen/CXX11/Tensor>
 
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
@@ -306,6 +307,35 @@ int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<
     return Diff;
 }
 
+int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved1, int BraRemoved2, std::vector<bool> KetBefore, int KetRemoved1, int KetRemoved2)
+{
+	std::vector<bool> BraAfter, KetAfter;
+	for (int i = 0; i < BraBefore.size(); i++)
+	{
+		if (i == BraRemoved1 || i == BraRemoved2)
+		{
+			continue;
+		}
+		else
+		{
+			BraAfter.push_back(BraBefore[i]);
+		}
+	}
+	for (int i = 0; i < KetBefore.size(); i++)
+	{
+		if (i == KetRemoved1 || i == KetRemoved2)
+		{
+			continue;
+		}
+		else
+		{
+			KetAfter.push_back(KetBefore[i]);
+		}
+	}
+	int Diff = CountDifferences(BraAfter, KetAfter);
+	return Diff;
+}
+
 Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
     std::vector<int> FragPos;
@@ -368,6 +398,73 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
         } // end loop over j
     } // end loop over i
     return DensityMatrix;
+}
+
+Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
+{
+	std::vector<int> FragPos;
+	std::vector<int> BathPos;
+	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+
+	int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
+
+	Eigen::Tensor < double, 4> TwoRDM(2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp);
+	// We calculate the matrix elements of a_i^dagger a_j^dagger a_k a_l
+	for (int i = 0; i < 2 * NumAOImp; i++)
+	{
+		// This is the orbital associated with the index, in the CAS index.
+		int iOrbital = ReducedIndexToOrbital(i, Input, FragmentIndex);
+		for (int j = 0; j < 2 * NumAOImp; j++)
+		{
+			int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
+			for (int k = 0; k < 2 * NumAOImp; k++)
+			{
+				int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
+				for (int l = 0; l < 2 * NumAOImp; l++)
+				{
+					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
+					double Pijkl = 0;
+					// Now check which determinants have this orbital in both alpha and beta determinants, since we annihilate both.
+					std::vector< std::pair< int, int > > ijContainingDets; // Which alpha (first) and beta (second) determinant pairs that both contain i.
+					std::vector< std::pair< int, int > > klContainingDets; // Which alpha (first) and beta (second) determinant pairs that both contain j.
+					// std::vector< std::pair< int, int > > kContainingDets; // Which alpha and beta determinant pairs that both contain k.
+					// std::vector< std::pair< int, int > > lContainingDets; // Which alpha and beta determinant pairs that both contain l.
+					for (int m = 0; m < aStrings.size(); m++)
+					{
+						for (int n = 0; n < bStrings.size(); n++)
+						{
+							std::pair<int, int> tmpPair;
+							if (aStrings[m][iOrbital] && bStrings[n][iOrbital] && aStrings[m][jOrbital] && bStrings[n][jOrbital]) // Both contain i and j
+							{
+								tmpPair = std::make_pair(m, n);
+								ijContainingDets.push_back(tmpPair);
+							}
+							if (aStrings[m][kOrbital] && bStrings[n][kOrbital] && aStrings[m][lOrbital] && bStrings[n][lOrbital]) // Both contain k and l
+							{
+								tmpPair = std::make_pair(m, n);
+								klContainingDets.push_back(tmpPair);
+							}
+						} // end loop over b strings
+					} // end loop over a strings
+					for (int ij = 0; ij < ijContainingDets.size(); ij++)
+					{
+						for (int kl = 0; kl < klContainingDets.size(); kl++)
+						{
+							int Diff = AnnihilateAndCount(aStrings[ijContainingDets[ij].first], iOrbital, jOrbital, aStrings[klContainingDets[kl].first], kOrbital, lOrbital) // alpha integral
+								+ AnnihilateAndCount(bStrings[ijContainingDets[ij].second], iOrbital, jOrbital, bStrings[klContainingDets[kl].second], kOrbital, lOrbital); // beta integral
+							if (Diff > 0) // Different determinants, orthogonal and integrals to zero
+							{
+								continue;
+							}
+							Pijkl += Eigenvector[ijContainingDets[ij].first + ijContainingDets[ij].second * aStrings.size()] * Eigenvector[klContainingDets[kl].first + klContainingDets[kl].second * aStrings.size()];
+						}
+					}
+					TwoRDM(i, j, k, l) = Pijkl;
+				} // l
+			} // k
+		} // j
+	} // i
+	return TwoRDM;
 }
 
 // This is here for debugging purposes.

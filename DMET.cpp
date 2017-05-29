@@ -117,22 +117,22 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
     return Orbital;
 }
 
-double CalcCostDMETPot(std::vector<Eigen::MatrixXd> FragmentDensities, Eigen::MatrixXd FullDensity, InputObj Input)
-{
-    /* This matches the diagonal of the density matrices */
-    double CF = 0;
-    for(int x = 0; x < Input.NumFragments; x++)
-    {
-        std::vector<int> FragPos, BathPos;
-        GetCASPos(Input, x, FragPos, BathPos);
-        for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
-        {
-            CF += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * 
-                  (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i]));
-        }
-    }
-    return CF;
-}
+//double CalcCostDMETPot(std::vector<Eigen::MatrixXd> FragmentDensities, Eigen::MatrixXd FullDensity, InputObj Input)
+//{
+//    /* This matches the diagonal of the density matrices */
+//    double CF = 0;
+//    for(int x = 0; x < Input.NumFragments; x++)
+//    {
+//        std::vector<int> FragPos, BathPos;
+//        GetCASPos(Input, x, FragPos, BathPos);
+//        for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
+//        {
+//            CF += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * 
+//                  (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i]));
+//        }
+//    }
+//    return CF;
+//}
 
 double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj Input)
 {

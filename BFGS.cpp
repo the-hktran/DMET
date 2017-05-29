@@ -186,7 +186,12 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     // They are divided by fragment, to make some of the code neater.
     std::vector< std::vector< std::pair< int, int > > > PotentialPositions;
     std::vector< std::vector< double > > PotentialElements;
-    SetUVector(PotentialPositions, PotentialElements, DMETPotential, Input); // This sets up the previous vectors.
+	// Now, we turn the DMET potential into a vector, by taking the DMET potential and lining up all potentially nonzero elements
+	// into the previous vectors. PotentialPositions holds the position of each element whereas PotentialElements holds the value
+	// of these elements from the DMET potential.
+    SetUVector(PotentialPositions, PotentialElements, DMETPotential, Input);
+
+	// DEBUGGING
     std::cout << "\nPositions - Value\n";
     for(int i = 0; i < PotentialPositions.size(); i++)
     {
@@ -205,9 +210,10 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     std::cout << "GradCF\n" << GradCF << std::endl;
     Output << "GradCF\n" << GradCF << std::endl;
 
+	// NormOfGrad measures the norm of the gradient, and we finish when this is sufficiently small.
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
-    Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos);
+    Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
     std::cout << "PotElementVec\n" << PotentialElementsVec << std::endl;
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
