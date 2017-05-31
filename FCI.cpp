@@ -22,6 +22,7 @@ double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
+double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 
 int BinomialCoeff(int n, int k) // n choose k
 {
@@ -400,6 +401,8 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
     return DensityMatrix;
 }
 
+/* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l>. However, note that given the definition of 
+P_{ij|kl} = < a_j^dagger a_l^dagger a_i a_k > this means that the element TwoRDM(i,j,k,l) actually corresponds to P_{ki|lj} */
 Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
 	std::vector<int> FragPos;
@@ -608,7 +611,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 
     std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;
     Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
-	Eigen::MatrixXf HCore = Eigen::MatrixXf::Zero(Dim, Dim); // One particle Hamiltonian.
     // Ham.reserve(Eigen::VectorXi::Constant(Dim,NonzeroElements));
     // clock_t Timer = clock();
     double Timer = omp_get_wtime();
@@ -658,12 +660,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
             }
 
-			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]);
-			NumSameImp = NumSameImp + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
-			tmpDoubleD = tmpDoubleD - ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
-
-			HCore(i + j * aDim, i + j * aDim) += tmpDoubleD;
-
             /* Two electron operator in the notation <mn||mn> */
             std::vector<unsigned short int> abOrbitalList = aOrbitalList[i]; // List of all orbitals, starting with alpha.
             abOrbitalList.insert(abOrbitalList.end(), bOrbitalList[j].begin(), bOrbitalList[j].end());
@@ -678,6 +674,11 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                     tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
+
+			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]);
+			NumSameImp = NumSameImp + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
+			tmpDoubleD = tmpDoubleD - ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
+
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
         }
@@ -764,8 +765,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
-			HCore(Index1, Index2) += (double)std::get<2>(aSingleDifference[i]) * tmpDouble1;
-			HCore(Index2, Index1) += (double)std::get<2>(aSingleDifference[i]) * tmpDouble1;
         }
         #pragma omp critical
         tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
@@ -829,8 +828,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
             tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
-			HCore(Index1, Index2) += (double)std::get<2>(bSingleDifference[i]) * tmpDouble1;
-			HCore(Index1, Index2) += (double)std::get<2>(bSingleDifference[i]) * tmpDouble1;
         }
         #pragma omp critical
         tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
@@ -1027,6 +1024,38 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     }
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
+	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
+
+	/* Now we calculate the fragment energy */
+	double Energy = 0;
+	std::vector<int> FragPos;
+	std::vector<int> BathPos;
+	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+
+	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
+	{
+		int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
+		for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
+		{
+			int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
+			for (int k = 0; k < DensityMatrix.rows(); k++)
+			{
+				int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
+				for (int l = 0; l < DensityMatrix.rows(); l++)
+				{
+					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
+					Energy += TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+				}
+			}
+			Energy += DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+		}
+	}
+	for (int k = 0; k < NumberOfEV; k++)
+	{
+		FCIEnergies[k] = Energy;
+		std::cout << "\n" << Energy;
+		//        Output << "\n" << HamEV.eigenvalues()[k];
+	}
     
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;

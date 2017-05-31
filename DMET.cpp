@@ -347,6 +347,22 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     return Vcdef;
 }
 
+/* This is tilde h_cd, which is the one electron component of the Hamiltonian in the embedding basis, plus XC with the core
+   electrons. */
+double OneElectronPlusCore (InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d)
+{
+	double tildehcd = 0;
+	tildehcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, c, d);
+	for (int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
+	{
+		int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
+		double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, d, uu);
+		double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, uu, d);
+		tildehcd += (2 * Vcudu - Vcuud);
+	}
+	return tildehcd;
+}
+
 /* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
 {
