@@ -41,11 +41,15 @@ double CalcdDrs(int r, int s, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, 
 Eigen::MatrixXd CalcZMatrix(int k, int l, double ukl, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, Eigen::VectorXd OrbitalEV)
 {
     Eigen::MatrixXd Z(VirtualOrbitals.size(), OccupiedOrbitals.size());
+    if(fabs(ukl) < 1E-12) // Work-around because at zero potential, the gradient is strictly zero and no trial direction is generated.
+    {
+        ukl = 1E-6;
+    }
     for(int a = 0; a < VirtualOrbitals.size(); a++)
     {
         for(int i = 0; i < OccupiedOrbitals.size(); i++)
         {
-            Z(a, i) = CoeffMatrix.coeffRef(k, VirtualOrbitals[a]) * 1 * CoeffMatrix.coeffRef(l, OccupiedOrbitals[i]) / (OrbitalEV[VirtualOrbitals[a]] - OrbitalEV[OccupiedOrbitals[i]]);
+            Z(a, i) = CoeffMatrix.coeffRef(k, VirtualOrbitals[a]) * ukl * CoeffMatrix.coeffRef(l, OccupiedOrbitals[i]) / (OrbitalEV[VirtualOrbitals[a]] - OrbitalEV[OccupiedOrbitals[i]]);
         }
     }
     return Z;
@@ -56,10 +60,12 @@ void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
     std::cout << "p\n" << p << std::endl;
-    std::cout << "Gradient\n" << Gradient << std::endl;
+    std::cout << "x_i\n" << x << std::endl;
     double a = 1;
     s = a * p;
     x = x + s;
+    std::cout << "x\n" << x << std::endl;
+    std::cout << "s\n" << s << std::endl;
 }
 void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
 {
@@ -91,7 +97,6 @@ Eigen::VectorXd CalcRSGradient(int r, int s, std::vector< std::vector< std::pair
             double dDrr = CalcdDrs(r, s, Z, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             Gradient[TotIndex] = dDrr;
             TotIndex++;
-            std::cout << "Z\t" << r << "\n" << Z << std::endl;
         }
     }
 
@@ -108,7 +113,7 @@ void SetUVector(std::vector< std::vector< std::pair< int, int > > > &PotentialPo
         std::vector< double > FragmentPotentialElements;
         for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
         {
-            for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++) // Changed this to start from 0 instead of i
+            for(int j = i; j < Input.FragmentOrbitals[x].size(); j++)
             {
                 std::pair< int, int > tmpPair = std::make_pair(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]);
                 FragmentPotentialPositions.push_back(tmpPair);
@@ -155,7 +160,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
         for(int i = 0; i < PotentialPositions[x].size(); i++)
         {
             DMETPotential(PotentialPositions[x][i].first, PotentialPositions[x][i].second) = PotentialElements[x][i];
-            // DMETPotential(PotentialPositions[x][i].second, PotentialPositions[x][i].first) = PotentialElements[x][i]; // Changed this since we take derivatives of symmetric elements separately.
+            DMETPotential(PotentialPositions[x][i].second, PotentialPositions[x][i].first) = PotentialElements[x][i];
         }
     }
 }
@@ -195,46 +200,35 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     SetUVector(PotentialPositions, PotentialElements, DMETPotential, Input);
 
 	// DEBUGGING
-    std::cout << "\nPositions - Value\n";
-    for(int i = 0; i < PotentialPositions.size(); i++)
-    {
-        for(int j = 0; j < PotentialPositions[i].size(); j++)
-        {
-            std::cout << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
-            Output << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
-        }
-    }
+    // std::cout << "\nPositions - Value\n";
+    // for(int i = 0; i < PotentialPositions.size(); i++)
+    // {
+    //     for(int j = 0; j < PotentialPositions[i].size(); j++)
+    //     {
+    //         std::cout << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
+    //         Output << PotentialPositions[i][j].first << "\t" << PotentialPositions[i][j].second << "\t" << PotentialElements[i][j] << std::endl;
+    //     }
+    // }
+    std::cout << "Coeff\n" << CoeffMatrix << std::endl;
+    std::cout << "OrbEV\n" << OrbitalEV << std::endl;
 
     Eigen::VectorXd GradCF = CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
-    std::cout << "CoeffMatrix\n" << CoeffMatrix << std::endl;
-    Output << "CoeffMatrix\n" << CoeffMatrix << std::endl;  
-    std::cout << "OrbitalEV\n" << OrbitalEV << std::endl;
-    Output << "OrbitalEV\n" << OrbitalEV << std::endl; 
-    std::cout << "GradCF\n" << GradCF << std::endl;
-    Output << "GradCF\n" << GradCF << std::endl;
 
 	// NormOfGrad measures the norm of the gradient, and we finish when this is sufficiently small.
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
-    std::cout << "PotElementVec\n" << PotentialElementsVec << std::endl;
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
     while(fabs(NormOfGrad) > 1E-8)
     {
         BFGS_1(Hessian, s, GradCF, PotentialElementsVec);
-        std::cout << "s\n" << s << std::endl;
-        Output << "s\n" << s << std::endl;
-        std::cout << "New Potential Values\n" << PotentialElementsVec << std::endl;
-        Output << "New Potential Values\n" << PotentialElementsVec << std::endl;
         PrevGrad = GradCF;
         FullUVectorToFragUVector(PotentialElements, PotentialElementsVec);
-        CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
+        GradCF = CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
-        std::cout << "New GradCF\n" << GradCF << std::endl;
-        Output << "New GradCF\n" << GradCF << std::endl;
-        NormOfGrad = (GradCF - PrevGrad).squaredNorm();
+        NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
     std::cout << "DMETPot\n" << DMETPotential << std::endl;

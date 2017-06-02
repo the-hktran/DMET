@@ -471,10 +471,10 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
-    // for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
-    // {
-    //     DensityMatrix(i, i) = 1;
-    // }
+    for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
+    {
+        DensityMatrix(i, i) = 1;
+    }
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -508,7 +508,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
 
     double DMETPotentialChange = 1;
-    while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-16) // Do DMET until correlation potential has converged.
     {
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
@@ -526,7 +526,7 @@ int main(int argc, char* argv[])
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
         double StepSizeMu = 0.05; // How much to change chemical potential by each iteration. No good reason to choosing this number.
-        while(fabs(CostMu - CostMuPrev) > 1E-8) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
+        while(fabs(CostMu) > 1E-3) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
@@ -581,6 +581,8 @@ int main(int argc, char* argv[])
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = CASDensity; // Save the density matrix after SCF calculation has converged.
+                std::cout << "Fragment Density:\n" << CASDensity << std::endl;
+                Output << "Fragment Density:\n" << CASDensity << std::endl;
             }
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
