@@ -471,10 +471,10 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
-    for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
-    {
-        DensityMatrix(i, i) = 1;
-    }
+    // for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
+    // {
+    //     DensityMatrix(i, i) = 1;
+    // }
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -525,7 +525,7 @@ int main(int argc, char* argv[])
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
-        double StepSizeMu = 0.2; // How much to change chemical potential by each iteration. No good reason to choosing this number.
+        double StepSizeMu = 0.05; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         while(fabs(CostMu - CostMuPrev) > 1E-8) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
@@ -594,6 +594,14 @@ int main(int argc, char* argv[])
                 StepSizeMu /= -2; // Move the opposite way and refine stepsize. This underflows sometime.
             }
             ChemicalPotential += StepSizeMu; // Change chemical potential.
+            double DMETEnergy = 0;
+            for(int x = 0; x < Input.NumFragments; x++)
+            {
+                DMETEnergy += FragmentEnergies[x][0];
+            }
+            DMETEnergy += Input.Integrals["0 0 0 0"];
+            Output << "Energy: " << DMETEnergy << std::endl;
+            std::cout << "Energy: " << DMETEnergy << std::endl;
         }
         // Now the number of electrons are converged and each fragment is calculated.
         // Optimize the correlation potential to match the density matrix.

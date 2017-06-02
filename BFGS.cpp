@@ -161,7 +161,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 }
 
 // Returns the full gradient of the cost function.
-// del (sum_x sum_r (D_rr^x - D_rr)^2 = sum_x sum_r [2 * (D_rr^x - D_rr) * del D_rr]
+// del (sum_x sum_ij (D_ij^x - D_ij)^2 = sum_x sum_ij [2 * (D_ij^x - D_ij) * del D_ij]
 Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > &PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
@@ -173,8 +173,11 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair<
         GetCASPos(Input, x, FragPos, BathPos);
         for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
         {
-            Eigen::VectorXd GradDrr = CalcRSGradient(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
-            GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i])) * GradDrr;
+            for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++)
+            {
+                Eigen::VectorXd GradDij = CalcRSGradient(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
+                GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j])) * GradDij;
+            }
         }
     }
     return GradCF;
