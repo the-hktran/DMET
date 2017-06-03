@@ -33,4 +33,10 @@ class InputObj
         int NumFragments;
         std::vector< std::vector< int > > FragmentOrbitals;
         std::vector< std::vector< int > > EnvironmentOrbitals;
+
+		/* Some things that are nice to carry around */
+		Eigen::MatrixXd SOrtho;
+		Eigen::MatrixXd HCore;
+		std::vector< int > OccupiedOrbitals;
+		std::vector< int > VirtualOrbitals;
 };

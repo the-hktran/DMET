@@ -471,6 +471,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
+	Input.HCore = HCore;
     for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
     {
         DensityMatrix(i, i) = 1;
@@ -487,6 +488,7 @@ int main(int argc, char* argv[])
     }
     LambdaSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
     Eigen::MatrixXd SOrtho = EigensystemS.eigenvectors() * LambdaSOrtho * EigensystemS.eigenvectors().transpose(); // S^-1/2
+	Input.SOrtho = SOrtho;
 
     /* These are the list of occupied and virtual orbitals of the full system calculation. This is necessary in case I want
        to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
@@ -500,6 +502,8 @@ int main(int argc, char* argv[])
     {
         VirtualOrbitals.push_back(i);
     }
+	Input.OccupiedOrbitals = OccupiedOrbitals;
+	Input.VirtualOrbitals = VirtualOrbitals;
 
     Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
     int SCFCount = 0; // Counts how many SCF iterations have been done in total.

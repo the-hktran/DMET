@@ -13,6 +13,8 @@
 #include <iomanip>
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
+// This is the full system SCF
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 
 /* Calculates the derivative of the low level density matrix with respect to potential matrix element u_rs */
 double CalcdDrs(int r, int s, Eigen::MatrixXd &Z, Eigen::MatrixXd &CoeffMatrix, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals)
@@ -165,6 +167,75 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
     }
 }
 
+/* This is the numerical derivative of the matrix element, as opposed to the analytical
+   linear response theory result that is coded above.
+   This function increments the density matrix by one element of u and determines the change in each element
+   Dij of the density matrix. This is stored into 
+*/
+std::vector< std::vector < Eigen::VectorXd > > CalcGradD(InputObj &Input, std::vector< std::vector< double > > &PotentialElements, std::vector< std::vector< std::pair<int, int> > > &PotentialPositions, Eigen::MatrixXd &InitialDensity)
+{
+	int TotPos = CalcTotalPositions(PotentialPositions);
+	double du = 0.1; // to calculate [D(u + du) - D(u)] / du
+
+	std::vector< std::vector < Eigen::VectorXd > > GradD(Input.NumAO); // Gives dDij/du_k by GradD[i][j][k]
+	Eigen::VectorXd ZeroVec = Eigen::VectorXd::Zero(TotPos);
+	for (int i = 0; i < Input.NumAO; i++) // Initialize GradD
+	{
+		for (int j = 0; j < Input.NumAO; j++)
+		{
+			GradD[i].push_back(ZeroVec);
+		}
+	}
+
+	std::vector< std::vector< double > > PotElemPlusDU;
+	int uComponent = 0; // We are taking the derivative with respect to this component of u
+	for (int x = 0; x < Input.NumFragments; x++)
+	{
+		for (int i = 0; i < PotentialElements[x].size(); i++)
+		{
+			PotElemPlusDU = PotentialElements;
+			PotElemPlusDU[x][i] += du; // add du to the element under consideration, symmetry is enforced in the below function.
+			Eigen::MatrixXd DMETPotPlusDU;
+			FormDMETPotential(DMETPotPlusDU, PotElemPlusDU, PotentialPositions); // Make new u + du matrix.
+			Eigen::MatrixXd DensityPlusDU = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Will hold esulting D(u + du)
+			for (int occ = 0; occ < Input.NumOcc; occ++)
+			{
+				DensityPlusDU(occ, occ) = 1;
+			}
+			
+			// Now we do the full system SCF with the u + du potential. Some fillers need to be defined.
+			std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
+			std::ofstream BlankOutput;
+			std::vector< double > AllEnergies;
+			Eigen::MatrixXd CoeffMatrix;
+			int SCFCount = 0;
+			Eigen::VectorXd OrbitalEV;
+			// This redirects the std::cout buffer, so we don't have massive amounts of terminal output.
+			std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+			std::cout.rdbuf(NULL); // sets to null
+			SCF(EmptyBias, 1, DensityPlusDU, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, Input.OccupiedOrbitals, Input.VirtualOrbitals, SCFCount, -1, DMETPotPlusDU, OrbitalEV);
+			std::cout.rdbuf(orig_buf); // restore buffer
+
+			// Now we have D(u + du)
+			// Calculate [D(u + du) - D(u)] / du
+			Eigen::MatrixXd dDdu = DensityPlusDU - InitialDensity;
+			dDdu = dDdu / du; // Element i, j of this matrix is the derivative of Dij with respect to u_k, k being the step in this loop we are on.
+
+			// Now store it.
+			for (int ii = 0; ii < dDdu.rows(); ii++)
+			{
+				for (int jj = 0; jj < dDdu.cols(); jj++)
+				{
+					GradD[ii][jj][uComponent] = dDdu.coeffRef(ii, jj);
+				}
+			}
+			uComponent++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
+		} // end loop over fragment orbitals
+	} // end loop over fragments
+	
+	return GradD;
+}
+
 // Returns the full gradient of the cost function.
 // del (sum_x sum_ij (D_ij^x - D_ij)^2 = sum_x sum_ij [2 * (D_ij^x - D_ij) * del D_ij]
 Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > &PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
@@ -188,7 +259,7 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair<
     return GradCF;
 }
 
-void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::ofstream &Output)
+void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output)
 {
     // First vector holds the positions of the nonzero elements, the second holds the values at each of those posisions.
     // They are divided by fragment, to make some of the code neater.
