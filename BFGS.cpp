@@ -197,11 +197,7 @@ std::vector< std::vector < Eigen::VectorXd > > CalcGradD(InputObj &Input, std::v
 			PotElemPlusDU[x][i] += du; // add du to the element under consideration, symmetry is enforced in the below function.
 			Eigen::MatrixXd DMETPotPlusDU;
 			FormDMETPotential(DMETPotPlusDU, PotElemPlusDU, PotentialPositions); // Make new u + du matrix.
-			Eigen::MatrixXd DensityPlusDU = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Will hold esulting D(u + du)
-			for (int occ = 0; occ < Input.NumOcc; occ++)
-			{
-				DensityPlusDU(occ, occ) = 1;
-			}
+			Eigen::MatrixXd DensityPlusDU = InitialDensity; // Will hold esulting D(u + du)
 			
 			// Now we do the full system SCF with the u + du potential. Some fillers need to be defined.
 			std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
@@ -242,6 +238,7 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair<
 {
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd GradCF = Eigen::VectorXd::Zero(TotPos);
+	std::vector< std::vector < Eigen::VectorXd > > GradD = CalcGradD(Input, PotentialElements, PotentialPositions, FullDensity);
 
     for(int x = 0; x < Input.NumFragments; x++)
     {
@@ -251,8 +248,8 @@ Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair<
         {
             for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++)
             {
-                Eigen::VectorXd GradDij = CalcRSGradient(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
-                GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j])) * GradDij;
+                // Eigen::VectorXd GradDij = CalcRSGradient(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j], PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, Input, OccupiedOrbitals, VirtualOrbitals);
+				GradCF += 2 * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j])) * GradD[Input.FragmentOrbitals[x][i]][Input.FragmentOrbitals[x][j]]; // *  GradDij;
             }
         }
     }
