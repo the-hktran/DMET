@@ -678,7 +678,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV)
 {
-	double SCFTol = 1E-8; // SCF will terminate when the DIIS error is below this amount. 
+	double SCFTol = 1E-5; // 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
 
 	Output << "Beginning search for Solution " << SolnNum << std::endl;

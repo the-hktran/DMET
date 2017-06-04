@@ -63,7 +63,7 @@ void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
     std::cout << "p\n" << p << std::endl;
     std::cout << "x_i\n" << x << std::endl;
-    double a = 1;
+    double a = 1E-6;
     s = a * p;
     x = x + s;
     std::cout << "x\n" << x << std::endl;
@@ -195,7 +195,7 @@ std::vector< std::vector < Eigen::VectorXd > > CalcGradD(InputObj &Input, std::v
 		{
 			PotElemPlusDU = PotentialElements;
 			PotElemPlusDU[x][i] += du; // add du to the element under consideration, symmetry is enforced in the below function.
-			Eigen::MatrixXd DMETPotPlusDU;
+			Eigen::MatrixXd DMETPotPlusDU = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
 			FormDMETPotential(DMETPotPlusDU, PotElemPlusDU, PotentialPositions); // Make new u + du matrix.
 			Eigen::MatrixXd DensityPlusDU = InitialDensity; // Will hold esulting D(u + du)
 			
@@ -225,7 +225,7 @@ std::vector< std::vector < Eigen::VectorXd > > CalcGradD(InputObj &Input, std::v
 					GradD[ii][jj][uComponent] = dDdu.coeffRef(ii, jj);
 				}
 			}
-			uComponent++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
+                        uComponent++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
 		} // end loop over fragment orbitals
 	} // end loop over fragments
 	
