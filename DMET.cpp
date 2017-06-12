@@ -204,6 +204,9 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     // RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
 
+    std::cout << "Bath EV:\n" << ESDensityEnv.eigenvalues() << std::endl;
+    std::cout << "R\n" << RotationMatrix << std::endl;
+
     FragmentOcc = 0;
     for(int i = 0; i < NumAOImp; i++)
     {
@@ -530,6 +533,7 @@ int main(int argc, char* argv[])
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
         double StepSizeMu = 0.05; // How much to change chemical potential by each iteration. No good reason to choosing this number.
+        int MuIteration = 0;
         while(fabs(CostMu) > 1E-3) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
@@ -592,14 +596,21 @@ int main(int argc, char* argv[])
             CostMuPrev = CostMu;
             CostMu = CalcCostChemPot(FragmentDensities, Input);
 
-            std::cout << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
-            Output << "MU - COST - dCOST: " << ChemicalPotential << "\t" << CostMu << "\t" << CostMu - CostMuPrev << std::endl;
+            std::cout << "MU & COST: " << ChemicalPotential << "\t" << CostMu << std::endl;
+            Output << "MU & COST: " << ChemicalPotential << "\t" << CostMu << std::endl;
             /* Change mu somehow */
-            if((CostMu - CostMuPrev) > 0) // Means d(Cost) > 0, so the cost increased in this step.
+            if(MuIteration % 2 == 0 && MuIteration > 0)
             {
-                StepSizeMu /= -2; // Move the opposite way and refine stepsize. This underflows sometime.
+                // Do Newton's Method
+                double dLdmu = (CostMu - CostMuPrev) / StepSizeMu;
+                ChemicalPotential = ChemicalPotential - CostMu / dLdmu;
             }
-            ChemicalPotential += StepSizeMu; // Change chemical potential.
+            else
+            {
+                ChemicalPotential += StepSizeMu; // Change chemical potential.
+            }
+            MuIteration++;
+
             double DMETEnergy = 0;
             for(int x = 0; x < Input.NumFragments; x++)
             {
