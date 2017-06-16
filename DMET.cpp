@@ -551,6 +551,16 @@ int main(int argc, char* argv[])
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
 
+                for(int i = 0; i < Input.NumAO; i++)
+                {
+                    for(int j = 0; j < Input.NumAO; j++)
+                    {
+                        std::cout << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t";
+                    }
+                    std::cout << std::endl;
+                }
+                std::string tmpstring;
+                std::getline(std::cin, tmpstring);
                 /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
                 
                 // First we rotate the density. Not needed but it should put us closer to the true answer.

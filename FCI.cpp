@@ -281,58 +281,24 @@ short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetSt
 
 int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<bool> KetBefore, int KetRemoved)
 {
-    std::vector<bool> BraAfter, KetAfter;
-    for(int i = 0; i < BraBefore.size(); i++)
-    {
-        if(i == BraRemoved)
-        {
-            continue;
-        }
-        else
-        {
-            BraAfter.push_back(BraBefore[i]);
-        }
-    }
-    for(int i = 0; i < KetBefore.size(); i++)
-    {
-        if(i == KetRemoved)
-        {
-            continue;
-        }
-        else
-        {
-            KetAfter.push_back(KetBefore[i]);
-        }
-    }
+    std::vector<bool> BraAfter = BraBefore;
+    std::vector<bool> KetAfter = KetBefore;
+    BraAfter[BraRemoved] = false;
+    KetAfter[KetRemoved] = false;
+
     int Diff = CountDifferences(BraAfter, KetAfter);
     return Diff;
 }
 
 int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved1, int BraRemoved2, std::vector<bool> KetBefore, int KetRemoved1, int KetRemoved2)
 {
-	std::vector<bool> BraAfter, KetAfter;
-	for (int i = 0; i < BraBefore.size(); i++)
-	{
-		if (i == BraRemoved1 || i == BraRemoved2)
-		{
-			continue;
-		}
-		else
-		{
-			BraAfter.push_back(BraBefore[i]);
-		}
-	}
-	for (int i = 0; i < KetBefore.size(); i++)
-	{
-		if (i == KetRemoved1 || i == KetRemoved2)
-		{
-			continue;
-		}
-		else
-		{
-			KetAfter.push_back(KetBefore[i]);
-		}
-	}
+	std::vector<bool> BraAfter = BraBefore;
+    std::vector<bool> KetAfter = KetBefore;
+    BraAfter[BraRemoved1] = false;
+    BraAfter[BraRemoved2] = false;
+    KetAfter[KetRemoved1] = false;
+    KetAfter[KetRemoved2] = false;
+
 	int Diff = CountDifferences(BraAfter, KetAfter);
 	return Diff;
 }
@@ -393,6 +359,12 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                         continue;
                     }
                     Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size()] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size()];
+                    if(i == 0 && j == 1)
+                    {
+                        std::cout << std::endl;
+                        std::cout << "iOrbital = " << iOrbital << "\njOrbital = " << jOrbital << std::endl;
+                        std::cout << iContainingDets[l].first + iContainingDets[l].second * aStrings.size() << "\t" << jContainingDets[k].first + jContainingDets[k].second * aStrings.size() << std::endl;
+                    }
                 }
             }
             DensityMatrix(i, j) = Dij;
@@ -502,8 +474,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     int bElectronsCAS = NumAOImp;
     int aOrbitals = Input.NumAO;
     int bOrbitals = Input.NumAO;
-    int aCAS = 2 * NumAOImp + NumVirt;
-    int bCAS = 2 * NumAOImp + NumVirt;
+    int aCAS = 2 * NumAOImp;// + NumVirt;
+    int bCAS = 2 * NumAOImp;// + NumVirt;
     int NumberOfEV = 1; // Input.NumberOfEV; // Number of eigenvalues desired from Davidson Diagonalization
     // int aDim = BinomialCoeff(aOrbitals, aElectrons);
     // int bDim = BinomialCoeff(bOrbitals, bElectrons);
@@ -535,6 +507,10 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     {
         std::vector<bool> tmpVec;
         GetOrbitalString(i, aElectronsCAS, aCAS, tmpVec); // Get binary string for active space orbitals.
+        for(int a = 0; a < NumVirt; a++) // Insert frozen virtual orbitals into string
+        {
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][a], false);
+        }
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
             tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
@@ -545,6 +521,10 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     {
         std::vector<bool> tmpVec;
         GetOrbitalString(i, bElectronsCAS, bCAS, tmpVec); // Get binary string for active space orbitals.
+        for(int a = 0; a < NumVirt; a++) // Insert frozen virtual orbitals into string
+        {
+            tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][a], false);
+        }
         for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
         {
             tmpVec.insert(tmpVec.begin() + Input.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
@@ -1023,6 +1003,11 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     }
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
+
+    std::cout << "Density Matrix:\n" << DensityMatrix << std::endl;
+    std::cout << "EV:\n" << HamEV.eigenvectors().col(0) << std::endl;
+    PrintBinaryStrings(aStrings);
+
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
 
 	/* Now we calculate the fragment energy */
