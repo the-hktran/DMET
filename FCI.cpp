@@ -359,12 +359,6 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                         continue;
                     }
                     Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size()] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size()];
-                    if(i == 0 && j == 1)
-                    {
-                        std::cout << std::endl;
-                        std::cout << "iOrbital = " << iOrbital << "\njOrbital = " << jOrbital << std::endl;
-                        std::cout << iContainingDets[l].first + iContainingDets[l].second * aStrings.size() << "\t" << jContainingDets[k].first + jContainingDets[k].second * aStrings.size() << std::endl;
-                    }
                 }
             }
             DensityMatrix(i, j) = Dij;
@@ -459,6 +453,38 @@ void PauseHere()
 {
     std::string tmpstring;
     std::getline(std::cin, tmpstring);
+}
+
+void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
+{
+    std::ofstream HamPrint("FCIHam.txt");
+    for(int row = 0; row < Ham.rows(); row++)
+    {
+        for(int col = 0; col < Ham.cols(); col++)
+        {
+            HamPrint << Ham.coeffRef(row, col) << "\t";
+        }
+        HamPrint << std::endl;
+    }
+}
+
+void PrintHamiltonianMatrixMathematica(Eigen::MatrixXf &Ham)
+{
+    std::ofstream HamPrint("FCIHam.txt");
+    HamPrint << "{";
+    for(int row = 0; row < Ham.rows(); row++)
+    {
+        HamPrint << "{";
+        for(int col = 0; col < Ham.cols(); col++)
+        {
+            HamPrint << Ham.coeffRef(row, col);
+            if (col < Ham.cols() - 1) HamPrint << ",";
+        }
+        HamPrint << "}";
+        if (row < Ham.rows() - 1) HamPrint << ",";
+        HamPrint << std::endl;
+    }
+    HamPrint << "}";
 }
 
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
@@ -1009,6 +1035,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     PrintBinaryStrings(aStrings);
 
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
+    std::cout << "2RDM:\n" << TwoRDM << std::endl;
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
@@ -1044,6 +1071,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
 
+    PrintHamiltonianMatrixMathematica(HamDense);
     // std::ofstream OutputHamiltonian(Input.OutputName + ".ham");
     // OutputHamiltonian << HamDense << std::endl;
 
