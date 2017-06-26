@@ -492,6 +492,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
     int NumCore = Input.NumOcc - NumAOImp;
+    int NumEnv = Input.EnvironmentOrbitals[FragmentIndex].size();
 
     /* There doesn't seem to be any method that chooses number of electrons */
     int aElectrons = Input.NumOcc; // 2 * NumAOImp + NumCore;
@@ -657,13 +658,28 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             /* Zero electron operator */
             // tmpDoubleD += NuclearEnergy; // Nuclear potential.
             /* One electron operator */
+            double TestDouble = 0;
             for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
+                for(int c = 0; c < NumCore; c++)
+                {
+                    int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1; // Counts from 1
+                    tmpDoubleD += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
+                                + TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
+                                  //(2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, aOrbitalList[i][ii] - 1, CoreOrbital) 
+                                  //   - TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, CoreOrbital, aOrbitalList[i][ii] - 1));
+                }
             }
             for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
+                for(int c = 0; c < NumCore; c++)
+                {
+                    int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
+                    tmpDoubleD += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
+                                + TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
+                }
             }
 
             /* Two electron operator in the notation <mn||mn> */
@@ -683,6 +699,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 
 			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]) + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
             tmpDoubleD -= ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
+
+            std::cout << "test: " << TestDouble << std::endl;
 
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
@@ -745,6 +763,12 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
         tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
+        for(int c = 0; c < NumCore; c++)
+        {
+            int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
+            tmpDouble1 += TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], CoreOrbital, std::get<3>(aSingleDifference[i])[1], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix)
+                        + TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], CoreOrbital, std::get<3>(aSingleDifference[i])[1], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix);
+        }
         // Now, two electron contribution
         for(unsigned int j = 0; j < bDim; j++)
         {
@@ -808,6 +832,12 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
         tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
+        for(int c = 0; c < NumCore; c++)
+        {
+            int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
+            tmpDouble1 += TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], CoreOrbital, std::get<3>(bSingleDifference[i])[1], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix)
+                        + TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], CoreOrbital, std::get<3>(bSingleDifference[i])[1], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix);
+        }
         // Now, two electron contribution
         for(unsigned int j = 0; j < aDim; j++)
         {
@@ -1071,7 +1101,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
 
-    PrintHamiltonianMatrixMathematica(HamDense);
+    PrintHamiltonianMatrix(HamDense);
     // std::ofstream OutputHamiltonian(Input.OutputName + ".ham");
     // OutputHamiltonian << HamDense << std::endl;
 
