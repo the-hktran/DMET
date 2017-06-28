@@ -279,17 +279,6 @@ short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetSt
     return Count;
 }
 
-int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved, std::vector<bool> KetBefore, int KetRemoved)
-{
-    std::vector<bool> BraAfter = BraBefore;
-    std::vector<bool> KetAfter = KetBefore;
-    BraAfter[BraRemoved] = false;
-    KetAfter[KetRemoved] = false;
-
-    int Diff = CountDifferences(BraAfter, KetAfter);
-    return Diff;
-}
-
 int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved1, int BraRemoved2, std::vector<bool> KetBefore, int KetRemoved1, int KetRemoved2)
 {
 	std::vector<bool> BraAfter = BraBefore;
@@ -303,6 +292,7 @@ int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved1, int BraRemo
 	return Diff;
 }
 
+/* This calculates the elements < a_i,alpha^\dagger a_j,alpha + a_i,beta^\dagger a_j,beta > */
 Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
     std::vector<int> FragPos;
@@ -310,58 +300,86 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
     GetCASPos(Input, FragmentIndex, FragPos, BathPos);
 
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
-    int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
+
     Eigen::MatrixXd DensityMatrix(2 * NumAOImp, 2 * NumAOImp);
     for(int i = 0; i < 2 * NumAOImp; i++)
     {
         for(int j = 0; j < 2 * NumAOImp; j++)
         {
-            double Dij = 0;
-            /* We are looking at element < a_i^\dagger a_j > so this kills any element in the bra without orbital i and any element in the
-               ket with orbital j. */
+            double DijA = 0;
+            /* We formulate the alpha and beta density matrices separately, and add them together by element. */
             // Determine which orbital we are looking at, since i and j loop over the CAS index and not the real orbitals.
             int iOrbital = ReducedIndexToOrbital(i, Input, FragmentIndex);
             int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
-            // Now check which determinants have this orbital in both alpha and beta determinants, since we annihilate both.
-            std::vector< std::pair< int, int > > iContainingDets; // Which alpha and beta determinant pairs that both contain i.
-            std::vector< std::pair< int, int > > jContainingDets; // Which alpha and beta determinant pairs that both contain j.
-            for(int m = 0; m < aStrings.size(); m++)
+
+            // First, make the alpha density matrix.
+            for(int ai = 0; ai < aStrings.size(); ai++)
             {
-                for(int n = 0; n < bStrings.size(); n++)
+                for(int bi = 0; bi < bStrings.size(); bi++)
                 {
-                    std::pair<int, int> tmpPair;
-                    if(aStrings[m][iOrbital] && bStrings[n][iOrbital]) // Both contain i
+                    for(int aj = 0; aj < aStrings.size(); aj++)
                     {
-                        tmpPair = std::make_pair(m, n);
-                        iContainingDets.push_back(tmpPair);
+                        for(int bj = 0; bj < bStrings.size(); bj++)
+                        {
+                            std::vector< bool > BraAnnil = aStrings[ai];
+                            std::vector< bool > KetAnnil = aStrings[aj];
+                            if(aStrings[ai][iOrbital] && aStrings[aj][jOrbital]) // If bra contains i and ket contains j, then we annihilate the orbitals.
+                            {
+                                BraAnnil[iOrbital] = false; // bra with i annihilated
+                                KetAnnil[jOrbital] = false; // ket with j annhiliated
+                            }
+                            else // Annihilated the bra or ket to zero
+                            {
+                                continue; // zero contribution
+                            }
+                            
+                            // Count the differences in the bra and ket, which is the sum of differences in the alpha and beta
+                            // components : <alpha|alpha><beta|beta>
+                            int Diff = CountDifferences(BraAnnil, KetAnnil) + CountDifferences(bStrings[bi], bStrings[bj]);
+                            if(Diff > 0)
+                            {
+                                continue;
+                            }
+                            DijA += Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
+                        }
                     }
-                    if(aStrings[m][jOrbital] && bStrings[n][jOrbital]) // Both contain j
-                    {
-                        tmpPair = std::make_pair(m, n);
-                        jContainingDets.push_back(tmpPair);
-                    }
-                } // end loop over b strings
-            } // end loop over a strings
-            /* Now we calculate the element <alpha|alpha><beta|beta> after removing the orbitals associated with the annihilation operator.
-               Since we are looking at <a_i^\dagger a_j>, the iOrbital is removed from the alpha bra and the j orbital is removed from the
-               alpha ket. Then the differences between the new bra and ket are calculated. Then the same is done for the beta bra and KetString
-               and the differences are totalled. The alpha and beta kets are done separately since the integrals over alpha and beta orbitals
-               are done separately. If there is any difference, the integrals go to zero since the determinants are orthogonal. If there is
-               no difference, the coefficients corresponding to the determinants are added multipled and added to the matrix element. */
-            for(int l = 0; l < iContainingDets.size(); l++)
-            {
-                for(int k = 0; k < jContainingDets.size(); k++)
-                {
-                    int Diff = AnnihilateAndCount(aStrings[iContainingDets[l].first], iOrbital, aStrings[jContainingDets[k].first], jOrbital)
-                             + AnnihilateAndCount(bStrings[iContainingDets[l].second], iOrbital, bStrings[jContainingDets[k].second], jOrbital);
-                    if(Diff > 0) // Different determinants, orthogonal and integrals to zero
-                    {
-                        continue;
-                    }
-                    Dij += Eigenvector[iContainingDets[l].first + iContainingDets[l].second * aStrings.size()] * Eigenvector[jContainingDets[k].first + jContainingDets[k].second * aStrings.size()];
                 }
             }
-            DensityMatrix(i, j) = Dij;
+            DensityMatrix(i, j) = DijA;
+
+            // Now, do the same to make the beta density matrix. See above comments for explanation.
+            double DijB = 0;
+            for(int ai = 0; ai < aStrings.size(); ai++)
+            {
+                for(int bi = 0; bi < bStrings.size(); bi++)
+                {
+                    for(int aj = 0; aj < aStrings.size(); aj++)
+                    {
+                        for(int bj = 0; bj < bStrings.size(); bj++)
+                        {
+                            std::vector< bool > BraAnnil = bStrings[bi];
+                            std::vector< bool > KetAnnil = bStrings[bj];
+                            if(bStrings[bi][iOrbital] && bStrings[bj][jOrbital])
+                            {
+                                BraAnnil[iOrbital] = false;
+                                KetAnnil[jOrbital] = false;
+                            }
+                            else // Annihilated the bra or ket to zero
+                            {
+                                continue;
+                            }
+                            
+                            int Diff = CountDifferences(BraAnnil, KetAnnil) + CountDifferences(aStrings[ai], aStrings[aj]);
+                            if(Diff > 0)
+                            {
+                                continue;
+                            }
+                            DijB += Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
+                        }
+                    }
+                }
+            }
+            DensityMatrix(i, j) += DijB;
         } // end loop over j
     } // end loop over i
     return DensityMatrix;
@@ -455,22 +473,9 @@ void PauseHere()
     std::getline(std::cin, tmpstring);
 }
 
-void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
-{
-    std::ofstream HamPrint("FCIHam.txt");
-    for(int row = 0; row < Ham.rows(); row++)
-    {
-        for(int col = 0; col < Ham.cols(); col++)
-        {
-            HamPrint << Ham.coeffRef(row, col) << "\t";
-        }
-        HamPrint << std::endl;
-    }
-}
-
 void PrintHamiltonianMatrixMathematica(Eigen::MatrixXf &Ham)
 {
-    std::ofstream HamPrint("FCIHam.txt");
+    std::ofstream HamPrint("FCIHamNB.txt");
     HamPrint << "{";
     for(int row = 0; row < Ham.rows(); row++)
     {
@@ -485,6 +490,20 @@ void PrintHamiltonianMatrixMathematica(Eigen::MatrixXf &Ham)
         HamPrint << std::endl;
     }
     HamPrint << "}";
+}
+
+void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
+{
+    std::ofstream HamPrint("FCIHam.txt");
+    for(int row = 0; row < Ham.rows(); row++)
+    {
+        for(int col = 0; col < Ham.cols(); col++)
+        {
+            HamPrint << Ham.coeffRef(row, col) << "\t";
+        }
+        HamPrint << std::endl;
+    }
+    PrintHamiltonianMatrixMathematica(Ham);
 }
 
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
@@ -1065,7 +1084,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     PrintBinaryStrings(aStrings);
 
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
-    std::cout << "2RDM:\n" << TwoRDM << std::endl;
+    std::cout << "2RDM:\n" << TwoRDM(0, 0, 0, 1) << std::endl;
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;

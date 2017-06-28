@@ -551,6 +551,8 @@ int main(int argc, char* argv[])
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
 
+                RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO);
+
                 for(int i = 0; i < Input.NumAO; i++)
                 {
                     for(int j = 0; j < Input.NumAO; j++)
