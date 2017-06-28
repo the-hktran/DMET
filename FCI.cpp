@@ -279,19 +279,6 @@ short int CountSameImpurity(std::vector<bool> BraString, std::vector<bool> KetSt
     return Count;
 }
 
-int AnnihilateAndCount(std::vector<bool> BraBefore, int BraRemoved1, int BraRemoved2, std::vector<bool> KetBefore, int KetRemoved1, int KetRemoved2)
-{
-	std::vector<bool> BraAfter = BraBefore;
-    std::vector<bool> KetAfter = KetBefore;
-    BraAfter[BraRemoved1] = false;
-    BraAfter[BraRemoved2] = false;
-    KetAfter[KetRemoved1] = false;
-    KetAfter[KetRemoved2] = false;
-
-	int Diff = CountDifferences(BraAfter, KetAfter);
-	return Diff;
-}
-
 /* This calculates the elements < a_i,alpha^\dagger a_j,alpha + a_i,beta^\dagger a_j,beta > */
 Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
@@ -385,9 +372,9 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
     return DensityMatrix;
 }
 
-/* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l>. However, note that given the definition of 
-P_{ij|kl} = < a_j^dagger a_l^dagger a_i a_k > this means that the element TwoRDM(i,j,k,l) actually corresponds to P_{ki|lj} */
-Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
+/* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l> - delta_jk D_il.
+However, note that given the definition of P_{ij|kl} = < a_j^dagger a_l^dagger a_i a_k > this means that the element TwoRDM(i,j,k,l) actually corresponds to P_{ki|lj} */
+Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings, Eigen::MatrixXd &OneRDM)
 {
 	std::vector<int> FragPos;
 	std::vector<int> BathPos;
@@ -395,8 +382,11 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 
 	int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
 
+    /* Note that in order to convert to spacial orbitals, the actual element we are calculating is
+        < a^t_i,alpha a^t_j,alpha a_k,alpha a_l,alpha + a^t_i,alpha a^t_j,beta a_k,alpha a_l,beta
+          a^t_i,beta a^t_j,alpha a_k,beta a_l,alpha + a^t_i,beta a^t_j,beta a_k,beta a_l,beta >
+       We will refer to these as elements 1, 2, 3, and 4 respectively. */
 	Eigen::Tensor < double, 4> TwoRDM(2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp);
-	// We calculate the matrix elements of a_i^dagger a_j^dagger a_k a_l
 	for (int i = 0; i < 2 * NumAOImp; i++)
 	{
 		// This is the orbital associated with the index, in the CAS index.
@@ -409,43 +399,162 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 				int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
 				for (int l = 0; l < 2 * NumAOImp; l++)
 				{
-					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
-					double Pijkl = 0;
-					// Now check which determinants have this orbital in both alpha and beta determinants, since we annihilate both.
-					std::vector< std::pair< int, int > > ijContainingDets; // Which alpha (first) and beta (second) determinant pairs that both contain i.
-					std::vector< std::pair< int, int > > klContainingDets; // Which alpha (first) and beta (second) determinant pairs that both contain j.
-					// std::vector< std::pair< int, int > > kContainingDets; // Which alpha and beta determinant pairs that both contain k.
-					// std::vector< std::pair< int, int > > lContainingDets; // Which alpha and beta determinant pairs that both contain l.
-					for (int m = 0; m < aStrings.size(); m++)
-					{
-						for (int n = 0; n < bStrings.size(); n++)
-						{
-							std::pair<int, int> tmpPair;
-							if (aStrings[m][iOrbital] && bStrings[n][iOrbital] && aStrings[m][jOrbital] && bStrings[n][jOrbital]) // Both contain i and j
-							{
-								tmpPair = std::make_pair(m, n);
-								ijContainingDets.push_back(tmpPair);
-							}
-							if (aStrings[m][kOrbital] && bStrings[n][kOrbital] && aStrings[m][lOrbital] && bStrings[n][lOrbital]) // Both contain k and l
-							{
-								tmpPair = std::make_pair(m, n);
-								klContainingDets.push_back(tmpPair);
-							}
-						} // end loop over b strings
-					} // end loop over a strings
-					for (int ij = 0; ij < ijContainingDets.size(); ij++)
-					{
-						for (int kl = 0; kl < klContainingDets.size(); kl++)
-						{
-							int Diff = AnnihilateAndCount(aStrings[ijContainingDets[ij].first], iOrbital, jOrbital, aStrings[klContainingDets[kl].first], kOrbital, lOrbital) // alpha integral
-								+ AnnihilateAndCount(bStrings[ijContainingDets[ij].second], iOrbital, jOrbital, bStrings[klContainingDets[kl].second], kOrbital, lOrbital); // beta integral
-							if (Diff > 0) // Different determinants, orthogonal and integrals to zero
-							{
-								continue;
-							}
-							Pijkl += Eigenvector[ijContainingDets[ij].first + ijContainingDets[ij].second * aStrings.size()] * Eigenvector[klContainingDets[kl].first + klContainingDets[kl].second * aStrings.size()];
-						}
-					}
+                    int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
+                    double Pijkl = 0;
+                    // Element 1 (alpha, alpha)
+                    for(int aBra = 0; aBra < aStrings.size(); aBra++)
+                    {
+                        for(int bBra = 0; bBra < bStrings.size(); bBra++)
+                        {
+                            for(int aKet = 0; aKet < aStrings.size(); aKet++)
+                            {
+                                for(int bKet = 0; bKet < bStrings.size(); bKet++)
+                                {
+                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    std::vector< bool > aBraAnnihilate = aStrings[aBra];
+                                    std::vector< bool > bBraAnnihilate = bStrings[bBra];
+                                    std::vector< bool > aKetAnnihilate = aStrings[aKet];
+                                    std::vector< bool > bKetAnnihilate = bStrings[bKet];
+                                    if(aStrings[aBra][iOrbital] && aStrings[aBra][jOrbital] && aStrings[aKet][kOrbital] && aStrings[aKet][lOrbital])
+                                    {
+                                        aBraAnnihilate[iOrbital] = false;
+                                        aBraAnnihilate[jOrbital] = false;
+                                        aKetAnnihilate[kOrbital] = false;
+                                        aKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+
+                                    int Diff = CountDifferences(aBraAnnihilate, aKetAnnihilate) + CountDifferences(bBraAnnihilate, bKetAnnihilate);
+                                    if(Diff > 0)
+                                    {
+                                        continue;
+                                    }
+                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                }
+                            }
+                        }
+                    } // end aBra loop.
+
+                    // Element 2 (alpha, beta)
+                    for(int aBra = 0; aBra < aStrings.size(); aBra++)
+                    {
+                        for(int bBra = 0; bBra < bStrings.size(); bBra++)
+                        {
+                            for(int aKet = 0; aKet < aStrings.size(); aKet++)
+                            {
+                                for(int bKet = 0; bKet < bStrings.size(); bKet++)
+                                {
+                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    std::vector< bool > aBraAnnihilate = aStrings[aBra];
+                                    std::vector< bool > bBraAnnihilate = bStrings[bBra];
+                                    std::vector< bool > aKetAnnihilate = aStrings[aKet];
+                                    std::vector< bool > bKetAnnihilate = bStrings[bKet];
+                                    if(aStrings[aBra][iOrbital] && bStrings[bBra][jOrbital] && aStrings[aKet][kOrbital] && bStrings[bKet][lOrbital])
+                                    {
+                                        aBraAnnihilate[iOrbital] = false;
+                                        bBraAnnihilate[jOrbital] = false;
+                                        aKetAnnihilate[kOrbital] = false;
+                                        bKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+
+                                    int Diff = CountDifferences(aBraAnnihilate, aKetAnnihilate) + CountDifferences(bBraAnnihilate, bKetAnnihilate);
+                                    if(Diff > 0)
+                                    {
+                                        continue;
+                                    }
+                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                }
+                            }
+                        }
+                    } // end aBra loop.
+
+                    // Element 3 (beta, alpha)
+                    for(int aBra = 0; aBra < aStrings.size(); aBra++)
+                    {
+                        for(int bBra = 0; bBra < bStrings.size(); bBra++)
+                        {
+                            for(int aKet = 0; aKet < aStrings.size(); aKet++)
+                            {
+                                for(int bKet = 0; bKet < bStrings.size(); bKet++)
+                                {
+                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    std::vector< bool > aBraAnnihilate = aStrings[aBra];
+                                    std::vector< bool > bBraAnnihilate = bStrings[bBra];
+                                    std::vector< bool > aKetAnnihilate = aStrings[aKet];
+                                    std::vector< bool > bKetAnnihilate = bStrings[bKet];
+                                    if(bStrings[bBra][iOrbital] && aStrings[aBra][jOrbital] && bStrings[bKet][kOrbital] && aStrings[aKet][lOrbital])
+                                    {
+                                        bBraAnnihilate[iOrbital] = false;
+                                        aBraAnnihilate[jOrbital] = false;
+                                        bKetAnnihilate[kOrbital] = false;
+                                        aKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+
+                                    int Diff = CountDifferences(aBraAnnihilate, aKetAnnihilate) + CountDifferences(bBraAnnihilate, bKetAnnihilate);
+                                    if(Diff > 0)
+                                    {
+                                        continue;
+                                    }
+                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                }
+                            }
+                        }
+                    } // end aBra loop.
+
+                    // Element 4 (beta, beta)
+                    for(int aBra = 0; aBra < aStrings.size(); aBra++)
+                    {
+                        for(int bBra = 0; bBra < bStrings.size(); bBra++)
+                        {
+                            for(int aKet = 0; aKet < aStrings.size(); aKet++)
+                            {
+                                for(int bKet = 0; bKet < bStrings.size(); bKet++)
+                                {
+                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    std::vector< bool > aBraAnnihilate = aStrings[aBra];
+                                    std::vector< bool > bBraAnnihilate = bStrings[bBra];
+                                    std::vector< bool > aKetAnnihilate = aStrings[aKet];
+                                    std::vector< bool > bKetAnnihilate = bStrings[bKet];
+                                    if(bStrings[bBra][iOrbital] && bStrings[bBra][jOrbital] && bStrings[bKet][kOrbital] && bStrings[bKet][lOrbital])
+                                    {
+                                        bBraAnnihilate[iOrbital] = false;
+                                        bBraAnnihilate[jOrbital] = false;
+                                        bKetAnnihilate[kOrbital] = false;
+                                        bKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+
+                                    int Diff = CountDifferences(aBraAnnihilate, aKetAnnihilate) + CountDifferences(bBraAnnihilate, bKetAnnihilate);
+                                    if(Diff > 0)
+                                    {
+                                        continue;
+                                    }
+                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                }
+                            }
+                        }
+                    } // end aBra loop.
+
+                    // - delta_jk D_il
+                    if (j == k)
+                    {
+                        Pijkl -= OneRDM(i, l);
+                    }
+
 					TwoRDM(i, j, k, l) = Pijkl;
 				} // l
 			} // k
@@ -1083,8 +1192,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     std::cout << "EV:\n" << HamEV.eigenvectors().col(0) << std::endl;
     PrintBinaryStrings(aStrings);
 
-	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
-    std::cout << "2RDM:\n" << TwoRDM(0, 0, 0, 1) << std::endl;
+	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings, DensityMatrix);
+    std::cout << "2RDM:\n" << TwoRDM << std::endl;
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
