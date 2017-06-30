@@ -550,7 +550,8 @@ int main(int argc, char* argv[])
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
-                // RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
+                RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
+                std::cout << "**** WARNNING: SETTING ROTATION MATRIX TO IDENTITY *****" << std::endl;
 
                 for(int i = 0; i < Input.NumAO; i++)
                 {

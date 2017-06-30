@@ -410,17 +410,25 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                             {
                                 for(int bKet = 0; bKet < bStrings.size(); bKet++)
                                 {
-                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    // First annihilate one orbital in the bra and ket.
                                     std::vector< bool > aBraAnnihilate = aStrings[aBra];
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
-                                    if(aStrings[aBra][iOrbital] && aStrings[aBra][jOrbital] && aStrings[aKet][kOrbital] && aStrings[aKet][lOrbital])
+                                    if(aBraAnnihilate[iOrbital] && aKetAnnihilate[kOrbital])
                                     {
                                         aBraAnnihilate[iOrbital] = false;
-                                        aBraAnnihilate[jOrbital] = false;
                                         aKetAnnihilate[kOrbital] = false;
-                                        aKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+                                    // Now annihilate another orbital, if it was already annihilated, the term is annihilated to zero and we move on.
+                                    if(aBraAnnihilate[jOrbital] && aKetAnnihilate[lOrbital])
+                                    {
+                                        aBraAnnihilate[jOrbital] = false;
+                                        aKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
@@ -447,17 +455,17 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                             {
                                 for(int bKet = 0; bKet < bStrings.size(); bKet++)
                                 {
-                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    // Annihilate orbital i, j, k, and l in respective strings. There's no possibility for overlap so we can just do it all at once.
                                     std::vector< bool > aBraAnnihilate = aStrings[aBra];
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
-                                    if(aStrings[aBra][iOrbital] && bStrings[bBra][jOrbital] && aStrings[aKet][kOrbital] && bStrings[bKet][lOrbital])
+                                    if(aBraAnnihilate[iOrbital] && bBraAnnihilate[jOrbital] && aKetAnnihilate[kOrbital] && bKetAnnihilate[lOrbital])
                                     {
                                         aBraAnnihilate[iOrbital] = false;
                                         bBraAnnihilate[jOrbital] = false;
                                         aKetAnnihilate[kOrbital] = false;
-                                        bKetAnnihilate[jOrbital] = false;
+                                        bKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
@@ -484,17 +492,17 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                             {
                                 for(int bKet = 0; bKet < bStrings.size(); bKet++)
                                 {
-                                    // Annihilate orbital i, j, k, and l in respective strings.
+                                    // Annihilate orbital i, j, k, and l in respective strings. There's no possibility for overlap so we can just do it all at once.
                                     std::vector< bool > aBraAnnihilate = aStrings[aBra];
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
-                                    if(bStrings[bBra][iOrbital] && aStrings[aBra][jOrbital] && bStrings[bKet][kOrbital] && aStrings[aKet][lOrbital])
+                                    if(bBraAnnihilate[iOrbital] && aBraAnnihilate[jOrbital] && bKetAnnihilate[kOrbital] && aKetAnnihilate[lOrbital])
                                     {
                                         bBraAnnihilate[iOrbital] = false;
                                         aBraAnnihilate[jOrbital] = false;
                                         bKetAnnihilate[kOrbital] = false;
-                                        aKetAnnihilate[jOrbital] = false;
+                                        aKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
@@ -521,17 +529,24 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                             {
                                 for(int bKet = 0; bKet < bStrings.size(); bKet++)
                                 {
-                                    // Annihilate orbital i, j, k, and l in respective strings.
                                     std::vector< bool > aBraAnnihilate = aStrings[aBra];
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
-                                    if(bStrings[bBra][iOrbital] && bStrings[bBra][jOrbital] && bStrings[bKet][kOrbital] && bStrings[bKet][lOrbital])
+                                    if(bBraAnnihilate[iOrbital] && bKetAnnihilate[kOrbital])
                                     {
                                         bBraAnnihilate[iOrbital] = false;
-                                        bBraAnnihilate[jOrbital] = false;
                                         bKetAnnihilate[kOrbital] = false;
-                                        bKetAnnihilate[jOrbital] = false;
+                                    }
+                                    else
+                                    {
+                                        continue;
+                                    }
+
+                                    if(bBraAnnihilate[jOrbital] && bKetAnnihilate[lOrbital])
+                                    {
+                                        bBraAnnihilate[jOrbital] = false;
+                                        bKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
@@ -550,10 +565,10 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                     } // end aBra loop.
 
                     // - delta_jk D_il
-                    if (j == k)
-                    {
-                        Pijkl -= OneRDM(i, l);
-                    }
+                    // if (j == k)
+                    // {
+                    //     Pijkl -= OneRDM(i, l);
+                    // }
 
 					TwoRDM(i, j, k, l) = Pijkl;
 				} // l
@@ -1194,6 +1209,14 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings, DensityMatrix);
     std::cout << "2RDM:\n" << TwoRDM << std::endl;
+    // for(int i = 0; i < 2 * NumAOImp; i++)
+    // {
+    //     for(int j = 0; j < 2 * NumAOImp; j++)
+    //     {
+    //         std::cout << TwoRDM(0, 0, i, j) << "\t";
+    //     }
+    //     std::cout << std::endl;
+    // }
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
