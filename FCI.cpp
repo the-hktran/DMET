@@ -178,6 +178,30 @@ short int FindSign(std::vector<bool> BraString, std::vector<bool> KetString)
     }
 }
 
+// Calculates the sign of a state after annihilating one of its orbitals, enter orbital counting from zero.
+short int AnnihilationParity(std::vector< bool > OrbitalString, int Orbital)
+{
+	// We simply need to count how many orbitals are before the annihilated orbital, since we do one
+	// transposition for each of these orbitals.
+	int NumTransposition = 0;
+	for (int i = 0; i < Orbital; i++) // go through list of orbitals before "Orbital"
+	{
+		if (OrbitalString[i]) // means there is an orbital in the list before Orbital
+		{
+			NumTransposition++; // count a transposition.
+		}
+	}
+
+	if (NumTransposition % 2 == 0)
+	{
+		return 1;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
 /* This converts a binary string into a string of orbital numbers. For example, 01011 -> 245 */
 std::vector<unsigned short int> ListOrbitals(std::vector<bool> DeterminantString)
 {
@@ -310,8 +334,12 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                         {
                             std::vector< bool > BraAnnil = aStrings[ai];
                             std::vector< bool > KetAnnil = aStrings[aj];
+							short int BraSign = 1;
+							short int KetSign = 1;
                             if(aStrings[ai][iOrbital] && aStrings[aj][jOrbital]) // If bra contains i and ket contains j, then we annihilate the orbitals.
                             {
+								BraSign = AnnihilationParity(BraAnnil, iOrbital);
+								KetSign = AnnihilationParity(KetAnnil, jOrbital);
                                 BraAnnil[iOrbital] = false; // bra with i annihilated
                                 KetAnnil[jOrbital] = false; // ket with j annhiliated
                             }
@@ -327,7 +355,7 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                             {
                                 continue;
                             }
-                            DijA += Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
+                            DijA += BraSign * KetSign * Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
                         }
                     }
                 }
@@ -346,8 +374,12 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                         {
                             std::vector< bool > BraAnnil = bStrings[bi];
                             std::vector< bool > KetAnnil = bStrings[bj];
+							short int BraSign = 1;
+							short int KetSign = 1;
                             if(bStrings[bi][iOrbital] && bStrings[bj][jOrbital])
                             {
+								BraSign = AnnihilationParity(BraAnnil, iOrbital);
+								KetSign = AnnihilationParity(KetAnnil, jOrbital);
                                 BraAnnil[iOrbital] = false;
                                 KetAnnil[jOrbital] = false;
                             }
@@ -361,7 +393,7 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
                             {
                                 continue;
                             }
-                            DijB += Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
+                            DijB += BraSign * KetSign * Eigenvector[ai + bi * aStrings.size()] * Eigenvector[aj + bj * aStrings.size()];
                         }
                     }
                 }
