@@ -447,8 +447,17 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
+									short int BraSign = 1;
+									short int KetSign = 1;
+									short int tmpInt1 = 1;
+									short int tmpInt2 = 1;
+
                                     if(aBraAnnihilate[iOrbital] && aKetAnnihilate[kOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(aBraAnnihilate, iOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         aBraAnnihilate[iOrbital] = false;
                                         aKetAnnihilate[kOrbital] = false;
                                     }
@@ -459,6 +468,10 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     // Now annihilate another orbital, if it was already annihilated, the term is annihilated to zero and we move on.
                                     if(aBraAnnihilate[jOrbital] && aKetAnnihilate[lOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(aBraAnnihilate, jOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         aBraAnnihilate[jOrbital] = false;
                                         aKetAnnihilate[lOrbital] = false;
                                     }
@@ -472,7 +485,7 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     {
                                         continue;
                                     }
-                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                    Pijkl += BraSign * KetSign * Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
                                 }
                             }
                         }
@@ -492,11 +505,25 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
+									short int BraSign = 1;
+									short int KetSign = 1;
+									short int tmpInt1 = 1;
+									short int tmpInt2 = 1;
+
                                     if(aBraAnnihilate[iOrbital] && bBraAnnihilate[jOrbital] && aKetAnnihilate[kOrbital] && bKetAnnihilate[lOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(aBraAnnihilate, iOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         aBraAnnihilate[iOrbital] = false;
-                                        bBraAnnihilate[jOrbital] = false;
                                         aKetAnnihilate[kOrbital] = false;
+
+										tmpInt1 = AnnihilationParity(bBraAnnihilate, jOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
+										bBraAnnihilate[jOrbital] = false;
                                         bKetAnnihilate[lOrbital] = false;
                                     }
                                     else
@@ -509,7 +536,7 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     {
                                         continue;
                                     }
-                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                    Pijkl += BraSign * KetSign * Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
                                 }
                             }
                         }
@@ -529,11 +556,25 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
+									short int BraSign = 1;
+									short int KetSign = 1;
+									short int tmpInt1 = 1;
+									short int tmpInt2 = 1;
+
                                     if(bBraAnnihilate[iOrbital] && aBraAnnihilate[jOrbital] && bKetAnnihilate[kOrbital] && aKetAnnihilate[lOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(bBraAnnihilate, iOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         bBraAnnihilate[iOrbital] = false;
-                                        aBraAnnihilate[jOrbital] = false;
                                         bKetAnnihilate[kOrbital] = false;
+
+										tmpInt1 = AnnihilationParity(aBraAnnihilate, jOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
+										aBraAnnihilate[jOrbital] = false;
                                         aKetAnnihilate[lOrbital] = false;
                                     }
                                     else
@@ -546,7 +587,7 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     {
                                         continue;
                                     }
-                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                    Pijkl += BraSign * KetSign * Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
                                 }
                             }
                         }
@@ -565,8 +606,17 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     std::vector< bool > bBraAnnihilate = bStrings[bBra];
                                     std::vector< bool > aKetAnnihilate = aStrings[aKet];
                                     std::vector< bool > bKetAnnihilate = bStrings[bKet];
+									short int BraSign = 1;
+									short int KetSign = 1;
+									short int tmpInt1 = 1;
+									short int tmpInt2 = 1;
+
                                     if(bBraAnnihilate[iOrbital] && bKetAnnihilate[kOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(bBraAnnihilate, iOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         bBraAnnihilate[iOrbital] = false;
                                         bKetAnnihilate[kOrbital] = false;
                                     }
@@ -577,6 +627,10 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 
                                     if(bBraAnnihilate[jOrbital] && bKetAnnihilate[lOrbital])
                                     {
+										tmpInt1 = AnnihilationParity(bBraAnnihilate, jOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
+										BraSign *= tmpInt1;
+										KetSign *= tmpInt2;
                                         bBraAnnihilate[jOrbital] = false;
                                         bKetAnnihilate[lOrbital] = false;
                                     }
@@ -590,17 +644,17 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
                                     {
                                         continue;
                                     }
-                                    Pijkl += Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
+                                    Pijkl += BraSign * KetSign * Eigenvector[aBra + bBra * aStrings.size()] * Eigenvector[aKet + bKet * aStrings.size()];
                                 }
                             }
                         }
                     } // end aBra loop.
 
-                    // - delta_jk D_il
-                    // if (j == k)
-                    // {
-                    //     Pijkl -= OneRDM(i, l);
-                    // }
+                     // - delta_jk D_il
+                     //if (j == k)
+                     //{
+                     //    Pijkl -= OneRDM(i, l);
+                     //}
 
 					TwoRDM(i, j, k, l) = Pijkl;
 				} // l
@@ -1240,15 +1294,15 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     PrintBinaryStrings(aStrings);
 
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings, DensityMatrix);
-    std::cout << "2RDM:\n" << TwoRDM << std::endl;
-    // for(int i = 0; i < 2 * NumAOImp; i++)
-    // {
-    //     for(int j = 0; j < 2 * NumAOImp; j++)
-    //     {
-    //         std::cout << TwoRDM(0, 0, i, j) << "\t";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    std::cout << "2RDM:\n" << std::endl;
+     for(int i = 0; i < 2 * NumAOImp; i++)
+     {
+         for(int j = 0; j < 2 * NumAOImp; j++)
+         {
+             std::cout << TwoRDM(0, 0, i, j) << "\t";
+         }
+         std::cout << std::endl;
+     }
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
