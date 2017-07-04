@@ -866,6 +866,19 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
        component (single particle Hamiltonian), two electron component (coulombic repulsion), and zero electron component
        (nuclear repulsion). The nuclear repulsion term only appears in the diagonal. */
     double NuclearEnergy = Input.Integrals["0 0 0 0"]; // Nuclear repulsion, will shift total energy and needs to be added to diagonal.
+
+    // Core coulumb and exchange
+    double CoreInteraction = 0;
+    for(int c = 0; c < 2 * NumCore; c++)
+    {
+        cc = c % NumCore; // Loops back to handle both spins.
+        int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - cc] + 1;
+        for(int d = c + 1; d < 2 * NumCore; d++)
+        {
+            dd = d % NumCore;
+            int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - dd] + 1;
+        }
+    }
     std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
     std::vector< std::vector<unsigned short int> > bOrbitalList;
     for(unsigned short int i = 0; i < aDim; i++)

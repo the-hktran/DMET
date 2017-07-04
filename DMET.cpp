@@ -550,17 +550,37 @@ int main(int argc, char* argv[])
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
-                RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
-                std::cout << "**** WARNNING: SETTING ROTATION MATRIX TO IDENTITY *****" << std::endl;
+                // RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
+                // std::cout << "**** WARNNING: SETTING ROTATION MATRIX TO IDENTITY *****" << std::endl;
 
+                std::ofstream FCIDUMP("FCIDUMP");
+                std::cout << "TEIdmet:" << std::endl;
+                for(int i = 0; i < Input.NumAO; i++)
+                {
+                    for(int j = 0; j < Input.NumAO; j++)
+                    {
+                        std::cout << TwoElectronEmbedding(Input.Integrals, RotationMatrix, 2, 3, i, j) << "\t";
+                        for(int k = 0; k < Input.NumAO; k++)
+                        {
+                            for(int l = 0; l < Input.NumAO; l++)
+                            {
+                                FCIDUMP << TwoElectronEmbedding(Input.Integrals, RotationMatrix, i, j, k, l) << "\t" << i + 1 << "\t" << j + 1 << "\t" << k + 1 << "\t" << l + 1 << std::endl;
+                            }
+                        }
+                    }
+                    std::cout << std::endl;
+                }
+                std::cout << "OEIdmet:" << std::endl;
                 for(int i = 0; i < Input.NumAO; i++)
                 {
                     for(int j = 0; j < Input.NumAO; j++)
                     {
                         std::cout << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t";
+                        FCIDUMP << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t" << i + 1 << "\t" << j + 1 << "\t0\t0" << std::endl;
                     }
                     std::cout << std::endl;
                 }
+
                 std::string tmpstring;
                 std::getline(std::cin, tmpstring);
                 /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
