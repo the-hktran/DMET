@@ -871,14 +871,26 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     double CoreInteraction = 0;
     for(int c = 0; c < 2 * NumCore; c++)
     {
-        cc = c % NumCore; // Loops back to handle both spins.
+        int cc = c % NumCore; // Loops back to handle both spins.
         int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - cc] + 1;
+		bool c_isAlpha = true;
+		if (c > NumCore - 1)
+		{
+			c_isAlpha = false;
+		}
         for(int d = c + 1; d < 2 * NumCore; d++)
         {
-            dd = d % NumCore;
-            int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - dd] + 1;
+            int dd = d % NumCore;
+            int CoreOrbital2 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - dd] + 1;
+			bool d_isAlpha = true;
+			if (d > NumCore - 1)
+			{
+				d_isAlpha = false;
+			}
+			CoreInteraction += TwoElectronIntegral(CoreOrbital1, CoreOrbital2, CoreOrbital1, CoreOrbital2, c_isAlpha, d_isAlpha, c_isAlpha, d_isAlpha, Input.Integrals, RotationMatrix);
         }
     }
+	std::cout << "CoreXC: " << CoreInteraction << std::endl;
     std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
     std::vector< std::vector<unsigned short int> > bOrbitalList;
     for(unsigned short int i = 0; i < aDim; i++)
