@@ -912,10 +912,12 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             /* Zero electron operator */
             // tmpDoubleD += NuclearEnergy; // Nuclear potential.
             /* One electron operator */
-            double TestDouble = 0;
+			double hii = 0.0;
+			double gij = 0.0;
             for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
+				hii += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
                 for(int c = 0; c < NumCore; c++)
                 {
                     int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1; // Counts from 1
@@ -923,16 +925,21 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                                 + TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
                                   //(2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, aOrbitalList[i][ii] - 1, CoreOrbital) 
                                   //   - TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, CoreOrbital, aOrbitalList[i][ii] - 1));
+					gij += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
+						+ TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
                 }
             }
             for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
+				hii += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
                 for(int c = 0; c < NumCore; c++)
                 {
                     int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
                     tmpDoubleD += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
                                 + TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
+					gij += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
+						+ TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
                 }
             }
 
@@ -948,13 +955,14 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                     if(n > aElectrons - 1) n_isAlpha = false; // Means we have looped through the alpha orbitals and are now looking at a beta orbital
                     if(m > aElectrons - 1) m_isAlpha = false;
                     tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
+					gij += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
 
 			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]) + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
             tmpDoubleD -= ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
 
-            std::cout << "test: " << TestDouble << std::endl;
+            std::cout << hii << "\t" << gij << std::endl;
 
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
