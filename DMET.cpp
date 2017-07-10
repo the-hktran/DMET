@@ -475,10 +475,10 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
 	Input.HCore = HCore;
-    for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
-    {
-        DensityMatrix(i, i) = 1;
-    }
+    // for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
+    // {
+    //     DensityMatrix(i, i) = 1;
+    // }
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);

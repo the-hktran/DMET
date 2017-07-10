@@ -872,7 +872,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     for(int c = 0; c < 2 * NumCore; c++)
     {
         int cc = c % NumCore; // Loops back to handle both spins.
-        int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - cc] + 1;
+        int CoreOrbital1 = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - cc] + 1; // Count from 1
 		bool c_isAlpha = true;
 		if (c > NumCore - 1)
 		{
@@ -889,6 +889,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 			}
 			CoreInteraction += TwoElectronIntegral(CoreOrbital1, CoreOrbital2, CoreOrbital1, CoreOrbital2, c_isAlpha, d_isAlpha, c_isAlpha, d_isAlpha, Input.Integrals, RotationMatrix);
         }
+        CoreInteraction += OneElectronEmbedding(Input.Integrals, RotationMatrix, CoreOrbital1 - 1, CoreOrbital1 - 1);
     }
 	std::cout << "CoreXC: " << CoreInteraction << std::endl;
     std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
@@ -921,8 +922,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                 for(int c = 0; c < NumCore; c++)
                 {
                     int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1; // Counts from 1
-                    tmpDoubleD += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
-                                + TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
+                    //tmpDoubleD += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
+                    //            + TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
                                   //(2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, aOrbitalList[i][ii] - 1, CoreOrbital) 
                                   //   - TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, CoreOrbital, aOrbitalList[i][ii] - 1));
 					gij += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
@@ -936,8 +937,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                 for(int c = 0; c < NumCore; c++)
                 {
                     int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
-                    tmpDoubleD += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
-                                + TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
+                    //tmpDoubleD += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
+                    //            + TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
 					gij += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
 						+ TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
                 }
@@ -958,6 +959,8 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 					gij += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
+
+            tmpDoubleD -= CoreInteraction; // Minus gives correct answer??
 
 			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]) + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
             tmpDoubleD -= ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
