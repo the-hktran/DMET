@@ -867,7 +867,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
        (nuclear repulsion). The nuclear repulsion term only appears in the diagonal. */
     double NuclearEnergy = Input.Integrals["0 0 0 0"]; // Nuclear repulsion, will shift total energy and needs to be added to diagonal.
 
-    // Core coulumb and exchange
+    // Isolated Core-Core interaction. This is excluded in the DMET impurity solver.
     double CoreInteraction = 0;
     for(int c = 0; c < 2 * NumCore; c++)
     {
@@ -892,6 +892,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         CoreInteraction += OneElectronEmbedding(Input.Integrals, RotationMatrix, CoreOrbital1 - 1, CoreOrbital1 - 1);
     }
 	std::cout << "CoreXC: " << CoreInteraction << std::endl;
+
     std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
     std::vector< std::vector<unsigned short int> > bOrbitalList;
     for(unsigned short int i = 0; i < aDim; i++)
@@ -913,35 +914,13 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
             /* Zero electron operator */
             // tmpDoubleD += NuclearEnergy; // Nuclear potential.
             /* One electron operator */
-			double hii = 0.0;
-			double gij = 0.0;
             for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
-				hii += OneElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
-                for(int c = 0; c < NumCore; c++)
-                {
-                    int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1; // Counts from 1
-                    //tmpDoubleD += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
-                    //            + TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
-                                  //(2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, aOrbitalList[i][ii] - 1, CoreOrbital) 
-                                  //   - TwoElectronEmbedding(Input.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, CoreOrbital, CoreOrbital, aOrbitalList[i][ii] - 1));
-					gij += TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix) // alpha core
-						+ TwoElectronIntegral(aOrbitalList[i][ii], CoreOrbital, aOrbitalList[i][ii], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix); // beta core
-                }
             }
             for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
             {
                 tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
-				hii += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
-                for(int c = 0; c < NumCore; c++)
-                {
-                    int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
-                    //tmpDoubleD += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
-                    //            + TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
-					gij += TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix) // alpha core
-						+ TwoElectronIntegral(bOrbitalList[j][jj], CoreOrbital, bOrbitalList[j][jj], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix); // beta core
-                }
             }
 
             /* Two electron operator in the notation <mn||mn> */
@@ -956,16 +935,13 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
                     if(n > aElectrons - 1) n_isAlpha = false; // Means we have looped through the alpha orbitals and are now looking at a beta orbital
                     if(m > aElectrons - 1) m_isAlpha = false;
                     tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
-					gij += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Input.Integrals, RotationMatrix);
                 }
             }
 
-            tmpDoubleD -= CoreInteraction; // Minus gives correct answer??
+            tmpDoubleD -= CoreInteraction; // Removes the core-core interaction.
 
 			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Input.FragmentOrbitals[FragmentIndex]) + CountSameImpurity(bStrings[j], bStrings[j], Input.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
             tmpDoubleD -= ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
-
-            std::cout << hii << "\t" << gij << std::endl;
 
             // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
             tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
@@ -1028,12 +1004,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
         tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
-        for(int c = 0; c < NumCore; c++)
-        {
-            int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
-            tmpDouble1 += TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], CoreOrbital, std::get<3>(aSingleDifference[i])[1], CoreOrbital, true, true, true, true, Input.Integrals, RotationMatrix)
-                        + TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], CoreOrbital, std::get<3>(aSingleDifference[i])[1], CoreOrbital, true, false, true, false, Input.Integrals, RotationMatrix);
-        }
+
         // Now, two electron contribution
         for(unsigned int j = 0; j < bDim; j++)
         {
@@ -1097,12 +1068,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         double tmpDouble1 = 0;
         // First, add the one electron contribution.
         tmpDouble1 += OneElectronEmbedding(Input.Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
-        for(int c = 0; c < NumCore; c++)
-        {
-            int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - c] + 1;
-            tmpDouble1 += TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], CoreOrbital, std::get<3>(bSingleDifference[i])[1], CoreOrbital, false, true, false, true, Input.Integrals, RotationMatrix)
-                        + TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], CoreOrbital, std::get<3>(bSingleDifference[i])[1], CoreOrbital, false, false, false, false, Input.Integrals, RotationMatrix);
-        }
+
         // Now, two electron contribution
         for(unsigned int j = 0; j < aDim; j++)
         {
