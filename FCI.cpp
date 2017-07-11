@@ -452,28 +452,28 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 									short int tmpInt1 = 1;
 									short int tmpInt2 = 1;
 
-                                    if(aBraAnnihilate[iOrbital] && aKetAnnihilate[kOrbital])
+                                    if(aBraAnnihilate[iOrbital] && aKetAnnihilate[lOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(aBraAnnihilate, iOrbital);
-										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         aBraAnnihilate[iOrbital] = false;
-                                        aKetAnnihilate[kOrbital] = false;
+                                        aKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
                                         continue;
                                     }
                                     // Now annihilate another orbital, if it was already annihilated, the term is annihilated to zero and we move on.
-                                    if(aBraAnnihilate[jOrbital] && aKetAnnihilate[lOrbital])
+                                    if(aBraAnnihilate[jOrbital] && aKetAnnihilate[kOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(aBraAnnihilate, jOrbital);
-										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         aBraAnnihilate[jOrbital] = false;
-                                        aKetAnnihilate[lOrbital] = false;
+                                        aKetAnnihilate[kOrbital] = false;
                                     }
                                     else
                                     {
@@ -510,21 +510,21 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 									short int tmpInt1 = 1;
 									short int tmpInt2 = 1;
 
-                                    if(aBraAnnihilate[iOrbital] && bBraAnnihilate[jOrbital] && aKetAnnihilate[kOrbital] && bKetAnnihilate[lOrbital])
+                                    if(aBraAnnihilate[iOrbital] && bBraAnnihilate[jOrbital] && aKetAnnihilate[lOrbital] && bKetAnnihilate[kOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(aBraAnnihilate, iOrbital);
-										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         aBraAnnihilate[iOrbital] = false;
-                                        aKetAnnihilate[kOrbital] = false;
+                                        aKetAnnihilate[lOrbital] = false;
 
 										tmpInt1 = AnnihilationParity(bBraAnnihilate, jOrbital);
-										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
 										bBraAnnihilate[jOrbital] = false;
-                                        bKetAnnihilate[lOrbital] = false;
+                                        bKetAnnihilate[kOrbital] = false;
                                     }
                                     else
                                     {
@@ -561,21 +561,21 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 									short int tmpInt1 = 1;
 									short int tmpInt2 = 1;
 
-                                    if(bBraAnnihilate[iOrbital] && aBraAnnihilate[jOrbital] && bKetAnnihilate[kOrbital] && aKetAnnihilate[lOrbital])
+                                    if(bBraAnnihilate[iOrbital] && aBraAnnihilate[jOrbital] && bKetAnnihilate[lOrbital] && aKetAnnihilate[kOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(bBraAnnihilate, iOrbital);
-										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         bBraAnnihilate[iOrbital] = false;
-                                        bKetAnnihilate[kOrbital] = false;
+                                        bKetAnnihilate[lOrbital] = false;
 
 										tmpInt1 = AnnihilationParity(aBraAnnihilate, jOrbital);
-										tmpInt2 = AnnihilationParity(aKetAnnihilate, lOrbital);
+										tmpInt2 = AnnihilationParity(aKetAnnihilate, kOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
 										aBraAnnihilate[jOrbital] = false;
-                                        aKetAnnihilate[lOrbital] = false;
+                                        aKetAnnihilate[kOrbital] = false;
                                     }
                                     else
                                     {
@@ -611,28 +611,28 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
 									short int tmpInt1 = 1;
 									short int tmpInt2 = 1;
 
-                                    if(bBraAnnihilate[iOrbital] && bKetAnnihilate[kOrbital])
+                                    if(bBraAnnihilate[iOrbital] && bKetAnnihilate[lOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(bBraAnnihilate, iOrbital);
-										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         bBraAnnihilate[iOrbital] = false;
-                                        bKetAnnihilate[kOrbital] = false;
+                                        bKetAnnihilate[lOrbital] = false;
                                     }
                                     else
                                     {
                                         continue;
                                     }
 
-                                    if(bBraAnnihilate[jOrbital] && bKetAnnihilate[lOrbital])
+                                    if(bBraAnnihilate[jOrbital] && bKetAnnihilate[kOrbital])
                                     {
 										tmpInt1 = AnnihilationParity(bBraAnnihilate, jOrbital);
-										tmpInt2 = AnnihilationParity(bKetAnnihilate, lOrbital);
+										tmpInt2 = AnnihilationParity(bKetAnnihilate, kOrbital);
 										BraSign *= tmpInt1;
 										KetSign *= tmpInt2;
                                         bBraAnnihilate[jOrbital] = false;
-                                        bKetAnnihilate[lOrbital] = false;
+                                        bKetAnnihilate[kOrbital] = false;
                                     }
                                     else
                                     {
@@ -1312,9 +1312,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 	std::vector<int> BathPos;
 	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
 
-    double energyOE = 0.0;
-    double energyTE = 0.0;
-
 	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
 	{
 		int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
@@ -1328,16 +1325,12 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 				{
 					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
 					Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
-                    energyTE += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
-                    std::cout << TwoRDM(FragPos[i], k, j, l) << "\t" << TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital) << "\t" << i << "\t" << j << "\t" << k << "\t" << l << std::endl;
 				}
 			}
 			Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
-            energyOE += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
 		}
 	}
 
-    std::cout << "One-Electron Energy: " << energyOE << "\nTwo-Electron Energy: " << energyTE << std::endl;
 	for (int k = 0; k < NumberOfEV; k++)
 	{
 		FCIEnergies[k] = Energy;
