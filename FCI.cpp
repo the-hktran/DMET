@@ -404,7 +404,7 @@ Eigen::MatrixXd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eig
     return DensityMatrix;
 }
 
-/* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l> - delta_jk D_il.
+/* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l>
 However, note that given the definition of P_{ij|kl} = < a_j^dagger a_l^dagger a_i a_k > this means that the element TwoRDM(i,j,k,l) actually corresponds to P_{ki|lj} */
 Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXf Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings, Eigen::MatrixXd &OneRDM)
 {
@@ -1312,6 +1312,9 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 	std::vector<int> BathPos;
 	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
 
+    double energyOE = 0.0;
+    double energyTE = 0.0;
+
 	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
 	{
 		int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
@@ -1324,12 +1327,17 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 				for (int l = 0; l < DensityMatrix.rows(); l++)
 				{
 					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
-					Energy += TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+					Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+                    energyTE += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+                    std::cout << TwoRDM(FragPos[i], k, j, l) << "\t" << TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital) << "\t" << i << "\t" << j << "\t" << k << "\t" << l << std::endl;
 				}
 			}
-			Energy += DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+			Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+            energyOE += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
 		}
 	}
+
+    std::cout << "One-Electron Energy: " << energyOE << "\nTwo-Electron Energy: " << energyTE << std::endl;
 	for (int k = 0; k < NumberOfEV; k++)
 	{
 		FCIEnergies[k] = Energy;
