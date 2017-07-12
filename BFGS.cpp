@@ -139,6 +139,7 @@ void FullUVectorToFragUVector(std::vector< std::vector< double > > &PotentialEle
 
 void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector< std::pair< int, int > > > PotentialPositions)
 {
+    // I think it should be safe to initialize DMETPotential to zero here.
     for(int x = 0; x < PotentialPositions.size(); x++)
     {
         for(int i = 0; i < PotentialPositions[x].size(); i++)
@@ -309,13 +310,14 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 
 double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential)
 {
-    double a = 5E-3; // Size of line step.
-    double da = 1E-2; // We will increment a by this much until a loose minimum is found
+    double a = 0.0; // Size of line step.
+    double da = 5E-2; // We will increment a by this much until a loose minimum is found
 
     std::vector< std::vector< double > > PotElemDirection = PotentialElements;
     FullUVectorToFragUVector(PotElemDirection, p);
-    Eigen::MatrixXd pMatrix(Input.NumAO, Input.NumAO); // This is the BFGS step direction, in DMET potential matrix form.
+    Eigen::MatrixXd pMatrix = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // This is the BFGS step direction, in DMET potential matrix form.
     FormDMETPotential(pMatrix, PotElemDirection, PotentialPositions);
+    std::cout << "pMatrix\n" << pMatrix << std::endl;
 
     Eigen::MatrixXd IncrementedDMETPot = DMETPotential + a * pMatrix;
     double LInit;
@@ -339,7 +341,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 
     LInit = CalcL(Input, FragmentDensities, DNext);
     LNext = LInit;
-    
+    std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     do // while we're decreasing L along the step direction
     {
         LInit = LNext;
@@ -352,7 +354,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         DNext = 2 * DNext;
         LNext = CalcL(Input, FragmentDensities, DNext);
         std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
-    } while(LInit - LNext > 1E-6);
+    } while(LInit - LNext > 1E-10);
 
     return a;
 }
@@ -436,21 +438,21 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 
         // Then use this new density matrix to calculate GradL
         GradCF = CalcGradL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions);
-        std::cout << "Grad after.\n" << GradCF << std::endl;
-        std::string tmpstring;
-        std::getline(std::cin, tmpstring);
 
         // Forms Hessian for next iteration.
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
-        
+
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
+
+        double Cost = CalcL(Input, FragmentDensities, FullDensity);
 
 		std::cout << "Norm of Grad: " << NormOfGrad << std::endl;
         std::cout << "Grad: \n" << GradCF << std::endl;
-		std::cout << "Density \n" << FullDensity << std::endl;
+        std::cout << "L: " << Cost << std::endl;
+		std::cout << "u:\n" << DMETPotential << std::endl;
 
-		//std::string tmpstring;
-		//std::getline(std::cin, tmpstring);
+		std::string tmpstring;
+		std::getline(std::cin, tmpstring);
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
     std::cout << "DMETPot\n" << DMETPotential << std::endl;
