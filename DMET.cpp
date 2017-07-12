@@ -515,7 +515,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
 
     double DMETPotentialChange = 1;
-    while(fabs(DMETPotentialChange) > 1E-6) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
     {
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
@@ -659,8 +659,8 @@ int main(int argc, char* argv[])
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         std::cout << "DMET Potential\n" << DMETPotential << std::endl;
         std::cout << "DMET Potential Change: " << DMETPotentialChange << std::endl;
-        std::string tmpstring;
-        std::getline(std::cin, tmpstring);
+        // std::string tmpstring;
+        // std::getline(std::cin, tmpstring);
 
         // Calculate full systme energy from each fragment energy.
         double DMETEnergy = 0;

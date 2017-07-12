@@ -139,7 +139,7 @@ void FullUVectorToFragUVector(std::vector< std::vector< double > > &PotentialEle
 
 void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector< std::pair< int, int > > > PotentialPositions)
 {
-    // I think it should be safe to initialize DMETPotential to zero here.
+    DMETPotential = Eigen::MatrixXd::Zero(DMETPotential.rows(), DMETPotential.cols()); // Initialize to zero.
     for(int x = 0; x < PotentialPositions.size(); x++)
     {
         for(int i = 0; i < PotentialPositions[x].size(); i++)
@@ -217,7 +217,20 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 
 double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, int CostFunctionVariant = 2)
 {
-    double L = 0;
+    double L = 0.0;
+    if (CostFunctionVariant == 1) // Match all DIAGONAL impurity elements.
+    {
+        for(int x = 0; x < Input.NumFragments; x++)
+        {
+            std::vector<int> FragPos, BathPos;
+            GetCASPos(Input, x, FragPos, BathPos);
+            for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
+            {
+                L += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i]))
+                   * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[i]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][i]));
+            }
+        }
+    }
     if (CostFunctionVariant == 2) // Match all impurity elements.
     {
         for(int x = 0; x < Input.NumFragments; x++)
@@ -229,7 +242,7 @@ double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, 
                 for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++)
                 {
                     L += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]))
-                    * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]));
+                       * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]));
                 }
             }
         }
@@ -451,8 +464,8 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         std::cout << "L: " << Cost << std::endl;
 		std::cout << "u:\n" << DMETPotential << std::endl;
 
-		std::string tmpstring;
-		std::getline(std::cin, tmpstring);
+		// std::string tmpstring;
+		// std::getline(std::cin, tmpstring);
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
     std::cout << "DMETPot\n" << DMETPotential << std::endl;
