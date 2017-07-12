@@ -515,7 +515,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
 
     double DMETPotentialChange = 1;
-    while(fabs(DMETPotentialChange) > 1E-16) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-6) // Do DMET until correlation potential has converged.
     {
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
@@ -528,14 +528,14 @@ int main(int argc, char* argv[])
            We retreive the density matrix, coefficient matrix, and orbital EVs */
         SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
         DensityMatrix = 2 * DensityMatrix;
-        
+
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
-        double StepSizeMu = 0.05; // How much to change chemical potential by each iteration. No good reason to choosing this number.
+        double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;
-        while(fabs(CostMu) > 1E-3) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
+        while(fabs(CostMu) > 1E-6) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
@@ -582,8 +582,6 @@ int main(int argc, char* argv[])
                 //    std::cout << std::endl;
                 //}
 
-                std::string tmpstring;
-                std::getline(std::cin, tmpstring);
                 /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
                 
                 // First we rotate the density. Not needed but it should put us closer to the true answer.
@@ -650,8 +648,8 @@ int main(int argc, char* argv[])
                 DMETEnergy += FragmentEnergies[x][0];
             }
             DMETEnergy += Input.Integrals["0 0 0 0"];
-            Output << "Energy: " << DMETEnergy << std::endl;
-            std::cout << "Energy: " << DMETEnergy << std::endl;
+            Output << "DMET Energy: " << DMETEnergy << std::endl;
+            std::cout << "DMET Energy: " << DMETEnergy << std::endl;
         }
         // Now the number of electrons are converged and each fragment is calculated.
         // Optimize the correlation potential to match the density matrix.
@@ -660,6 +658,9 @@ int main(int argc, char* argv[])
         UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         std::cout << "DMET Potential\n" << DMETPotential << std::endl;
+        std::cout << "DMET Potential Change: " << DMETPotentialChange << std::endl;
+        std::string tmpstring;
+        std::getline(std::cin, tmpstring);
 
         // Calculate full systme energy from each fragment energy.
         double DMETEnergy = 0;
