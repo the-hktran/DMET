@@ -152,7 +152,7 @@ double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj 
     return CF;
 }
 
-void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, double &FragmentOcc, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt)
+void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt)
 {
     // Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
     Eigen::MatrixXd DensityEnv(EnvironmentOrbitals.size(), EnvironmentOrbitals.size());
@@ -203,17 +203,6 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     // RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
     // RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
-
-    std::cout << "Bath EV:\n" << ESDensityEnv.eigenvalues() << std::endl;
-    std::cout << "R\n" << RotationMatrix << std::endl;
-
-    FragmentOcc = 0;
-    for(int i = 0; i < NumAOImp; i++)
-    {
-        FragmentOcc += ESDensityImp.eigenvalues()[i];
-        FragmentOcc += ESDensityEnv.eigenvalues()[i + NumEnvVirt];
-    }
-
 }
 
 /* This function projects a matrix in the full impurity - bath space into the impurity - active bath space */
@@ -410,6 +399,32 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen:
     // std::getline(std::cin, tmpstring);
 }
 
+void makeDMETFCIDUMP(InputObj &Input, Eigen::MatrixXd &RotationMatrix)
+{
+    std::ofstream FCIDUMP("FCIDUMP");
+    for(int i = 0; i < Input.NumAO; i++)
+    {
+        for(int j = 0; j < Input.NumAO; j++)
+        {
+            for(int k = 0; k < Input.NumAO; k++)
+            {
+                for(int l = 0; l < Input.NumAO; l++)
+                {
+                    FCIDUMP << TwoElectronEmbedding(Input.Integrals, RotationMatrix, i, j, k, l) << "\t" << i + 1 << "\t" << j + 1 << "\t" << k + 1 << "\t" << l + 1 << std::endl;
+                }
+            }
+        }
+    }
+    for(int i = 0; i < Input.NumAO; i++)
+    {
+        for(int j = 0; j < Input.NumAO; j++)
+        {
+            FCIDUMP << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t" << i + 1 << "\t" << j + 1 << "\t0\t0" << std::endl;
+        }
+    }
+    FCIDUMP << Input.Integrals["0 0 0 0"] << "\t0\t0\t0\t0" << std::endl;
+}
+
 // int main(int argc, char* argv[])
 // {
 //     InputObj Input;
@@ -544,84 +559,58 @@ int main(int argc, char* argv[])
                 int NumAOEnv = NumAO - NumAOImp; // The rest of the states.
 
                 Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // The matrix of our orbital rotation.
-                double FragmentOcc = 0; // Holds diagonal of impurity density matrix. This is likely a bad way to determine number of electrons.
                 int NumEnvVirt = NumAO - NumAOImp - NumOcc; // Number of virtual (environment) orbitals in the bath.
                 
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
-                SchmidtDecomposition(DensityMatrix, RotationMatrix, FragmentOcc, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
+                SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
                 // RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
                 // std::cout << "**** WARNNING: SETTING ROTATION MATRIX TO IDENTITY *****" << std::endl;
 
-                //std::ofstream FCIDUMP("FCIDUMP");
-                //std::cout << "TEIdmet:" << std::endl;
-                //for(int i = 0; i < Input.NumAO; i++)
-                //{
-                //    for(int j = 0; j < Input.NumAO; j++)
-                //    {
-                //        std::cout << TwoElectronEmbedding(Input.Integrals, RotationMatrix, 2, 3, i, j) << "\t";
-                //        for(int k = 0; k < Input.NumAO; k++)
-                //        {
-                //            for(int l = 0; l < Input.NumAO; l++)
-                //            {
-                //                FCIDUMP << TwoElectronEmbedding(Input.Integrals, RotationMatrix, i, j, k, l) << "\t" << i + 1 << "\t" << j + 1 << "\t" << k + 1 << "\t" << l + 1 << std::endl;
-                //            }
-                //        }
-                //    }
-                //    std::cout << std::endl;
-                //}
-                //std::cout << "OEIdmet:" << std::endl;
-                //for(int i = 0; i < Input.NumAO; i++)
-                //{
-                //    for(int j = 0; j < Input.NumAO; j++)
-                //    {
-                //        std::cout << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t";
-                //        FCIDUMP << OneElectronEmbedding(Input.Integrals, RotationMatrix, i, j) << "\t" << i + 1 << "\t" << j + 1 << "\t0\t0" << std::endl;
-                //    }
-                //    std::cout << std::endl;
-                //}
-
-                /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
+                // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
+                // /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
                 
-                // First we rotate the density. Not needed but it should put us closer to the true answer.
-                Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); 
-                Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
-                ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
+                // // First we rotate the density. Not needed but it should put us closer to the true answer.
+                // Eigen::MatrixXd CASDensity = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); 
+                // Eigen::MatrixXd RDR = RotationMatrix.transpose() * DensityMatrix * RotationMatrix;
+                // ProjectCAS(CASDensity, RDR , Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
 
-                // Rotate the overlap matrix. Very necessary to do SCF inside the impurity. Also the reason we need to keep the ordering of orbitals consistent */
-                Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix; // R^T S R = Rotated S
-                Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap); // Project out rows and columns not belonging to active impurity and bath space.
-                // Now use rotated S to get S^-1/2 in the rotated basis.
-                Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO);
-                std::vector<T> tripletList;
-                for(int i = 0; i < Input.NumAO; i++)
-                {
-                    tripletList.push_back(T(i, i, 1 / sqrt(EigensystemRotS.eigenvalues()[i])));
-                }
-                LambdaRotSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
-                Eigen::MatrixXd RotSOrtho = EigensystemRotS.eigenvectors() * LambdaRotSOrtho * EigensystemRotS.eigenvectors().transpose();
+                // // Rotate the overlap matrix. Very necessary to do SCF inside the impurity. Also the reason we need to keep the ordering of orbitals consistent */
+                // Eigen::MatrixXd RotOverlap = RotationMatrix.transpose() * Input.OverlapMatrix * RotationMatrix; // R^T S R = Rotated S
+                // Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemRotS(RotOverlap); // Project out rows and columns not belonging to active impurity and bath space.
+                // // Now use rotated S to get S^-1/2 in the rotated basis.
+                // Eigen::SparseMatrix< double > LambdaRotSOrtho(Input.NumAO, Input.NumAO);
+                // std::vector<T> tripletList;
+                // for(int i = 0; i < Input.NumAO; i++)
+                // {
+                //     tripletList.push_back(T(i, i, 1 / sqrt(EigensystemRotS.eigenvalues()[i])));
+                // }
+                // LambdaRotSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
+                // Eigen::MatrixXd RotSOrtho = EigensystemRotS.eigenvectors() * LambdaRotSOrtho * EigensystemRotS.eigenvectors().transpose();
 
-                // Finally, project the rotated S and S^-1/2 into the CAS.
-                Eigen::MatrixXd CASSOrtho(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
-                Eigen::MatrixXd CASOverlap(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
-                ProjectCAS(CASSOrtho, RotSOrtho, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
-                ProjectCAS(CASOverlap, RotOverlap, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
+                // // Finally, project the rotated S and S^-1/2 into the CAS.
+                // Eigen::MatrixXd CASSOrtho(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                // Eigen::MatrixXd CASOverlap(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                // ProjectCAS(CASSOrtho, RotSOrtho, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
+                // ProjectCAS(CASOverlap, RotOverlap, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], Input.NumAO, Input.NumOcc);
 
-                // Some definitions I don't really need but I need it for the SCF function.
-                std::vector<double> tmpVec;
-                FragmentEnergies[x].clear();
-                Eigen::MatrixXd FragmentCoeff;
+                // // Some definitions I don't really need but I need it for the SCF function.
+                // std::vector<double> tmpVec;
+                // FragmentEnergies[x].clear();
+                // Eigen::MatrixXd FragmentCoeff;
+                // -----
 
                 // Now, solve the impurity.
                 std::vector< double > FCIEnergies;
-                FCIEnergies = ImpurityFCI(CASDensity, Input, x, RotationMatrix, ChemicalPotential);
+                Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
+                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential);
                 FragmentEnergies[x] = FCIEnergies;
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
-                FragmentDensities[x] = CASDensity; // Save the density matrix after SCF calculation has converged.
-                std::cout << "Fragment Density:\n" << CASDensity << std::endl;
-                Output << "Fragment Density:\n" << CASDensity << std::endl;
+                FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.
+                std::cout << "Fragment Density:\n" << Fragment1RDM << std::endl;
+                Output << "Fragment Density:\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;

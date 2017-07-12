@@ -891,7 +891,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         }
         CoreInteraction += OneElectronEmbedding(Input.Integrals, RotationMatrix, CoreOrbital1 - 1, CoreOrbital1 - 1);
     }
-	std::cout << "CoreXC: " << CoreInteraction << std::endl;
 
     std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
     std::vector< std::vector<unsigned short int> > bOrbitalList;
@@ -1290,21 +1289,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     }
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
-
-    std::cout << "Density Matrix:\n" << DensityMatrix << std::endl;
-    std::cout << "EV:\n" << HamEV.eigenvectors().col(0) << std::endl;
-    PrintBinaryStrings(aStrings);
-
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings, DensityMatrix);
-    std::cout << "2RDM:\n" << std::endl;
-     for(int i = 0; i < 2 * NumAOImp; i++)
-     {
-         for(int j = 0; j < 2 * NumAOImp; j++)
-         {
-             std::cout << TwoRDM(0, 0, i, j) << "\t";
-         }
-         std::cout << std::endl;
-     }
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
@@ -1341,7 +1326,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
 
-    PrintHamiltonianMatrix(HamDense);
     // std::ofstream OutputHamiltonian(Input.OutputName + ".ham");
     // OutputHamiltonian << HamDense << std::endl;
 

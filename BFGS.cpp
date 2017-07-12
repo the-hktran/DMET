@@ -330,7 +330,6 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     FullUVectorToFragUVector(PotElemDirection, p);
     Eigen::MatrixXd pMatrix = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // This is the BFGS step direction, in DMET potential matrix form.
     FormDMETPotential(pMatrix, PotElemDirection, PotentialPositions);
-    std::cout << "pMatrix\n" << pMatrix << std::endl;
 
     Eigen::MatrixXd IncrementedDMETPot = DMETPotential + a * pMatrix;
     double LInit;
@@ -354,7 +353,6 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 
     LInit = CalcL(Input, FragmentDensities, DNext);
     LNext = LInit;
-    std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     do // while we're decreasing L along the step direction
     {
         LInit = LNext;
@@ -366,22 +364,20 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         std::cout.rdbuf(orig_buf); // restore buffer
         DNext = 2 * DNext;
         LNext = CalcL(Input, FragmentDensities, DNext);
-        std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
+        // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     } while(LInit - LNext > 1E-10);
 
     return a;
 }
 
+// Follows the Wikipedia article's notation. https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
 void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential)
 {
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
-    std::cout << "p\n" << p << std::endl;
     double a = doLineSearch(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, p, DMETPotential);
     s = a * p;
     x = x + s;
-    std::cout << "x\n" << x << std::endl;
-    std::cout << "s\n" << s << std::endl;
 }
 
 void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
@@ -456,18 +452,6 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
-
-        double Cost = CalcL(Input, FragmentDensities, FullDensity);
-
-		std::cout << "Norm of Grad: " << NormOfGrad << std::endl;
-        std::cout << "Grad: \n" << GradCF << std::endl;
-        std::cout << "L: " << Cost << std::endl;
-		std::cout << "u:\n" << DMETPotential << std::endl;
-
-		// std::string tmpstring;
-		// std::getline(std::cin, tmpstring);
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
-    std::cout << "DMETPot\n" << DMETPotential << std::endl;
-    Output << "DMETPot\n" << DMETPotential << std::endl;
 }
