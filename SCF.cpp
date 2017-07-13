@@ -619,8 +619,8 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     FockMatrix += DMETPotential;
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
     
-    std::cout << "\nFOCK\n" << FockMatrix << std::endl;
-    std::cout << "\nDENSITY\n" << DensityMatrix << std::endl;
+    // std::cout << "\nFOCK\n" << FockMatrix << std::endl;
+    // std::cout << "\nDENSITY\n" << DensityMatrix << std::endl;
 
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.

@@ -215,7 +215,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 // 	return GradD;
 // }
 
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3)
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 2)
 {
     double L = 0.0;
     if (CostFunctionVariant == 1) // Match all DIAGONAL impurity elements.

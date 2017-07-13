@@ -18,6 +18,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations);
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential);
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 2);
 
 
 /* 
@@ -529,7 +530,7 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Correlation potential. Will be optimize to match density matrices.
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
     
-    // DEBUGGING 
+    // DEBUGGING - This is the H10 u from Wouter's code
     // for (int i = 0; i < 5; i++)
     // {
     //     DMETPotential(2 * i, 2 * i) = 1.541E-13;
@@ -539,8 +540,11 @@ int main(int argc, char* argv[])
     // }
 
     double DMETPotentialChange = 1;
+    int uOptIt = 0; // Number of iterations to optimize u
     while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
     {
+        uOptIt++;
+
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
         // These hold the density matrix and energies of each impurity.
@@ -551,8 +555,13 @@ int main(int argc, char* argv[])
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
-        SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+        std::cout << "DMET: Running SCF calculation for DMET iteration " << uOptIt << std::endl;
+        double SCFEnergy = 0.0;
+        SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
         DensityMatrix = 2 * DensityMatrix;
+        std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+        Output << "DMET: Beginning DMET Iteration Number " << uOptIt << ".\nDMET: RHF Energy = " << SCFEnergy << std::endl;
+
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
@@ -562,6 +571,8 @@ int main(int argc, char* argv[])
         int MuIteration = 0;
         while(fabs(CostMu) > 1E-6) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
+            std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << std::endl;
+            Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
                 // The density matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
@@ -618,15 +629,15 @@ int main(int argc, char* argv[])
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.
-                std::cout << "Fragment Density:\n" << Fragment1RDM << std::endl;
-                Output << "Fragment Density:\n" << Fragment1RDM << std::endl;
+                std::cout << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
+                Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
             }
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
             CostMu = CalcCostChemPot(FragmentDensities, Input);
 
-            std::cout << "MU & COST: " << ChemicalPotential << "\t" << CostMu << std::endl;
-            Output << "MU & COST: " << ChemicalPotential << "\t" << CostMu << std::endl;
+            std::cout << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
+            Output << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
             /* Change mu somehow */
             if(MuIteration % 2 == 0 && MuIteration > 0)
             {
@@ -640,26 +651,26 @@ int main(int argc, char* argv[])
             }
             MuIteration++;
 
-            double DMETEnergy = 0;
-            for(int x = 0; x < Input.NumFragments; x++)
-            {
-                DMETEnergy += FragmentEnergies[x][0];
-            }
-            DMETEnergy += Input.Integrals["0 0 0 0"];
-            Output << "DMET Energy: " << DMETEnergy << std::endl;
-            std::cout << "DMET Energy: " << DMETEnergy << std::endl;
+            // double DMETEnergy = 0;
+            // for(int x = 0; x < Input.NumFragments; x++)
+            // {
+            //     DMETEnergy += FragmentEnergies[x][0];
+            // }
+            // DMETEnergy += Input.Integrals["0 0 0 0"];
+            // Output << "DMET: Energy = " << DMETEnergy << std::endl;
+            // std::cout << "DMET: Energy = " << DMETEnergy << std::endl;
         }
         // Now the number of electrons are converged and each fragment is calculated.
         // Optimize the correlation potential to match the density matrix.
         DMETPotentialPrev = DMETPotential;
         // The following does BFGS to optimize the match and change the correlation potential.
+        std::cout << "DMET: Beginning DMET potential optimization." << std::endl;
+        Output << "DMET: Beginning DMET potential optimization." << std::endl;
         UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output, FragmentRotations);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
-        std::cout << "DMET Potential\n" << DMETPotential << std::endl;
-        std::cout << "DMET Potential Change: " << DMETPotentialChange << std::endl;
-        // std::string tmpstring;
-        // std::getline(std::cin, tmpstring);
-
+        double CostU = CalcL(Input, FragmentDensities, DensityMatrix, FragmentRotations);
+        std::cout << "DMET: The cost function of this iteration is " << CostU << std::endl;
+        Output << "DMET: The cost function of this iteration is " << CostU << std::endl;
         // Calculate full systme energy from each fragment energy.
         double DMETEnergy = 0;
         for(int x = 0; x < Input.NumFragments; x++)
@@ -667,7 +678,10 @@ int main(int argc, char* argv[])
             DMETEnergy += FragmentEnergies[x][0];
         }
         DMETEnergy += Input.Integrals["0 0 0 0"];
-        std::cout << "ENERGY: " << DMETEnergy << std::endl;
+        std::cout << "DMET: Energy =  " << DMETEnergy << std::endl;
+        Output << "DMET: Energy =  " << DMETEnergy << std::endl;
     }
+    std::cout << "DMET: DMET has converged." << std::endl;
+    Output << "DMET: DMET has converged." << std::endl;
     return 0;
 }
