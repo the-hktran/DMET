@@ -16,7 +16,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
-void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output);
+void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations);
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential);
 
 
@@ -528,6 +528,15 @@ int main(int argc, char* argv[])
 
     Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Correlation potential. Will be optimize to match density matrices.
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
+    
+    // DEBUGGING 
+    // for (int i = 0; i < 5; i++)
+    // {
+    //     DMETPotential(2 * i, 2 * i) = 1.541E-13;
+    //     DMETPotential(2 * i + 1, 2 * i + 1) = -1.541E-13;
+    //     DMETPotential(2 * i, 2 * i + 1) = -2.334E-03;
+    //     DMETPotential(2 * i + 1, 2 * i) = -2.334E-03;
+    // }
 
     double DMETPotentialChange = 1;
     while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
@@ -538,6 +547,7 @@ int main(int argc, char* argv[])
         std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments); // Vector of double incase multiple solutions are desired from one impurity.
         std::vector< double > AllEnergies;
+        std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
@@ -565,8 +575,7 @@ int main(int argc, char* argv[])
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
-                // RotationMatrix = Eigen::MatrixXd::Identity(NumAO, NumAO); // useful for debugging purposes.
-                // std::cout << "**** WARNNING: SETTING ROTATION MATRIX TO IDENTITY *****" << std::endl;
+                FragmentRotations[x] = RotationMatrix;
 
                 // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
                 // /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
@@ -644,7 +653,7 @@ int main(int argc, char* argv[])
         // Optimize the correlation potential to match the density matrix.
         DMETPotentialPrev = DMETPotential;
         // The following does BFGS to optimize the match and change the correlation potential.
-        UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output);
+        UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output, FragmentRotations);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         std::cout << "DMET Potential\n" << DMETPotential << std::endl;
         std::cout << "DMET Potential Change: " << DMETPotentialChange << std::endl;

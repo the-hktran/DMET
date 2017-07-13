@@ -215,7 +215,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 // 	return GradD;
 // }
 
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, int CostFunctionVariant = 2)
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3)
 {
     double L = 0.0;
     if (CostFunctionVariant == 1) // Match all DIAGONAL impurity elements.
@@ -247,16 +247,36 @@ double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, 
             }
         }
     }
+    if (CostFunctionVariant == 3)
+    {
+        for(int x = 0; x < Input.NumFragments; x++)
+        {
+            std::vector<int> FragPos, BathPos;
+            GetCASPos(Input, x, FragPos, BathPos);
+            Eigen::MatrixXd RotatedFullDensity = FragmentRotations[x].transpose() * FullDensity * FragmentRotations[x]; // We need to rotate the bath portion of the 1RDM.
+            int NumVirt = Input.NumAO - Input.FragmentOrbitals[x].size() - Input.NumOcc;
+            for(int i = 0; i < Input.FragmentOrbitals[x].size(); i++)
+            {
+                for(int j = 0; j < Input.FragmentOrbitals[x].size(); j++)
+                {
+                    L += (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - RotatedFullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]))
+                       * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - RotatedFullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]));
+                    L += (FragmentDensities[x].coeffRef(BathPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.EnvironmentOrbitals[x][NumVirt + i], Input.EnvironmentOrbitals[x][NumVirt + j]))
+                       * (FragmentDensities[x].coeffRef(BathPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.EnvironmentOrbitals[x][NumVirt + i], Input.EnvironmentOrbitals[x][NumVirt + j]));
+                }
+            }
+        }
+    }
     return L;
 }
 
-Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd InitialDensity, std::vector< std::vector< double > > &PotentialElements, std::vector< std::vector< std::pair<int, int> > > &PotentialPositions)
+Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd InitialDensity, std::vector< std::vector< double > > &PotentialElements, std::vector< std::vector< std::pair<int, int> > > &PotentialPositions, std::vector< Eigen::MatrixXd > &FragmentRotations)
 {
 	int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd GradL = Eigen::VectorXd::Zero(TotPos);
 
 	double du = 1E-4; // to calculate [L(u + du) - L(u)] / du
-    double L_Initial = CalcL(Input, FragmentDensities, InitialDensity);
+    double L_Initial = CalcL(Input, FragmentDensities, InitialDensity, FragmentRotations);
 
     std::vector< std::vector< double > > PotElemPlusDU;
     int uComponent = 0; // We are taking the derivative with respect to this component of u
@@ -286,7 +306,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 
 			// Now we have D(u + du)
 			// Calculate [L(u + du) - L(u)] / du
-			double dL = CalcL(Input, FragmentDensities, DensityPlusDU);
+			double dL = CalcL(Input, FragmentDensities, DensityPlusDU, FragmentRotations);
             dL = (dL - L_Initial) / du;
 
 			// Now store it.
@@ -321,7 +341,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 //     return GradCF;
 // }
 
-double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential)
+double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations)
 {
     double a = 0.0; // Size of line step.
     double da = 5E-2; // We will increment a by this much until a loose minimum is found
@@ -351,7 +371,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 	std::cout.rdbuf(orig_buf); // restore buffer
     DNext = 2 * DNext;
 
-    LInit = CalcL(Input, FragmentDensities, DNext);
+    LInit = CalcL(Input, FragmentDensities, DNext, FragmentRotations);
     LNext = LInit;
     do // while we're decreasing L along the step direction
     {
@@ -363,7 +383,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         SCF(EmptyBias, 1, DNext, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies1, CoeffMatrix, Input.OccupiedOrbitals, Input.VirtualOrbitals, SCFCount, -1, IncrementedDMETPot, OrbitalEV);
         std::cout.rdbuf(orig_buf); // restore buffer
         DNext = 2 * DNext;
-        LNext = CalcL(Input, FragmentDensities, DNext);
+        LNext = CalcL(Input, FragmentDensities, DNext, FragmentRotations);
         // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     } while(LInit - LNext > 1E-10);
 
@@ -371,11 +391,11 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 }
 
 // Follows the Wikipedia article's notation. https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
-void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential)
+void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, Eigen::MatrixXd &FullDensity, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations)
 {
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
-    double a = doLineSearch(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, p, DMETPotential);
+    double a = doLineSearch(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, p, DMETPotential, FragmentRotations);
     s = a * p;
     x = x + s;
 }
@@ -386,7 +406,7 @@ void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
     Hessian = Hessian + (y * y.transpose()) / (y.dot(s)) - (Hessian * s * s.transpose() * Hessian) / (s.transpose() * Hessian * s);
 }
 
-void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output)
+void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations)
 {
     // First vector holds the positions of the nonzero elements, the second holds the values at each of those posisions.
     // They are divided by fragment, to make some of the code neater.
@@ -410,7 +430,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     // std::cout << "Coeff\n" << CoeffMatrix << std::endl;
     // std::cout << "OrbEV\n" << OrbitalEV << std::endl;
 
-    Eigen::VectorXd GradCF = CalcGradL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions);
+    Eigen::VectorXd GradCF = CalcGradL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations);
     // CalcGradCF(Input, PotentialPositions, PotentialElements, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensity);
 
 	// NormOfGrad measures the norm of the gradient, and we finish when this is sufficiently small.
@@ -423,7 +443,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     while(fabs(NormOfGrad) > 1E-4)
     {
         // Solves Hp = -GradL and moves along direction p.
-        BFGS_1(Hessian, s, GradCF, PotentialElementsVec, Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, DMETPotential);
+        BFGS_1(Hessian, s, GradCF, PotentialElementsVec, Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, DMETPotential, FragmentRotations);
         PrevGrad = GradCF;
         FullUVectorToFragUVector(PotentialElements, PotentialElementsVec);
 
@@ -446,7 +466,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         FullDensity = 2 * FullDensity;
 
         // Then use this new density matrix to calculate GradL
-        GradCF = CalcGradL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions);
+        GradCF = CalcGradL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations);
 
         // Forms Hessian for next iteration.
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
