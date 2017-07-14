@@ -319,6 +319,98 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 
     return GradL;
 }
+
+Eigen::MatrixXd CalcHessL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd InitialDensity, std::vector< std::vector< double > > &PotentialElements, std::vector< std::vector< std::pair<int, int> > > &PotentialPositions, std::vector< Eigen::MatrixXd > &FragmentRotations)
+{
+	int TotPos = CalcTotalPositions(PotentialPositions);
+    Eigen::MatrixXd HessL = Eigen::MatrixXd::Zero(TotPos, TotPos);
+
+	double du = 1E-3;
+    double L_Initial = CalcL(Input, FragmentDensities, InitialDensity, FragmentRotations);
+
+    std::vector< std::vector< double > > PotElemPlusDU1;
+    std::vector< std::vector< double > > PotElemPlusDU2;
+    std::vector< std::vector< double > > PotElemPlusDU1DU2;
+    int uComponent1 = 0; // We are taking the derivative with respect to this component of u
+    
+    for (int x1 = 0; x1 < Input.NumFragments; x1++)
+	{
+		for (int i1 = 0; i1 < PotentialElements[x1].size(); i1++)
+		{
+            PotElemPlusDU1 = PotentialElements;
+            PotElemPlusDU1[x1][i1] += du;
+            Eigen::MatrixXd DMETPotPlusDU1 = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
+
+            FormDMETPotential(DMETPotPlusDU1, PotElemPlusDU1, PotentialPositions); // Make new u + du1 matrix.
+            Eigen::MatrixXd DensityPlusDU1 = InitialDensity; // Will hold resulting D(u + du1)
+
+            // Now we do the full system SCF with the u + du potential. Some fillers need to be defined.
+            std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
+            std::ofstream BlankOutput;
+            std::vector< double > AllEnergies;
+            Eigen::MatrixXd CoeffMatrix;
+            int SCFCount = 0;
+            Eigen::VectorXd OrbitalEV;
+            // This redirects the std::cout buffer, so we don't have massive amounts of terminal output.
+            std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+            std::cout.rdbuf(NULL); // sets to null
+            SCF(EmptyBias, 1, DensityPlusDU1, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, Input.OccupiedOrbitals, Input.VirtualOrbitals, SCFCount, -1, DMETPotPlusDU1, OrbitalEV);
+            std::cout.rdbuf(orig_buf); // restore buffer
+
+            DensityPlusDU1 = 2 * DensityPlusDU1;
+
+            int uComponent2 = 0;
+
+            for (int x2 = 0; x2 < Input.NumFragments; x2++)
+            {
+                for (int i2 = 0; i2 < PotentialElements[x2].size(); i2++)
+                {
+                    PotElemPlusDU2 = PotentialElements;
+                    PotElemPlusDU1DU2 = PotentialElements;
+
+                    PotElemPlusDU2[x2][i2] += du; // add du to the element under consideration, symmetry is enforced in the below function.
+                    PotElemPlusDU1DU2[x1][i1] += du;
+                    PotElemPlusDU1DU2[x2][i2] += du;
+
+                    Eigen::MatrixXd DMETPotPlusDU2 = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
+                    Eigen::MatrixXd DMETPotPlusDU1DU2 = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
+
+                    FormDMETPotential(DMETPotPlusDU2, PotElemPlusDU2, PotentialPositions); // Make new u + du2 matrix.
+                    FormDMETPotential(DMETPotPlusDU1DU2, PotElemPlusDU1DU2, PotentialPositions); // Make new u + du1 + du2 matrix.
+                    Eigen::MatrixXd DensityPlusDU2 = InitialDensity;
+                    Eigen::MatrixXd DensityPlusDU1DU2 = InitialDensity;
+                    
+                    // Now we do the full system SCF with the u + du potential. Some fillers need to be defined.
+                    std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
+                    std::ofstream BlankOutput;
+                    std::vector< double > AllEnergies2;
+                    std::vector< double > AllEnergies3;
+                    Eigen::MatrixXd CoeffMatrix;
+                    int SCFCount = 0;
+                    Eigen::VectorXd OrbitalEV;
+                    std::cout.rdbuf(NULL); // sets to null
+                    SCF(EmptyBias, 1, DensityPlusDU2, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies2, CoeffMatrix, Input.OccupiedOrbitals, Input.VirtualOrbitals, SCFCount, -1, DMETPotPlusDU2, OrbitalEV);
+                    SCF(EmptyBias, 1, DensityPlusDU1DU2, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies3, CoeffMatrix, Input.OccupiedOrbitals, Input.VirtualOrbitals, SCFCount, -1, DMETPotPlusDU1DU2, OrbitalEV);
+                    std::cout.rdbuf(orig_buf); // restore buffer
+                    
+                    DensityPlusDU2 = 2 * DensityPlusDU2;
+                    DensityPlusDU1DU2 = 2 * DensityPlusDU1DU2;
+
+                    // Now we have D(u + du)
+                    // Calculate [L(u + du) - L(u)] / du
+                    double ddL = (CalcL(Input, FragmentDensities, DensityPlusDU1DU2, FragmentRotations) - CalcL(Input, FragmentDensities, DensityPlusDU1, FragmentRotations)
+                                - CalcL(Input, FragmentDensities, DensityPlusDU2, FragmentRotations) + L_Initial) / (du * du);
+                    // Now store it.
+                    HessL(uComponent1, uComponent2) = ddL;
+                    uComponent2++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
+                }
+            }
+            uComponent1++;       
+		} // end loop over fragment orbitals
+	} // end loop over fragments
+
+    return HessL;
+}
 // Returns the full gradient of the cost function.
 // del (sum_x sum_ij (D_ij^x - D_ij)^2 = sum_x sum_ij [2 * (D_ij^x - D_ij) * del D_ij]
 // Eigen::VectorXd CalcGradCF(InputObj &Input, std::vector< std::vector< std::pair< int, int > > > &PotentialPositions, std::vector< std::vector< double > > &PotentialElements, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity)
