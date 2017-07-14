@@ -18,7 +18,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations);
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential);
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 2);
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3);
 
 
 /* 
@@ -541,7 +541,7 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    while(fabs(DMETPotentialChange) > 1E-8) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-6) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
 
@@ -561,7 +561,6 @@ int main(int argc, char* argv[])
         DensityMatrix = 2 * DensityMatrix;
         std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         Output << "DMET: Beginning DMET Iteration Number " << uOptIt << ".\nDMET: RHF Energy = " << SCFEnergy << std::endl;
-
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
@@ -678,8 +677,12 @@ int main(int argc, char* argv[])
             DMETEnergy += FragmentEnergies[x][0];
         }
         DMETEnergy += Input.Integrals["0 0 0 0"];
-        std::cout << "DMET: Energy =  " << DMETEnergy << std::endl;
-        Output << "DMET: Energy =  " << DMETEnergy << std::endl;
+        std::cout << "DMET: Energy = " << DMETEnergy << std::endl;
+        Output << "DMET: Energy = " << DMETEnergy << std::endl;
+        std::cout << "u:\n" << DMETPotential << std::endl;
+
+        // std::string tmpstring;
+        // std::getline(std::cin, tmpstring);
     }
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;

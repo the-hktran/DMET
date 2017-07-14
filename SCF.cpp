@@ -286,7 +286,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
-    DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
+    // DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
 
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
@@ -616,15 +616,12 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 {
     Eigen::MatrixXd FockMatrix(DensityMatrix.rows(), DensityMatrix.cols()); // This will hold the FockMatrix.
     BuildFockMatrix(FockMatrix, DensityMatrix, Input.Integrals, Bias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
-    FockMatrix += DMETPotential;
+    FockMatrix += DMETPotential; // If before DIIS, results in improper Fock matrix. If after DIIS, gradient is wrong.
     AllFockMatrices.push_back(FockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.
-    
-    // std::cout << "\nFOCK\n" << FockMatrix << std::endl;
-    // std::cout << "\nDENSITY\n" << DensityMatrix << std::endl;
 
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
-    DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
+    // DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
 
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
@@ -670,6 +667,9 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
             }
         }
     }
+    // std::cout << "D\n" << 2 * DensityMatrix << std::endl;
+    // std::string tmpstring;
+    // std::getline(std::cin, tmpstring);
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
     double Energy = (DensityMatrix.cwiseProduct(HCore + FockMatrix)).sum();
@@ -678,7 +678,7 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
 
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV)
 {
-	double SCFTol = 1E-5; // 1E-8; // SCF will terminate when the DIIS error is below this amount. 
+	double SCFTol = 1E-4; // 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
 
 	Output << "Beginning search for Solution " << SolnNum << std::endl;
@@ -839,12 +839,12 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 
         isUniqueSoln = true;
         short int WhichSoln = -1; // If we found a solution we already visited, this will mark which of the previous solutions we are at.
-        if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
-        {
-            isUniqueSoln = false;
-        }
-        else
-        {
+        // if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
+        // {
+        //     isUniqueSoln = false;
+        // }
+        // else
+        // {
             for(int i = 0; i < AllEnergies.size(); i++) // Compare energy with previous solutions.
             {
                 if(fabs(Energy + Input.Integrals["0 0 0 0"] - AllEnergies[i]) < 1E-5) // Checks to see if new energy is equal to any previous energy.
@@ -866,7 +866,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                     }
                 }
             }
-        }
+        // }
 
         if(!isUniqueSoln) // If the flag is still false, we modify the bias and hope that this gives a better result.
         {

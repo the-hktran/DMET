@@ -215,7 +215,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 // 	return GradD;
 // }
 
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 2)
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3)
 {
     double L = 0.0;
     if (CostFunctionVariant == 1) // Match all DIAGONAL impurity elements.
@@ -263,6 +263,8 @@ double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, 
                        * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - RotatedFullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]));
                     L += (FragmentDensities[x].coeffRef(BathPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.EnvironmentOrbitals[x][NumVirt + i], Input.EnvironmentOrbitals[x][NumVirt + j]))
                        * (FragmentDensities[x].coeffRef(BathPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.EnvironmentOrbitals[x][NumVirt + i], Input.EnvironmentOrbitals[x][NumVirt + j]));
+                    L += 2 * (FragmentDensities[x].coeffRef(FragPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.EnvironmentOrbitals[x][NumVirt + j]))
+                           * (FragmentDensities[x].coeffRef(FragPos[i], BathPos[j]) - RotatedFullDensity.coeffRef(Input.FragmentOrbitals[x][i], Input.EnvironmentOrbitals[x][NumVirt + j])); 
                 }
             }
         }
@@ -275,7 +277,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 	int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd GradL = Eigen::VectorXd::Zero(TotPos);
 
-	double du = 1E-4; // to calculate [L(u + du) - L(u)] / du
+	double du = 1E-3; // to calculate [L(u + du) - L(u)] / du
     double L_Initial = CalcL(Input, FragmentDensities, InitialDensity, FragmentRotations);
 
     std::vector< std::vector< double > > PotElemPlusDU;
@@ -355,7 +357,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     double LInit;
     double LNext;
 
-    Eigen::MatrixXd DNext = FullDensity;
+    Eigen::MatrixXd DNext = 0.5 * FullDensity;
 
     // Do initial SCF
     std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
@@ -373,6 +375,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 
     LInit = CalcL(Input, FragmentDensities, DNext, FragmentRotations);
     LNext = LInit;
+    // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     do // while we're decreasing L along the step direction
     {
         LInit = LNext;
@@ -387,7 +390,9 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     } while(LInit - LNext > 1E-10);
 
-    return a;
+    // std::cout << "DMET: Cost function = " << LNext << std::endl;
+
+    return a - da / 2;
 }
 
 // Follows the Wikipedia article's notation. https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
@@ -395,14 +400,24 @@ void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
 {
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
+    std::cout << "DMET: Commencing line search." << std::endl;
     double a = doLineSearch(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, p, DMETPotential, FragmentRotations);
     s = a * p;
     x = x + s;
+    std::cout << "DMET: Line search complete." << std::endl;
 }
 
 void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
 {
     Eigen::VectorXd y = Gradient - GradientPrev;
+    // std::cout << "grad\n" << Gradient << std::endl;
+    // std::cout << "gradprev\n" << GradientPrev << std::endl;
+    // std::cout << "s\n" << s << std::endl;
+    // std::cout << "x\n" << x << std::endl;
+    // std::cout << "y\n" << y << std::endl;
+    // std::cout << "Hessian\n" << Hessian << std::endl;
+    // std::cout << "y dot s\n" << y.dot(s) << std::endl;
+    // std::cout << "sHs\n" << s.transpose() * Hessian * s << std::endl;
     Hessian = Hessian + (y * y.transpose()) / (y.dot(s)) - (Hessian * s * s.transpose() * Hessian) / (s.transpose() * Hessian * s);
 }
 
@@ -472,6 +487,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
+        std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
 }
