@@ -544,7 +544,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
-    Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
+    Eigen::MatrixXd Hessian = CalcHessL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations); // Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
     while(fabs(NormOfGrad) > 1E-4)
