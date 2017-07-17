@@ -716,7 +716,7 @@ void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
     PrintHamiltonianMatrixMathematica(Ham);
 }
 
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential)
+std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State)
 {
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -1281,15 +1281,15 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
  //   Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
     std::cout << "FCI: The eigenvaues are";
     std::vector< double > FCIEnergies;
-    for(int k = 0; k < NumberOfEV; k++)
+    for(int k = 0; k < State + 1; k++)
     {
         FCIEnergies.push_back(HamEV.eigenvalues()[k]);
         std::cout << "\n" << HamEV.eigenvalues()[k];
 //        Output << "\n" << HamEV.eigenvalues()[k];
     }
 
-    DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings);
-	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(0), aStrings, bStrings, DensityMatrix);
+    DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
+	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
@@ -1316,12 +1316,13 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 		}
 	}
 
-	for (int k = 0; k < NumberOfEV; k++)
-	{
-		FCIEnergies[k] = Energy;
-		std::cout << "\n" << Energy;
-		//        Output << "\n" << HamEV.eigenvalues()[k];
-	}
+    FCIEnergies[0] = Energy; // I don't see a need to save all lower states, so let's just put it in the bottom of the vector.
+	// for (int k = 0; k < State; k++)
+	// {
+	// 	FCIEnergies[k] = Energy;
+	// 	std::cout << "\n" << Energy;
+	// 	//        Output << "\n" << HamEV.eigenvalues()[k];
+	// }
     
     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
     // Output << "\nTotal running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;

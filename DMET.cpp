@@ -12,14 +12,14 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 
-#define H2H2H2
+// #define H2H2H2
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations);
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential);
+std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
 double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3);
 
 
@@ -489,7 +489,25 @@ int main(int argc, char* argv[])
     int NumOcc = Input.NumOcc;
     int NumFragments = Input.NumFragments;
 
-    int NumSCFStates = 2;
+    std::vector< int > ImpurityStates(NumFragments); // Which FCI state is desired from the fragment FCI.
+    for (int i = 0; i < ImpurityStates.size(); i++)
+    {
+        ImpurityStates[i] = 0;
+    }
+    std::vector< int > BathStates(NumFragments);
+    for (int i = 0; i < ImpurityStates.size(); i++)
+    {
+        ImpurityStates[i] = 0;
+    }
+
+    #ifdef H2H2H2
+        ImpurityStates[1] = 1;
+        BathStates[0] = 1;
+        BathStates[2] = 1;
+    #endif // H2H2H2
+
+    int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
+    NumSCFStates++;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -616,7 +634,7 @@ int main(int argc, char* argv[])
             FullDensities[i] = 2 * DensityMatrix;
         }
         // SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        DensityMatrix = FullDensities[0];
+        // DensityMatrix = FullDensities[0];
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
         Output << "DMET: Beginning DMET Iteration Number " << uOptIt << ".\nDMET: RHF Energy = " << SCFEnergy << std::endl;
@@ -633,6 +651,9 @@ int main(int argc, char* argv[])
             Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
+                // Use the correct density matrix for this fragment.
+                DensityMatrix = FullDensities[BathStates[x]];
+
                 // The density matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
                 int NumAOImp = Input.FragmentOrbitals[x].size(); // Number of impurity states.
                 int NumAOEnv = NumAO - NumAOImp; // The rest of the states.
@@ -682,7 +703,7 @@ int main(int argc, char* argv[])
                 // Now, solve the impurity.
                 std::vector< double > FCIEnergies;
                 Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
-                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential);
+                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x]);
                 FragmentEnergies[x] = FCIEnergies;
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
