@@ -479,7 +479,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         std::cout.rdbuf(orig_buf); // restore buffer
         DNext = 2 * DNext;
         LNext = CalcL(Input, FragmentDensities, DNext, FragmentRotations);
-        // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
+        std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     } while(LInit - LNext > 1E-10);
 
     // std::cout << "DMET: Cost function = " << LNext << std::endl;
@@ -544,7 +544,8 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     double NormOfGrad = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
-    Eigen::MatrixXd Hessian = CalcHessL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations); // Eigen::MatrixXd::Identity(TotPos, TotPos);
+    // Eigen::MatrixXd Hessian = CalcHessL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations);
+    Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
     while(fabs(NormOfGrad) > 1E-4)

@@ -12,6 +12,8 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 
+#define H2H2H2
+
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
@@ -175,6 +177,8 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     }
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityEnv(DensityEnv);
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityImp(DensityImp);
+
+    std::cout << "DMET: Bath eigenvalues:\n" << ESDensityEnv.eigenvalues() << std::endl;
 
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
@@ -484,6 +488,8 @@ int main(int argc, char* argv[])
     int NumAO = Input.NumAO;
     int NumOcc = Input.NumOcc;
     int NumFragments = Input.NumFragments;
+
+    int NumSCFStates = 2;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -495,6 +501,8 @@ int main(int argc, char* argv[])
     // {
     //     DensityMatrix(i, i) = 1;
     // }
+
+    std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -521,6 +529,8 @@ int main(int argc, char* argv[])
     {
         VirtualOrbitals.push_back(i);
     }
+    // OccupiedOrbitals[NumOcc - 1] = NumOcc;
+    // VirtualOrbitals[0] = NumOcc - 1;
 	Input.OccupiedOrbitals = OccupiedOrbitals;
 	Input.VirtualOrbitals = VirtualOrbitals;
 
@@ -555,11 +565,60 @@ int main(int argc, char* argv[])
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
+        // #ifdef H2H2H2
+        //     DensityMatrix << 
+        //         // 0.56, 0.11, -.07, -.27, 0.06, -.39,
+        //         // 0.11, 0.56, -.27, -.07, -.39, 0.06,
+        //         // -.07, -.27, 0.37, 0.28, -.07, -.27,
+        //         // -.27, -.07, 0.28, 0.37, -.27, -.07,
+        //         // 0.06, -.39, -.07, -.27, 0.56, 0.11,
+        //         // -.39, 0.06, -.27, -.07, 0.11, 0.56;
+
+        //         // 0.5, 0.5, 0.0, 0.0, 0.0, 0.0,
+        //         // 0.5, 0.5, 0.0, 0.0, 0.0, 0.0,
+        //         // 0.0, 0.0, 0.5, 0.0, 0.0, 0.0,
+        //         // 0.0, 0.0, 0.0, 0.5, 0.0, 0.0,
+        //         // 0.0, 0.0, 0.0, 0.0, 0.5, 0.5,
+        //         // 0.0, 0.0, 0.0, 0.0, 0.5, 0.5;
+
+        //         // 0.4365959597,  0.3915640739,  0.0667023412,  0.2691279919, -0.0634040467, -0.1084359360,
+        //         // 0.3915640739,  0.4365959597,  0.2691279919,  0.0667023412, -0.1084359360, -0.0634040467,
+        //         // 0.0667023412,  0.2691279919,  0.6268080935, -0.2831281279,  0.0667023495,  0.2691280157,
+        //         // 0.2691279919,  0.0667023412, -0.2831281279,  0.6268080935,  0.2691280157,  0.0667023495,
+        //         // -0.0634040467, -0.1084359360,  0.0667023495,  0.2691280157,  0.4365959468,  0.3915640540,
+        //         // -0.1084359360, -0.0634040467,  0.2691280157,  0.0667023495,  0.3915640540,  0.4365959468;
+
+        //         // 0.5, 0.5, 0.0, 0.5, 0.0, 0.0,
+        //         // 0.5, 0.5, 0.5, 0.0, 0.0, 0.0,
+        //         // 0.0, 0.5, 0.5, 0.0, 0.5, 0.0,
+        //         // 0.5, 0.0, 0.0, 0.5, 0.0, 0.5,
+        //         // 0.0, 0.0, 0.5, 0.0, 0.5, 0.5,
+        //         // 0.0, 0.0, 0.0, 0.5, 0.5, 0.5;
+        //     std::cout << "Starting 1RDM:\n" << DensityMatrix << std::endl;
+        // #endif
         std::cout << "DMET: Running SCF calculation for DMET iteration " << uOptIt << std::endl;
         double SCFEnergy = 0.0;
-        SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        DensityMatrix = 2 * DensityMatrix;
-        std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+        std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
+        for (int i = 0; i < NumSCFStates; i++)
+        {
+            // if (i == 1) // Change occupation for excited state.
+            // {
+            //     int Orb1 = NumOcc - 1;
+            //     int Orb2 = NumOcc;
+            //     OccupiedOrbitals[Orb1] = Orb2;
+            //     VirtualOrbitals[Orb2 - NumOcc] = Orb1;
+            // }
+            SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+            std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+            Bias.push_back(tmpTuple);
+            std::cout << DensityMatrix << std::endl;
+            FullDensities[i] = 2 * DensityMatrix;
+        }
+        // SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+        DensityMatrix = FullDensities[0];
+        // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+        // std::cout << DensityMatrix << std::endl;
         Output << "DMET: Beginning DMET Iteration Number " << uOptIt << ".\nDMET: RHF Energy = " << SCFEnergy << std::endl;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
@@ -630,6 +689,7 @@ int main(int argc, char* argv[])
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.
                 std::cout << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
+                std::cout << "Frag Density\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
