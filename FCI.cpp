@@ -1279,12 +1279,12 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     std::cout << " done" << std::endl;
     std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
  //   Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
-    std::cout << "FCI: The eigenvaues are";
+    // std::cout << "FCI: The eigenvaues are";
     std::vector< double > FCIEnergies;
     for(int k = 0; k < State + 1; k++)
     {
         FCIEnergies.push_back(HamEV.eigenvalues()[k]);
-        std::cout << "\n" << HamEV.eigenvalues()[k];
+        // std::cout << "\n" << HamEV.eigenvalues()[k];
 //        Output << "\n" << HamEV.eigenvalues()[k];
     }
 

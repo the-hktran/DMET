@@ -18,9 +18,9 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
-void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd &FullDensity, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations);
+void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< int > OccupiedOrbitals, std::vector< int > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
 std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, Eigen::MatrixXd FullDensity, std::vector< Eigen::MatrixXd > FragmentRotations, int CostFunctionVariant = 3);
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
 
 
 /* 
@@ -535,26 +535,6 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd SOrtho = EigensystemS.eigenvectors() * LambdaSOrtho * EigensystemS.eigenvectors().transpose(); // S^-1/2
 	Input.SOrtho = SOrtho;
 
-    /* These are the list of occupied and virtual orbitals of the full system calculation. This is necessary in case I want
-       to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
-    std::vector< int > OccupiedOrbitals;
-    std::vector< int > VirtualOrbitals;
-    for(int i = 0; i < NumOcc; i++)
-    {
-        OccupiedOrbitals.push_back(i);
-    }
-    for(int i = NumOcc; i < NumAO; i++)
-    {
-        VirtualOrbitals.push_back(i);
-    }
-    // OccupiedOrbitals[NumOcc - 1] = NumOcc;
-    // VirtualOrbitals[0] = NumOcc - 1;
-	Input.OccupiedOrbitals = OccupiedOrbitals;
-	Input.VirtualOrbitals = VirtualOrbitals;
-
-    Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
-    int SCFCount = 0; // Counts how many SCF iterations have been done in total.
-
     Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Correlation potential. Will be optimize to match density matrices.
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
     
@@ -580,6 +560,33 @@ int main(int argc, char* argv[])
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments); // Vector of double incase multiple solutions are desired from one impurity.
         std::vector< double > AllEnergies;
         std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
+
+
+        /* These are the list of occupied and virtual orbitals of the full system calculation. This is necessary in case I want
+           to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
+        std::vector< int > OccupiedOrbitals;
+        std::vector< int > VirtualOrbitals;
+        for(int i = 0; i < NumOcc; i++)
+        {
+            OccupiedOrbitals.push_back(i);
+        }
+        for(int i = NumOcc; i < NumAO; i++)
+        {
+            VirtualOrbitals.push_back(i);
+        }
+        // OccupiedOrbitals[NumOcc - 1] = NumOcc;
+        // VirtualOrbitals[0] = NumOcc - 1;
+        Input.OccupiedOrbitals = OccupiedOrbitals;
+        Input.VirtualOrbitals = VirtualOrbitals;
+
+        Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
+        int SCFCount = 0; // Counts how many SCF iterations have been done in total.
+
+        // These are values we need to calculate the derivative of the 1RDM later in the optimization. They are separated by state.
+        std::vector< std::vector< int > > OccupiedByState;
+        std::vector< std::vector< int > > VirtualByState;
+        std::vector< Eigen::MatrixXd > CoeffByState;
+        std::vector< Eigen::VectorXd > OrbitalEVByState;
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
@@ -612,7 +619,21 @@ int main(int argc, char* argv[])
         //         // 0.5, 0.0, 0.0, 0.5, 0.0, 0.5,
         //         // 0.0, 0.0, 0.5, 0.0, 0.5, 0.5,
         //         // 0.0, 0.0, 0.0, 0.5, 0.5, 0.5;
+
+        //          0.5417506668,  0.0410202983,  0.0008034825, -0.0005123971,  0.0034482223, -0.4965495127,
+        //          0.0410202983,  0.5417506668, -0.0005123971,  0.0008034825, -0.4965495127,  0.0034482223,
+        //          0.0008034825, -0.0005123971,  0.5000016275,  0.4999981694,  0.0008289865, -0.0004849678,
+        //         -0.0005123971,  0.0008034825,  0.4999981694,  0.5000016275, -0.0004849678,  0.0008289865,
+        //          0.0034482223, -0.4965495127,  0.0008289865, -0.0004849678,  0.4582477058, -0.0410184678,
+        //         -0.4965495127,  0.0034482223, -0.0004849678,  0.0008289865, -0.0410184678,  0.4582477058;
+
         //     std::cout << "Starting 1RDM:\n" << DensityMatrix << std::endl;
+        //     OccupiedOrbitals[0] = 2;
+        //     OccupiedOrbitals[1] = 3;
+        //     OccupiedOrbitals[2] = 0;
+        //     VirtualOrbitals[0] = 1;
+        //     VirtualOrbitals[1] = 4;
+        //     VirtualOrbitals[2] = 5;
         // #endif
         std::cout << "DMET: Running SCF calculation for DMET iteration " << uOptIt << std::endl;
         double SCFEnergy = 0.0;
@@ -630,8 +651,24 @@ int main(int argc, char* argv[])
             std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             Bias.push_back(tmpTuple);
-            std::cout << DensityMatrix << std::endl;
+            // std::cout << DensityMatrix << std::endl;
+            // for (int j = 0; j < OccupiedOrbitals.size(); j++)
+            // {
+            //     std::cout << OccupiedOrbitals[j] << "\t";
+            // }
+            // std::cout << std::endl;
+            // for (int j = 0; j < VirtualOrbitals.size(); j++)
+            // {
+            //     std::cout << VirtualOrbitals[j] << "\t";
+            // }
+            // std::cout << std::endl;
             FullDensities[i] = 2 * DensityMatrix;
+
+            // Collect information needed for derivative calculations later.
+            OccupiedByState.push_back(OccupiedOrbitals);
+            VirtualByState.push_back(VirtualOrbitals);
+            CoeffByState.push_back(CoeffMatrix);
+            OrbitalEVByState.push_back(OrbitalEV);
         }
         // SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
         // DensityMatrix = FullDensities[0];
@@ -744,11 +781,20 @@ int main(int argc, char* argv[])
         // Optimize the correlation potential to match the density matrix.
         DMETPotentialPrev = DMETPotential;
         // The following does BFGS to optimize the match and change the correlation potential.
+        for(int i = 0; i < NumOcc; i++) // Reinitialize
+        {
+            OccupiedOrbitals.push_back(i);
+        }
+        for(int i = NumOcc; i < NumAO; i++)
+        {
+            VirtualOrbitals.push_back(i);
+        }
+
         std::cout << "DMET: Beginning DMET potential optimization." << std::endl;
         Output << "DMET: Beginning DMET potential optimization." << std::endl;
-        UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, DensityMatrix, Output, FragmentRotations);
+        UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedOrbitals, VirtualOrbitals, FragmentDensities, FullDensities, Output, FragmentRotations, ImpurityStates, BathStates);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
-        double CostU = CalcL(Input, FragmentDensities, DensityMatrix, FragmentRotations);
+        double CostU = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
         std::cout << "DMET: The cost function of this iteration is " << CostU << std::endl;
         Output << "DMET: The cost function of this iteration is " << CostU << std::endl;
         // Calculate full systme energy from each fragment energy.
