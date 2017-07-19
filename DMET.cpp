@@ -13,6 +13,7 @@
 #include <iomanip>
 
 // #define H2H2H2
+#define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
@@ -495,18 +496,21 @@ int main(int argc, char* argv[])
         ImpurityStates[i] = 0;
     }
     std::vector< int > BathStates(NumFragments);
-    for (int i = 0; i < ImpurityStates.size(); i++)
+    for (int i = 0; i < BathStates.size(); i++)
     {
-        ImpurityStates[i] = 0;
+        BathStates[i] = 0;
     }
 
     #ifdef H2H2H2
         ImpurityStates[1] = 1;
-        BathStates[0] = 1;
-        BathStates[2] = 1;
+        // BathStates[0] = 1;
+        // BathStates[2] = 1;
     #endif // H2H2H2
+    #ifdef H10
+        ImpurityStates[0] = 1;
+    #endif
 
-    int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
+    int NumSCFStates = 0; // *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
     
     // Begin by defining some variables.
@@ -549,7 +553,7 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    while(fabs(DMETPotentialChange) > 1E-6) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-10) // || uOptIt < 5) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
 
@@ -636,6 +640,7 @@ int main(int argc, char* argv[])
         //     VirtualOrbitals[2] = 5;
         // #endif
         std::cout << "DMET: Running SCF calculation for DMET iteration " << uOptIt << std::endl;
+        Output << "DMET: Beginning DMET Iteration Number " << uOptIt << std::endl;
         double SCFEnergy = 0.0;
         std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
         for (int i = 0; i < NumSCFStates; i++)
@@ -649,6 +654,9 @@ int main(int argc, char* argv[])
             // }
             SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
             std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+            std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
+            Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+            Output << "and 1RDM of \n" << 2 * DensityMatrix << std::endl;
             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             Bias.push_back(tmpTuple);
             // std::cout << DensityMatrix << std::endl;
@@ -674,7 +682,6 @@ int main(int argc, char* argv[])
         // DensityMatrix = FullDensities[0];
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
-        Output << "DMET: Beginning DMET Iteration Number " << uOptIt << ".\nDMET: RHF Energy = " << SCFEnergy << std::endl;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
@@ -682,7 +689,7 @@ int main(int argc, char* argv[])
         double CostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;
-        while(fabs(CostMu) > 1E-6) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
+        while(fabs(CostMu) > 1E-3) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << std::endl;
             Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
@@ -747,6 +754,7 @@ int main(int argc, char* argv[])
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.
                 std::cout << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
+                Output << "R:\n" << RotationMatrix << "\nD:\n" << Fragment1RDM << std::endl;
                 std::cout << "Frag Density\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
@@ -806,7 +814,9 @@ int main(int argc, char* argv[])
         DMETEnergy += Input.Integrals["0 0 0 0"];
         std::cout << "DMET: Energy = " << DMETEnergy << std::endl;
         Output << "DMET: Energy = " << DMETEnergy << std::endl;
-        std::cout << "u:\n" << DMETPotential << std::endl;
+        std::cout << "DMET: u = \n" << DMETPotential << std::endl;
+        Output << "DMET: u = \n" << DMETPotential << std::endl;
+        Output << "**********************************************" << std::endl;
 
         // std::string tmpstring;
         // std::getline(std::cin, tmpstring);

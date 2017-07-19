@@ -246,6 +246,7 @@ double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, 
                        * (FragmentDensities[x].coeffRef(FragPos[i], FragPos[j]) - FullDensities[BathStates[x]].coeffRef(Input.FragmentOrbitals[x][i], Input.FragmentOrbitals[x][j]));
                 }
             }
+            //std::cout << "CalcL\nFrag\n" << FragmentDensities[x] << "\nFull\n" << FullDensities[BathStates[x]] << "\nL = " << L << std::endl;
         }
     }
     if (CostFunctionVariant == 3)
@@ -281,7 +282,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
 
-	double du = 1E-3; // to calculate [L(u + du) - L(u)] / du
+	double du = 1E-2; // to calculate [L(u + du) - L(u)] / du
     double L_Initial = CalcL(Input, FragmentDensities, InitialDensities, FragmentRotations, BathStates);
 
     std::vector< std::vector< double > > PotElemPlusDU;
@@ -313,15 +314,16 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
             {
                 VirtualOrbitals.push_back(i);
             }
-			// This redirects the std::cout buffer, so we don't have massive amounts of terminal output.
+			// This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
 			std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
 			std::cout.rdbuf(NULL); // sets to null
+            Eigen::MatrixXd tmpDensity = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
             for (int a = 0; a < NumSCFStates; a++) // Find RHF solutons after du step for all SCF states desired. We pick which ones to match later.
             {
-                Eigen::MatrixXd tmpDensity = 0.5 * DensityPlusDU[a];
-			    SCF(Bias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, -1, DMETPotPlusDU, OrbitalEV);
+			    double SCFEnergy = SCF(Bias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, -1, DMETPotPlusDU, OrbitalEV);
                 std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
                 Bias.push_back(tmpTuple);
+                std::cout << tmpDensity << std::endl;
                 DensityPlusDU[a] = 2 * tmpDensity;
             }
 			std::cout.rdbuf(orig_buf); // restore buffer
@@ -329,7 +331,9 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 			// Now we have D(u + du)
 			// Calculate [L(u + du) - L(u)] / du
 			double dL = CalcL(Input, FragmentDensities, DensityPlusDU, FragmentRotations, BathStates);
+            // std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
             dL = (dL - L_Initial) / du;
+            // std::cout << "dLdu = " << dL << std::endl;
 
 			// Now store it.
             GradL(uComponent) = dL;
@@ -507,7 +511,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     
     LInit = CalcL(Input, FragmentDensities, DNext, FragmentRotations, BathStates);
     LNext = LInit;
-    // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
+    std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     do // while we're decreasing L along the step direction
     {
         LInit = LNext;
@@ -603,13 +607,14 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 
 	// NormOfGrad measures the norm of the gradient, and we finish when this is sufficiently small.
     double NormOfGrad = 1;
+    double L = 1;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
     // Eigen::MatrixXd Hessian = CalcHessL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations);
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
-    while(fabs(NormOfGrad) > 1E-4)
+    while(fabs(NormOfGrad) > 1E-4 && L > 1E-1)
     {
         // Solves Hp = -GradL and moves along direction p.
         BFGS_1(Hessian, s, GradCF, PotentialElementsVec, Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, DMETPotential, FragmentRotations, BathStates);
@@ -652,12 +657,15 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 
         // Then use this new density matrix to calculate GradL
         GradCF = CalcGradL(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, FragmentRotations, BathStates);
+        L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
 
         // Forms Hessian for next iteration.
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
+        std::cout << "DMET: L = " << L << std::endl;
+
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
 }
