@@ -508,9 +508,14 @@ int main(int argc, char* argv[])
     #endif // H2H2H2
     #ifdef H10
         ImpurityStates[0] = 1;
+        BathStates[0] = 1;
+        BathStates[1] = 1;
+        BathStates[2] = 1;
+        BathStates[3] = 1;
+        BathStates[4] = 1;
     #endif
 
-    int NumSCFStates = 0; // *max_element(BathStates.begin(), BathStates.end());
+    int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
     
     // Begin by defining some variables.
@@ -657,6 +662,7 @@ int main(int argc, char* argv[])
             std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
             Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
             Output << "and 1RDM of \n" << 2 * DensityMatrix << std::endl;
+            std::cout << Input.StartNorm << std::endl;
             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             Bias.push_back(tmpTuple);
             // std::cout << DensityMatrix << std::endl;
