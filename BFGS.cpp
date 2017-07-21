@@ -282,7 +282,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
 
-	double du = 1E-2; // to calculate [L(u + du) - L(u)] / du
+	double du = 1E-3; // to calculate [L(u + du) - L(u)] / du
     double L_Initial = CalcL(Input, FragmentDensities, InitialDensities, FragmentRotations, BathStates);
 
     std::vector< std::vector< double > > PotElemPlusDU;
@@ -315,27 +315,31 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
                 VirtualOrbitals.push_back(i);
             }
 			// This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
-			std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-			std::cout.rdbuf(NULL); // sets to null
+			// std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+			// std::cout.rdbuf(NULL); // sets to null
             // Eigen::MatrixXd tmpDensity = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
             for (int a = 0; a < NumSCFStates; a++) // Find RHF solutons after du step for all SCF states desired. We pick which ones to match later.
             {
                 Eigen::MatrixXd tmpDensity = 0.5 * InitialDensities[a];
                 std::vector< double > EmptyAllEnergies;
+                std::cout << "Dinit\n" << InitialDensities[a] << std::endl;
 			    double SCFEnergy = SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, EmptyAllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, DMETPotPlusDU, OrbitalEV);
-                std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                // std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
                 // Bias.push_back(tmpTuple);
                 // std::cout << tmpDensity << std::endl;
                 DensityPlusDU[a] = 2 * tmpDensity;
+                std::cout << "D:\n" <<  2 * tmpDensity << std::endl;
             }
-            std::cout.rdbuf(orig_buf); // restore buffer
+            // std::cout.rdbuf(orig_buf); // restore buffer
+            std::string tmpstring;
+            std::getline(std::cin, tmpstring);
 
 			// Now we have D(u + du)
 			// Calculate [L(u + du) - L(u)] / du
 			double dL = CalcL(Input, FragmentDensities, DensityPlusDU, FragmentRotations, BathStates);
-            // std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
+            std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
             dL = (dL - L_Initial) / du;
-            // std::cout << "dLdu = " << dL << std::endl;
+            std::cout << "dLdu = " << dL << std::endl;
 
 			// Now store it.
             GradL(uComponent) = dL;
@@ -465,7 +469,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     double a = 0.0; // Size of line step.
-    double da = 5E-2; // We will increment a by this much until a loose minimum is found
+    double da = 1E-5; // We will increment a by this much until a loose minimum is found
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
@@ -557,10 +561,11 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     Eigen::VectorXd p;
-    p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
+    p = -1 * Gradient; // Hessian.colPivHouseholderQr().solve(-1 * Gradient);
     std::cout << "DMET: Commencing line search." << std::endl;
     double a = doLineSearch(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, p, DMETPotential, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
     s = a * p;
+    std::cout << "s\n" << s << std::endl;
     x = x + s;
     std::cout << "DMET: Line search complete." << std::endl;
 }
@@ -665,7 +670,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
 
         // Forms Hessian for next iteration.
-        BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
+        // BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
