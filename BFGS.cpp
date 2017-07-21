@@ -481,7 +481,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     std::vector< Eigen::MatrixXd > DNext = FullDensities;
 
     // Do initial SCF
-    std::vector< std::tuple < Eigen::MatrixXd, double, double > > Bias;
+    std::vector< std::tuple < Eigen::MatrixXd, double, double > > EmptyBias;
 	std::ofstream BlankOutput;
 	std::vector< double > AllEnergies;
     Eigen::MatrixXd CoeffMatrix;
@@ -551,7 +551,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
 }
 
 // Follows the Wikipedia article's notation. https://en.wikipedia.org/wiki/Broyden%E2%80%93Fletcher%E2%80%93Goldfarb%E2%80%93Shanno_algorithm
-void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState))
+void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd &x, InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     Eigen::VectorXd p;
     p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
@@ -657,8 +657,8 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 		std::cout.rdbuf(orig_buf); // restore buffer
 
         // Then use this new density matrix to calculate GradL
-        GradCF = CalcGradL(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, FragmentRotations, BathStates);
-        L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
+        GradCF = CalcGradL(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
+        L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
 
         // Forms Hessian for next iteration.
         BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
