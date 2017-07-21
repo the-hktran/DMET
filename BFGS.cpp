@@ -321,7 +321,8 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
             for (int a = 0; a < NumSCFStates; a++) // Find RHF solutons after du step for all SCF states desired. We pick which ones to match later.
             {
                 Eigen::MatrixXd tmpDensity = 0.5 * InitialDensities[a];
-			    double SCFEnergy = SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, DMETPotPlusDU, OrbitalEV);
+                std::vector< double > EmptyAllEnergies;
+			    double SCFEnergy = SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, EmptyAllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, DMETPotPlusDU, OrbitalEV);
                 std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
                 // Bias.push_back(tmpTuple);
                 // std::cout << tmpDensity << std::endl;
@@ -503,7 +504,8 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     for (int a = 0; a < NumSCFStates; a++)
     {
         Eigen::MatrixXd tmpDensity = 0.5 * DNext[a];
-        SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, IncrementedDMETPot, OrbitalEV);
+        std::vector< double > EmptyAllEnergies;
+        SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, EmptyAllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, IncrementedDMETPot, OrbitalEV);
         // std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
         // Bias.push_back(tmpTuple);
         DNext[a] = 2 * tmpDensity;
@@ -534,7 +536,8 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         for (int a = 0; a < NumSCFStates; a++)
         {
             Eigen::MatrixXd tmpDensity1 = 0.5 * DNext[a];
-            SCF(EmptyBias, 1, tmpDensity1, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies1, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, IncrementedDMETPot, OrbitalEV);
+            std::vector< double > EmptyAllEnergies1;
+            SCF(EmptyBias, 1, tmpDensity1, Input, BlankOutput, Input.SOrtho, Input.HCore, EmptyAllEnergies1, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, IncrementedDMETPot, OrbitalEV);
             // std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity1, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             // Bias1.push_back(tmpTuple);
             DNext[a] = 2 * tmpDensity1;
@@ -649,7 +652,8 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         for (int a = 0; a < NumSCFStates; a++)
         {
             Eigen::MatrixXd tmpDensity = 0.5 * FullDensities[a];
-		    SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, AllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, DMETPotential, OrbitalEV);
+            std::vector< double > EmptyAllEnergies;
+		    SCF(EmptyBias, 1, tmpDensity, Input, BlankOutput, Input.SOrtho, Input.HCore, EmptyAllEnergies, CoeffMatrix, OccupiedByState[a], VirtualByState[a], SCFCount, -1, DMETPotential, OrbitalEV);
             // std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             // Bias.push_back(tmpTuple);
             FullDensities[a] = 2 * tmpDensity;
