@@ -658,6 +658,8 @@ int main(int argc, char* argv[])
             //     VirtualOrbitals[Orb2 - NumOcc] = Orb1;
             // }
             SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            // Run SCF again, with the occupied orbitals locked in, but no bias. The occupied orbitals will not change in the unbiased SCF.
+            SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
             std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
             std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
             Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
