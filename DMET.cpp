@@ -658,18 +658,29 @@ int main(int argc, char* argv[])
             //     VirtualOrbitals[Orb2 - NumOcc] = Orb1;
             // }
             std::vector< double > EmptyAllEnergies;
-            std::vector< double > EmptyAllEnergies1;
-            std::vector< double > EmptyAllEnergies2;
             SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
             // Run SCF again, with the occupied orbitals locked in, but no bias. The occupied orbitals will not change in the unbiased SCF.
+            if (i > 0)
+            {
+                for(int j = 0; j < NumOcc; j++)
+                {
+                    OccupiedOrbitals[j] = j;
+                }
+                for(int j = NumOcc; j < NumAO; j++)
+                {
+                    VirtualOrbitals[j - NumOcc] = j;
+                }
+                for (int j = 0; j < i; j++)
+                {
+                    OccupiedOrbitals[NumOcc - 1 - j] = NumOcc + j;
+                    VirtualOrbitals[j] = NumOcc - 1 - j;
+                }
+            }
             SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-            //SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies1, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-            //SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies2, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
             std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
             std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
             Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
             Output << "and 1RDM of \n" << 2 * DensityMatrix << std::endl;
-            std::cout << Input.StartNorm << std::endl;
             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             Bias.push_back(tmpTuple);
             // std::cout << DensityMatrix << std::endl;
