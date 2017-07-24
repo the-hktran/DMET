@@ -508,10 +508,10 @@ int main(int argc, char* argv[])
     #endif // H2H2H2
     #ifdef H10
         ImpurityStates[0] = 1;
-        BathStates[0] = 1;
+        // BathStates[0] = 1;
         BathStates[1] = 1;
-        BathStates[2] = 1;
-        BathStates[3] = 1;
+        // BathStates[2] = 1;
+        // BathStates[3] = 1;
         BathStates[4] = 1;
     #endif
 
@@ -784,7 +784,6 @@ int main(int argc, char* argv[])
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
             CostMu = CalcCostChemPot(FragmentDensities, Input);
-            CostMu = 0;
 
             std::cout << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
             Output << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;

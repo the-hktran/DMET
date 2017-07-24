@@ -616,14 +616,16 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 
 	// NormOfGrad measures the norm of the gradient, and we finish when this is sufficiently small.
     double NormOfGrad = 100.0;
-    double L = 1;
+    double L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
+    double L_Initial;
+    double dL = 100.0;
     int TotPos = CalcTotalPositions(PotentialPositions);
     Eigen::VectorXd PotentialElementsVec = FragUVectorToFullUVector(PotentialElements, TotPos); // Line up every element into one neat vector.
     // Eigen::MatrixXd Hessian = CalcHessL(Input, FragmentDensities, FullDensity, PotentialElements, PotentialPositions, FragmentRotations);
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
-    while(fabs(NormOfGrad) > 1 && L > 1E-1)
+    while(fabs(NormOfGrad) > 1 && fabs(dL) > 1E-1)
     {
         // Solves Hp = -GradL and moves along direction p.
         BFGS_1(Hessian, s, GradCF, PotentialElementsVec, Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, DMETPotential, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
@@ -667,15 +669,20 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
 
         // Then use this new density matrix to calculate GradL
         GradCF = CalcGradL(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
+        L_Initial = L;
         L = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
+        dL = fabs(L - L_Initial);
 
         // Forms Hessian for next iteration.
-        // BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
+        BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
         std::cout << "DMET: L = " << L << std::endl;
-
+        if (fabs(L) < 1E-1)
+        {
+            break;
+        }
     }
     FormDMETPotential(DMETPotential, PotentialElements, PotentialPositions);
 }
