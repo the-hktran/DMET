@@ -13,8 +13,8 @@
 #include <iomanip>
 #include <queue>
 
-// #define H2H2H2
-#define H10
+#define H2H2H2
+// #define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
@@ -504,8 +504,8 @@ int main(int argc, char* argv[])
 
     #ifdef H2H2H2
         ImpurityStates[1] = 1;
-        // BathStates[0] = 1;
-        // BathStates[2] = 1;
+        BathStates[0] = 1;
+        BathStates[2] = 1;
     #endif // H2H2H2
     #ifdef H10
         // ImpurityStates[0] = 1;
@@ -662,12 +662,15 @@ int main(int argc, char* argv[])
         std::ofstream BlankOutput;
 
         // First, run SCF some number of times to find a few solutions.
-        // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
-        std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-        std::cout.rdbuf(NULL); // sets to null
         for (int i = 0; i < Input.NumSoln; i++)
         {
+            // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
+            std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+            std::cout.rdbuf(NULL); // sets to null
             SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            std::cout.rdbuf(orig_buf); // restore buffer
+            std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+            Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             Bias.push_back(tmpTuple);
             SCFEnergy *= -1;
@@ -678,7 +681,6 @@ int main(int argc, char* argv[])
             SCFMDCoeff.push_back(CoeffMatrix);
             SCFMDOrbitalEV.push_back(OrbitalEV);
         }
-        std::cout.rdbuf(orig_buf); // restore buffer
         
         for (int i = 0; i < NumSCFStates; i++)
         {
@@ -688,6 +690,15 @@ int main(int argc, char* argv[])
             DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
             std::vector< double > EmptyAllEnergies;
             SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-1) // Not the same solution, for some reason...
+            {
+                // Remove this solution from the list and go on to the next one.
+                std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                SCFMDEnergyQueue.pop();
+                i--;
+                continue;
+            }
             std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
             std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
             Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
@@ -889,6 +900,12 @@ int main(int argc, char* argv[])
 
         // std::string tmpstring;
         // std::getline(std::cin, tmpstring);
+        if (uOptIt > 25)
+        {
+            std::cout << "DMET: Maximum number of interations reached." << std::endl;
+            Output << "DMET: Maximum number of interations reached." << std::endl;
+            break;
+        }
     }
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;
