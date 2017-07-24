@@ -345,7 +345,6 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
             {
                 int NextIndex = SCFMDEnergyQueue.top().second;
                 DensityPlusDU[a] = 2 * SCFMD1RDM[NextIndex];
-                std::cout << "D\n" << DensityPlusDU[a] << "\nE = " << SCFMDEnergyQueue.top().first;
                 SCFMDEnergyQueue.pop();
                 // ************* Locking orbitals method below *****************
                 // Eigen::MatrixXd tmpDensity = 0.5 * InitialDensities[a];
@@ -368,9 +367,6 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
             std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
             dL = (dL - L_Initial) / du;
             std::cout << "dLdu = " << dL << std::endl;
-
-            std::string tmpstring;
-            std::getline(std::cin, tmpstring);
 
 			// Now store it.
             GradL(uComponent) = dL;

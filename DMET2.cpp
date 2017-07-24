@@ -683,7 +683,7 @@ int main(int argc, char* argv[])
             FullDensities[i] = 2 * SCFMD1RDM[NextIndex];
             // Collect information needed for derivative calculations later.
             OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
-            VirtualByState.push_back(SCFMDOccupied[NextIndex]);
+            VirtualByState.push_back(SCFMDVirtual[NextIndex]);
             CoeffByState.push_back(SCFMDCoeff[NextIndex]);
             OrbitalEVByState.push_back(SCFMDOrbitalEV[NextIndex]);
 
