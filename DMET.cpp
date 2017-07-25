@@ -505,7 +505,7 @@ int main(int argc, char* argv[])
     #ifdef H2H2H2
         ImpurityStates[1] = 1;
         BathStates[0] = 1;
-        BathStates[2] = 1;
+        // BathStates[2] = 1;
     #endif // H2H2H2
     #ifdef H10
         // ImpurityStates[0] = 1;
@@ -684,12 +684,29 @@ int main(int argc, char* argv[])
         
         for (int i = 0; i < NumSCFStates; i++)
         {
+            if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
+            {
+                // Run metadynamics again.
+                std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+                std::cout.rdbuf(NULL); // sets to null
+                SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+                std::cout.rdbuf(orig_buf); // restore buffer
+                std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                Bias.push_back(tmpTuple);
+                SCFEnergy *= -1;
+                SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+                SCFMD1RDM.push_back(DensityMatrix);
+                SCFMDOccupied.push_back(OccupiedOrbitals);
+                SCFMDVirtual.push_back(VirtualOrbitals);
+                SCFMDCoeff.push_back(CoeffMatrix);
+                SCFMDOrbitalEV.push_back(OrbitalEV);
+            }
             int NextIndex = SCFMDEnergyQueue.top().second;
             // Run SCF again, because sometimes the minimum change slightly and this is what we do to take the derivative.
             // The occupied and virtual orbitals will be locked in.
             DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
             std::vector< double > EmptyAllEnergies;
-            SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-1) // Not the same solution, for some reason...
             {
                 // Remove this solution from the list and go on to the next one.
@@ -778,7 +795,7 @@ int main(int argc, char* argv[])
                 // Use the correct density matrix for this fragment.
                 DensityMatrix = FullDensities[BathStates[x]];
 
-                // The density matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
+                // The densityDensity matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
                 int NumAOImp = Input.FragmentOrbitals[x].size(); // Number of impurity states.
                 int NumAOEnv = NumAO - NumAOImp; // The rest of the states.
 
