@@ -13,8 +13,8 @@
 #include <iomanip>
 #include <queue>
 
-#define H2H2H2
-// #define H10
+// #define H2H2H2
+#define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
@@ -157,7 +157,7 @@ double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj 
     return CF;
 }
 
-void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt)
+void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt, std::ofstream &Output)
 {
     // Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
     Eigen::MatrixXd DensityEnv(EnvironmentOrbitals.size(), EnvironmentOrbitals.size());
@@ -181,6 +181,7 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > ESDensityImp(DensityImp);
 
     std::cout << "DMET: Bath eigenvalues:\n" << ESDensityEnv.eigenvalues() << std::endl;
+    Output << "DMET: Bath eigenvalues:\n" << ESDensityEnv.eigenvalues() << std::endl;
 
     int NumAOImp = FragmentOrbitals.size();
     int NumAOEnv = EnvironmentOrbitals.size();
@@ -210,6 +211,24 @@ void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &Rotat
     // RotationMatrix.topLeftCorner(NumAOImp, NumAOImp) = Eigen::MatrixXd::Identity(NumAOImp, NumAOImp);
     // RotationMatrix.bottomRightCorner(NumAOEnv, NumAOEnv) = ESDensityEnv.eigenvectors();
     // Note that the orbitals have been reordered so that the fragment orbitals are first
+    // #ifdef H2H2H2
+    // RotationMatrix(EnvironmentOrbitals[0], EnvironmentOrbitals[0]) = 1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[1], EnvironmentOrbitals[0]) = -1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[2], EnvironmentOrbitals[0]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[3], EnvironmentOrbitals[0]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[0], EnvironmentOrbitals[1]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[1], EnvironmentOrbitals[1]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[2], EnvironmentOrbitals[1]) = 1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[3], EnvironmentOrbitals[1]) = -1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[0], EnvironmentOrbitals[2]) = 1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[1], EnvironmentOrbitals[2]) = 1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[2], EnvironmentOrbitals[2]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[3], EnvironmentOrbitals[2]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[0], EnvironmentOrbitals[3]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[1], EnvironmentOrbitals[3]) = 0;
+    // RotationMatrix(EnvironmentOrbitals[2], EnvironmentOrbitals[3]) = 1 / sqrt(2);
+    // RotationMatrix(EnvironmentOrbitals[3], EnvironmentOrbitals[3]) = 1 / sqrt(2);
+    // #endif
 }
 
 /* This function projects a matrix in the full impurity - bath space into the impurity - active bath space */
@@ -504,16 +523,19 @@ int main(int argc, char* argv[])
 
     #ifdef H2H2H2
         ImpurityStates[1] = 1;
-        BathStates[0] = 1;
+        // BathStates[0] = 1;
         // BathStates[2] = 1;
+        BathStates[0] = 1;
+        Input.NumSoln = 20;
     #endif // H2H2H2
     #ifdef H10
-        // ImpurityStates[0] = 1;
-        BathStates[0] = 1;
-        BathStates[1] = 1;
+        ImpurityStates[0] = 1;
+        // BathStates[0] = 1;
+        // BathStates[1] = 1;
         BathStates[2] = 1;
         BathStates[3] = 1;
-        BathStates[4] = 1;
+        // BathStates[4] = 1;
+        Input.NumSoln = 40;
     #endif
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
@@ -559,7 +581,7 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    while(fabs(DMETPotentialChange) > 1E-10) // || uOptIt < 5) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-10) // || uOptIt < 10) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
 
@@ -707,15 +729,15 @@ int main(int argc, char* argv[])
             DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
             std::vector< double > EmptyAllEnergies;
             SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-            if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-1) // Not the same solution, for some reason...
-            {
-                // Remove this solution from the list and go on to the next one.
-                std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-                Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-                SCFMDEnergyQueue.pop();
-                i--;
-                continue;
-            }
+            // if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-3 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+            // {
+            //     // Remove this solution from the list and go on to the next one.
+            //     std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+            //     Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+            //     SCFMDEnergyQueue.pop();
+            //     i--;
+            //     continue;
+            // }
             std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
             std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
             Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
@@ -805,7 +827,7 @@ int main(int argc, char* argv[])
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
-                SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt);
+                SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
                 FragmentRotations[x] = RotationMatrix;
 
                 // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
@@ -917,7 +939,7 @@ int main(int argc, char* argv[])
 
         // std::string tmpstring;
         // std::getline(std::cin, tmpstring);
-        if (uOptIt > 25)
+        if (uOptIt > 30)
         {
             std::cout << "DMET: Maximum number of interations reached." << std::endl;
             Output << "DMET: Maximum number of interations reached." << std::endl;

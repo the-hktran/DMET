@@ -469,7 +469,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     double a = 0.0; // Size of line step.
-    double da = 1E-5; // We will increment a by this much until a loose minimum is found
+    double da = 1E-3; // We will increment a by this much until a loose minimum is found
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
@@ -550,7 +550,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         
         LNext = CalcL(Input, FragmentDensities, DNext, FragmentRotations, BathStates);
         std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
-    } while(LInit - LNext > 1E-10); // while it is decreasing rapidly
+    } while(LInit - LNext > 1E-5); // while it is decreasing rapidly
 
     // std::cout << "DMET: Cost function = " << LNext << std::endl;
 

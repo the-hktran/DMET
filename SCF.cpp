@@ -843,12 +843,12 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 
         isUniqueSoln = true;
         short int WhichSoln = -1; // If we found a solution we already visited, this will mark which of the previous solutions we are at.
-        if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
-        {
-            isUniqueSoln = false;
-        }
-        else
-        {
+        // if(Energy + Input.Integrals["0 0 0 0"] > 0) // Hopefully we won't be dissociating.
+        // {
+        //     isUniqueSoln = false;
+        // }
+        // else
+        // {
             for(int i = 0; i < AllEnergies.size(); i++) // Compare energy with previous solutions.
             {
                 if(fabs(Energy + Input.Integrals["0 0 0 0"] - AllEnergies[i]) < 1E-5) // Checks to see if new energy is equal to any previous energy.
@@ -870,7 +870,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                     }
                 }
             }
-        }
+        // }
 
         if(!isUniqueSoln) // If the flag is still false, we modify the bias and hope that this gives a better result.
         {
