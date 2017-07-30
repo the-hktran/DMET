@@ -469,7 +469,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     double a = 0.0; // Size of line step.
-    double da = 1E-3; // We will increment a by this much until a loose minimum is found
+    double da = 1E-5; // We will increment a by this much until a loose minimum is found
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
@@ -674,7 +674,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         dL = fabs(L - L_Initial);
 
         // Forms Hessian for next iteration.
-        BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
+        // BFGS_2(Hessian, s, GradCF, PrevGrad, PotentialElementsVec);
 
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
