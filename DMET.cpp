@@ -729,15 +729,15 @@ int main(int argc, char* argv[])
              DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
              std::vector< double > EmptyAllEnergies;
              SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             // if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-3 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
-             // {
-             //     // Remove this solution from the list and go on to the next one.
-             //     std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-             //     Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-             //     SCFMDEnergyQueue.pop();
-             //     i--;
-             //     continue;
-             // }
+              if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-3 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+              {
+                  // Remove this solution from the list and go on to the next one.
+                  std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                  Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                  SCFMDEnergyQueue.pop();
+                  i--;
+                  continue;
+              }
              std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
              std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
              Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
