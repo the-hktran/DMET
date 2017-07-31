@@ -684,117 +684,117 @@ int main(int argc, char* argv[])
         std::ofstream BlankOutput;
 
         // First, run SCF some number of times to find a few solutions.
-        // for (int i = 0; i < Input.NumSoln; i++)
-        // {
-        //     // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
-        //     std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-        //     std::cout.rdbuf(NULL); // sets to null
-        //     SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        //     std::cout.rdbuf(orig_buf); // restore buffer
-        //     std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
-        //     Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
-        //     std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
-        //     Bias.push_back(tmpTuple);
-        //     SCFEnergy *= -1;
-        //     SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
-        //     SCFMD1RDM.push_back(DensityMatrix);
-        //     SCFMDOccupied.push_back(OccupiedOrbitals);
-        //     SCFMDVirtual.push_back(VirtualOrbitals);
-        //     SCFMDCoeff.push_back(CoeffMatrix);
-        //     SCFMDOrbitalEV.push_back(OrbitalEV);
-        // }
+         for (int i = 0; i < Input.NumSoln; i++)
+         {
+             // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
+             std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+             std::cout.rdbuf(NULL); // sets to null
+             SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+             std::cout.rdbuf(orig_buf); // restore buffer
+             std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+             Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+             Bias.push_back(tmpTuple);
+             SCFEnergy *= -1;
+             SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+             SCFMD1RDM.push_back(DensityMatrix);
+             SCFMDOccupied.push_back(OccupiedOrbitals);
+             SCFMDVirtual.push_back(VirtualOrbitals);
+             SCFMDCoeff.push_back(CoeffMatrix);
+             SCFMDOrbitalEV.push_back(OrbitalEV);
+         }
         
-        // for (int i = 0; i < NumSCFStates; i++)
-        // {
-        //     if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
-        //     {
-        //         // Run metadynamics again.
-        //         std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-        //         std::cout.rdbuf(NULL); // sets to null
-        //         SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        //         std::cout.rdbuf(orig_buf); // restore buffer
-        //         std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
-        //         Bias.push_back(tmpTuple);
-        //         SCFEnergy *= -1;
-        //         SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
-        //         SCFMD1RDM.push_back(DensityMatrix);
-        //         SCFMDOccupied.push_back(OccupiedOrbitals);
-        //         SCFMDVirtual.push_back(VirtualOrbitals);
-        //         SCFMDCoeff.push_back(CoeffMatrix);
-        //         SCFMDOrbitalEV.push_back(OrbitalEV);
-        //     }
-        //     int NextIndex = SCFMDEnergyQueue.top().second;
-        //     // Run SCF again, because sometimes the minimum change slightly and this is what we do to take the derivative.
-        //     // The occupied and virtual orbitals will be locked in.
-        //     DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
-        //     std::vector< double > EmptyAllEnergies;
-        //     SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-        //     // if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-3 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
-        //     // {
-        //     //     // Remove this solution from the list and go on to the next one.
-        //     //     std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-        //     //     Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-        //     //     SCFMDEnergyQueue.pop();
-        //     //     i--;
-        //     //     continue;
-        //     // }
-        //     std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
-        //     std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
-        //     Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
-        //     Output << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
-        //     // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
-        //     // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
-        //     // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
-        //     // Output << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
+         for (int i = 0; i < NumSCFStates; i++)
+         {
+             if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
+             {
+                 // Run metadynamics again.
+                 std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+                 std::cout.rdbuf(NULL); // sets to null
+                 SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+                 std::cout.rdbuf(orig_buf); // restore buffer
+                 std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                 Bias.push_back(tmpTuple);
+                 SCFEnergy *= -1;
+                 SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+                 SCFMD1RDM.push_back(DensityMatrix);
+                 SCFMDOccupied.push_back(OccupiedOrbitals);
+                 SCFMDVirtual.push_back(VirtualOrbitals);
+                 SCFMDCoeff.push_back(CoeffMatrix);
+                 SCFMDOrbitalEV.push_back(OrbitalEV);
+             }
+             int NextIndex = SCFMDEnergyQueue.top().second;
+             // Run SCF again, because sometimes the minimum change slightly and this is what we do to take the derivative.
+             // The occupied and virtual orbitals will be locked in.
+             DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
+             std::vector< double > EmptyAllEnergies;
+             SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+             // if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-3 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+             // {
+             //     // Remove this solution from the list and go on to the next one.
+             //     std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+             //     Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+             //     SCFMDEnergyQueue.pop();
+             //     i--;
+             //     continue;
+             // }
+             std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
+             std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
+             Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
+             Output << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
+             // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
+             // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
+             // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
+             // Output << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
 
-        //     FullDensities[i] = 2 * DensityMatrix; // SCFMD1RDM[NextIndex];
-        //     // Collect information needed for derivative calculations later.
-        //     OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
-        //     VirtualByState.push_back(SCFMDVirtual[NextIndex]);
-        //     CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
-        //     OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+             FullDensities[i] = 2 * DensityMatrix; // SCFMD1RDM[NextIndex];
+             // Collect information needed for derivative calculations later.
+             OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
+             VirtualByState.push_back(SCFMDVirtual[NextIndex]);
+             CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
+             OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
 
-        //     SCFMDEnergyQueue.pop();
-        // }
+             SCFMDEnergyQueue.pop();
+         }
         
         // ***** OLD LOCKED ORBITALS METHOD
-        for (int i = 0; i < NumSCFStates; i++)
-        {
-            std::vector< double > EmptyAllEnergies;
-            SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-            // Run SCF again, with the occupied orbitals locked in, but no bias. The occupied orbitals will not change in the unbiased SCF.
-            if (i > 0)
-            {
-                for(int j = 0; j < NumOcc; j++)
-                {
-                    OccupiedOrbitals[j] = j;
-                }
-                for(int j = NumOcc; j < NumAO; j++)
-                {
-                    VirtualOrbitals[j - NumOcc] = j;
-                }
-                for (int j = 0; j < i; j++)
-                {
-                    OccupiedOrbitals[NumOcc - 1 - j] = NumOcc + j;
-                    VirtualOrbitals[j] = NumOcc - 1 - j;
-                }
-            }
-            SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-            std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
-            std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
-            Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
-            Output << "and 1RDM of \n" << 2 * DensityMatrix << std::endl;
-            std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
-            Bias.push_back(tmpTuple);
+        //for (int i = 0; i < NumSCFStates; i++)
+        //{
+        //    std::vector< double > EmptyAllEnergies;
+        //    SCFEnergy = SCF(Bias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+        //    // Run SCF again, with the occupied orbitals locked in, but no bias. The occupied orbitals will not change in the unbiased SCF.
+        //    if (i > 0)
+        //    {
+        //        for(int j = 0; j < NumOcc; j++)
+        //        {
+        //            OccupiedOrbitals[j] = j;
+        //        }
+        //        for(int j = NumOcc; j < NumAO; j++)
+        //        {
+        //            VirtualOrbitals[j - NumOcc] = j;
+        //        }
+        //        for (int j = 0; j < i; j++)
+        //        {
+        //            OccupiedOrbitals[NumOcc - 1 - j] = NumOcc + j;
+        //            VirtualOrbitals[j] = NumOcc - 1 - j;
+        //        }
+        //    }
+        //    SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+        //    std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+        //    std::cout << "DMET: and 1RDM of \n" << 2 * DensityMatrix << std::endl;
+        //    Output << "SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
+        //    Output << "and 1RDM of \n" << 2 * DensityMatrix << std::endl;
+        //    std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+        //    Bias.push_back(tmpTuple);
 
-            FullDensities[i] = 2 * DensityMatrix;
+        //    FullDensities[i] = 2 * DensityMatrix;
 
-            // Collect information needed for derivative calculations later.
-            OccupiedByState.push_back(OccupiedOrbitals);
-            VirtualByState.push_back(VirtualOrbitals);
-            CoeffByState.push_back(CoeffMatrix);
-            OrbitalEVByState.push_back(OrbitalEV);
-        }
+        //    // Collect information needed for derivative calculations later.
+        //    OccupiedByState.push_back(OccupiedOrbitals);
+        //    VirtualByState.push_back(VirtualOrbitals);
+        //    CoeffByState.push_back(CoeffMatrix);
+        //    OrbitalEVByState.push_back(OrbitalEV);
+        //}
         // ***** END OLD LOCKED ORBITALS METHOD
 
         // SCFEnergy = SCF(EmptyBias, 1, DensityMatrix, Input, Output, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
