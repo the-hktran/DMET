@@ -550,7 +550,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         
         LNext = CalcL(Input, FragmentDensities, DNext, FragmentRotations, BathStates);
         std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
-    } while(LInit - LNext > 1E-5); // while it is decreasing rapidly
+    } while(LInit - LNext > 1E-10); // while it is decreasing rapidly
 
     // std::cout << "DMET: Cost function = " << LNext << std::endl;
 
@@ -625,7 +625,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
     Eigen::MatrixXd Hessian = Eigen::MatrixXd::Identity(TotPos, TotPos);
     Eigen::VectorXd PrevGrad;
     Eigen::VectorXd s;
-    while(fabs(NormOfGrad) > 1 && fabs(dL) > 1E-1)
+    while(fabs(NormOfGrad) > 1E-5)// && fabs(dL) > 1E-1)
     {
         // Solves Hp = -GradL and moves along direction p.
         BFGS_1(Hessian, s, GradCF, PotentialElementsVec, Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, DMETPotential, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
@@ -679,7 +679,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
         std::cout << "DMET: L = " << L << std::endl;
-        if (fabs(L) < 1E-1)
+        if (fabs(L) < 1E-2)
         {
             break;
         }
