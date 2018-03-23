@@ -28,7 +28,7 @@ public:
 	// Index 1 is overlapping fragment.
 	// Index 2 is the orbital we want to match to that fragment
 	// Index 3 is the value of the potential on that orbital for this fragment.
-	std::vector< std::tuple< int, int, double > > BEPotential;
+	std::vector< std::vector< std::tuple< int, int, double > > > BEPotential;
 
 	std::vector< Eigen::MatrixXd > RotationMatrices;
 	void CollectSchmidt(Eigen::MatrixXd, std::ofstream&);

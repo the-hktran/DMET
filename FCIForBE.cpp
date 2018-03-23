@@ -17,6 +17,7 @@
 #include <Eigen/SpectrA/Util/SelectionRule.h>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "FCI.cpp"
+#include "Bootstrap.cpp"
 
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
@@ -25,7 +26,7 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
 double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::tuple< int, int, double> BEPotential)
+std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::vector< std::tuple< int, int, double> > BEPotential)
 {
 	int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
 	int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -229,6 +230,15 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
 			for (int jj = 0; jj < bOrbitalList[j].size(); jj++)
 			{
 				tmpDoubleD += OneElectronEmbedding(Input.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
+			}
+
+			// Add the BE potential. If either of the alpha or beta state contains the orbital, then we add a potential to that element. This is a one electron operator but it only couples the same state.
+			for (int k = 0; k < BEPotential.size(); k++)
+			{
+				if (std::find(aOrbitalList[i].begin(), aOrbitalList[i].end(), std::get<1>(BEPotential[k]) + 1) != aOrbitalList[i].end() || std::find(bOrbitalList[j].begin(), bOrbitalList[j].end(), std::get<1>(BEPotential[k])) != bOrbitalList[j].end())
+				{
+					tmpDoubleD += std::get<2>(BEPotential[k]);
+				}
 			}
 
 			/* Two electron operator in the notation <mn||mn> */
