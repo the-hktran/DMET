@@ -16,8 +16,7 @@
 #include <Eigen/SparseCore>
 #include <Eigen/SpectrA/Util/SelectionRule.h>
 #include <unsupported/Eigen/CXX11/Tensor>
-#include "FCI.cpp"
-#include "Bootstrap.cpp"
+#include "Functions.h"
 
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);

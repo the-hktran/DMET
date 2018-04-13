@@ -5,35 +5,32 @@
 #include <vector>
 #include <cmath>
 #include <tuple>
-#include "ReadInput.h"
 #include <fstream>
 #include <map>
 #include <stdlib.h> 
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
-#include "DMET.cpp"
+#include "Bootstrap.h"
+#include "Functions.h"
 
-class Bootstrap
+// This is a debug function for the time being
+void Bootstrap::debugInit(InputObj Input)
 {
-public:
-	std::string BEInputName = "matching.be";
-	std::vector< std::vector< int > > FragmentOrbitals;
-	std::vector< std::vector< int > > EnvironmentOrbitals;
-	int NumAO;
-	int NumOcc;
-	int NumFrag;
+	NumAO = Input.NumAO;
+	NumOcc = Input.NumOcc;
+	NumFrag = Input.FragmentOrbitals.size();
+	FragmentOrbitals = Input.FragmentOrbitals;
+	EnvironmentOrbitals = Input.EnvironmentOrbitals;
 
-	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
-	// Index 1 is overlapping fragment.
-	// Index 2 is the orbital we want to match to that fragment
-	// Index 3 is the value of the potential on that orbital for this fragment.
-	std::vector< std::vector< std::tuple< int, int, double > > > BEPotential;
-
-	std::vector< Eigen::MatrixXd > RotationMatrices;
-	void CollectSchmidt(Eigen::MatrixXd, std::ofstream&);
-	void ReadBEInput(); // Do this later.
-};
+	for (int x = 0; x < 10; x++)
+	{
+		std::vector< std::tuple <int , int, double > > FragmentBEPotential;
+		FragmentBEPotential.push_back(std::tuple< int, int, double >(x + 1 % 10, FragmentOrbitals[x][2], 0));
+		FragmentBEPotential.push_back(std::tuple< int, int, double >(x + 9 % 10, FragmentOrbitals[x][0], 0));
+		BEPotential.push_back(FragmentBEPotential);
+	}
+}
 
 void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
 {
@@ -46,14 +43,13 @@ void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
 	}
 }
 
-void doBootstrap(InputObj Input, Eigen::MatrixXd &MFDensity, std::ofstream &Output)
+void Bootstrap::doBootstrap(InputObj &Input, Eigen::MatrixXd &MFDensity, std::ofstream &Output)
 {
-	Bootstrap BE;
-	BE.FragmentOrbitals = Input.FragmentOrbitals;
-	BE.EnvironmentOrbitals = Input.EnvironmentOrbitals;
-	BE.NumAO = Input.NumAO;
-	BE.NumOcc = Input.NumOcc;
-	BE.NumFrag = Input.NumFragments;
+	FragmentOrbitals = Input.FragmentOrbitals;
+	EnvironmentOrbitals = Input.EnvironmentOrbitals;
+	NumAO = Input.NumAO;
+	NumOcc = Input.NumOcc;
+	NumFrag = Input.NumFragments;
 
-	BE.CollectSchmidt(MFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
+	CollectSchmidt(MFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
 }

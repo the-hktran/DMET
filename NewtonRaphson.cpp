@@ -12,13 +12,13 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
-#include "DMET.cpp"
-#include "FCIForBE.cpp"
 
 #include <boost/math/tools/roots.hpp>
 
 #include <boost/math/special_functions/next.hpp> // For float_distance.
 #include <boost/math/special_functions/cbrt.hpp> // For boost::math::cbrt.
+
+#include "Functions.h"
 
 class BENewton
 {
@@ -26,7 +26,6 @@ public:
 	int FragmentIndex;
 	Eigen::MatrixXd IterDensity;
 	InputObj &Input;
-	int FragmentIndex;
 	Eigen::MatrixXd RotationMatrix;
 	double ChemicalPotential; 
 	int State;
@@ -35,7 +34,8 @@ public:
 
 	std::vector< Eigen::MatrixXd > DensityReference;
 
-	std::tuple<double, double> BENewtonMethod(double);
+	double dLoss(double);
+	std::tuple<double, double> BENewtonIteration(double);
 	double FCIwrtLambda(double);
 };
 
@@ -71,20 +71,36 @@ double BENewton::FCIwrtLambda(double Lambda)
 	return Loss;
 }
 
-template <class T>
-struct cbrt_functor_noderiv
+double BENewton::dLoss(double Lambda)
 {
-	//  cube root of x using only function - no derivatives.
-	cbrt_functor_noderiv(T const& to_find_root_of) : a(to_find_root_of)
-	{ /* Constructor just stores value a to find root of. */
+	double StepSize = 0.1;
+	double dL2 = FCIwrtLambda(Lambda + StepSize);
+	double dL1 = FCIwrtLambda(Lambda - StepSize);
+	return (dL2 - dL1) / (2 * StepSize);
+}
+
+std::tuple< double, double > BENewton::BENewtonIteration(double Lambda)
+{
+	double f = FCIwrtLambda(Lambda);
+	double df = dLoss(Lambda);
+
+	return std::make_tuple(f, df);
+}
+
+template <class T>
+struct cbrt_functor
+{
+	cbrt_functor(T const& target) : a(target)
+	{ // Constructor stores value to be 'cube-rooted'.
 	}
-	T operator()(T const& x)
-	{
-		T fx = x*x*x - a; // Difference (estimate x^3 - a).
-		return fx;
+	boost::math::tuple<T, T> operator()(T const& z)
+	{ // z is estimate so far.
+		return boost::math::make_tuple(
+			z*z*z - a, // return both f(x)
+			3 * z*z);  // and f'(x)
 	}
 private:
-	T a; // to be 'cube_rooted'.
+	T a; // to be 'cube-rooted'.
 };
 
 template <class T>
@@ -127,5 +143,5 @@ T cbrt_1(T x)
 
 double BENewtonSolver(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::tuple< int, int, double> BEPotential)
 {
-
+	return 0;
 }

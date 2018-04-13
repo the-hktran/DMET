@@ -12,6 +12,8 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
+#include "Bootstrap.h"
+
 
 // #define H2H2H2
 // #define H10
@@ -578,6 +580,50 @@ int main(int argc, char* argv[])
     //     DMETPotential(2 * i, 2 * i + 1) = -2.334E-03;
     //     DMETPotential(2 * i + 1, 2 * i) = -2.334E-03;
     // }
+
+	// DEBUG - Bootstrap
+	Bootstrap BE;
+	BE.debugInit(Input); 
+
+	// Now do SCF to get density matrix.
+	std::vector< int > OccupiedOrbitals;
+	std::vector< int > VirtualOrbitals;
+	for (int i = 0; i < NumOcc; i++)
+	{
+		OccupiedOrbitals.push_back(i);
+	}
+	for (int i = NumOcc; i < NumAO; i++)
+	{
+		VirtualOrbitals.push_back(i);
+	}
+	// OccupiedOrbitals[NumOcc - 1] = NumOcc;
+	// VirtualOrbitals[0] = NumOcc - 1;
+	Input.OccupiedOrbitals = OccupiedOrbitals;
+	Input.VirtualOrbitals = VirtualOrbitals;
+	double SCFEnergy = 0.0;
+	std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
+	std::vector< Eigen::MatrixXd > SCFMD1RDM;
+	std::vector< double > AllEnergies;
+	std::priority_queue< std::pair< double, int > > SCFMDEnergyQueue;
+	std::vector< std::vector< int > > SCFMDOccupied;
+	std::vector< std::vector< int > > SCFMDVirtual;
+	std::vector< Eigen::MatrixXd > SCFMDCoeff;
+	std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
+
+	std::ofstream BlankOutput;
+
+	Eigen::VectorXd OrbitalEV;
+	int SCFCount = 0;
+	Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+	SCFEnergy = SCF(Bias, 0, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+
+	return 0;
+
+	// Get all Schmidt Decompositions.
+	BE.doBootstrap(Input, DensityMatrix, Output);
+
+	//END DEBUG - Bootstrap
+
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
