@@ -49,17 +49,17 @@ Eigen::MatrixXd RealTime::FormX()
 
 	// Betweeen bath and virtual
 	// First, get pure bath density.
-	Eigen::MatrixXd InversePBath = Eigen::MatrixXd::Zero(NumAOImp, NumAOImp);
+	Eigen::MatrixXd PBath = Eigen::MatrixXd::Zero(NumAOImp, NumAOImp);
 	for (int ib = 0; ib < NumAOImp; ib++)
 	{
 		for (int jb = 0; jb < NumAOImp; jb++)
 		{
 			int iBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + ib];
 			int jBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + jb];
-			InversePBath(ib, jb) = FragmentDensities[FragmentIndex].coeffRef(iBathOrb, jBathOrb);
+			PBath(ib, jb) = FragmentDensities[FragmentIndex].coeffRef(iBathOrb, jBathOrb);
 		}
 	}
-	InversePBath = InversePBath.inverse();
+	Eigen::MatrixXd  InversePBath = PBath.inverse();
 
 	for (int a = 0; a < NumVirt; a++)
 	{
@@ -86,7 +86,7 @@ Eigen::MatrixXd RealTime::FormX()
 						for (int l = 0; l < 2 * NumAOImp; l++)
 						{
 							int lOrb = ReducedIndexToOrbital(l, Input, FragmentIndex);
-							Xai += TwoElectronEmbedding(Input.Integrals, RotationMatrix, jOrb, VirtOrb, kOrb, lOrb) * Fragment2RDM[FragmentIndex](kOrb, lOrb, jOrb, jBathOrb);
+							Xai += TwoElectronEmbedding(Input.Integrals, RotationMatrix, jOrb, VirtOrb, kOrb, lOrb) * Fragment2RDM[FragmentIndex](kOrb, lOrb, jOrb, BathOrb);
 						}
 					}
 				} // End second sum
@@ -98,5 +98,58 @@ Eigen::MatrixXd RealTime::FormX()
 	} // End all virt-bath interactions.
 
 	// Between bath and core
+	// First, generate Pbath bar.
+	Eigen::MatrixXd PBathBar = 2 * Eigen::MatrixXd::Identity(PBath.rows(), PBath.cols()) - PBath;
+	Eigen::MatrixXd InversePBathBar = PBathBar.inverse();
+	for (int ib = 0; ib < NumAOImp; ib++)
+	{
+		int iBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + ib];
+		for (int c = NumVirt + NumAOImp; c < NumEnv; c++)
+		{
+			int cOrb = Input.EnvironmentOrbitals[FragmentIndex][c];
+			double Xic = 0;
+			for (int jb = 0; jb < NumAOImp; jb++)
+			{
+				int jBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + jb];
+				double Xic_jb = 0;
+				
+				Xic_jb = 2 * OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, jBathOrb, cOrb);
+
+				for (int i = 0; i < 2 * NumAOImp; i++)
+				{
+					int iOrb = ReducedIndexToOrbital(i, Input, FragmentIndex);
+					Xic_jb -= FragmentDensities[FragmentIndex].coeffRef(jBathOrb, iOrb) * OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrb, cOrb);
+				}
+
+				for (int i = 0; i < 2 * NumAOImp; i++)
+				{
+					int iOrb = ReducedIndexToOrbital(i, Input, FragmentIndex);
+					for (int j = 0; j < 2 * NumAOImp; j++)
+					{
+						int jOrb = ReducedIndexToOrbital(j, Input, FragmentIndex);
+						Xic_jb += (TwoElectronEmbedding(Input.Integrals, RotationMatrix, jOrb, jBathOrb, iOrb, cOrb)
+							- TwoElectronEmbedding(Input.Integrals, RotationMatrix, jOrb, jBathOrb, cOrb, iOrb)) * FragmentDensities[FragmentIndex].coeffRef(iOrb, jOrb);
+					}
+				}
+
+				for (int i = 0; i < 2 * NumAOImp; i++)
+				{
+					int iOrb = ReducedIndexToOrbital(i, Input, FragmentIndex);
+					for (int j = 0; j < 2 * NumAOImp; j++)
+					{
+						int jOrb = ReducedIndexToOrbital(j, Input, FragmentIndex);
+						for (int k = 0; k < 2 * NumAOImp; k++)
+						{
+							int kOrb = ReducedIndexToOrbital(k, Input, FragmentIndex);
+							Xic_jb -= TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrb, jOrb, kOrb, cOrb) * Fragment2RDM[FragmentIndex](kOrb, jBathOrb, jOrb, iOrb);
+						}
+					}
+				} // End last inner sum.
+				Xic += Xic_jb * InversePBathBar.coeffRef(iBathOrb, jBathOrb);
+			} // End outer sum over bath states.
+			X(iBathOrb, cOrb) = Xic;
+			X(cOrb, iBathOrb) = Xic;
+		}
+	} // End loop over X matrix elements.
 
 }
