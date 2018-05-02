@@ -27,7 +27,5 @@ public:
 	std::vector< Eigen::Tensor<double, 4> > Fragment2RDM;
 
 	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&);
-	Eigen::MatrixXd FormX();
-	double Embedding1RDM(int, int);
-	double Embedding2RDM(int, int);
+	void FormX();
 };

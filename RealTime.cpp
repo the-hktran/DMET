@@ -18,7 +18,7 @@ void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDe
 	X = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
 }
 
-Eigen::MatrixXd RealTime::FormX()
+void RealTime::FormX()
 {
 	std::vector< int > FragPos;
 	std::vector< int > BathPos;
