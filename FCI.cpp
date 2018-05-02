@@ -10,11 +10,11 @@
 #include <map>
 #include "ReadInput.h"
 #include <fstream>
-#include <Eigen/SpectrA/SymEigsSolver.h>
-#include <Eigen/SpectrA/MatOp/SparseGenMatProd.h>
+//#include <Eigen/SpectrA/SymEigsSolver.h>
+//#include <Eigen/SpectrA/MatOp/SparseGenMatProd.h>
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
-#include <Eigen/SpectrA/Util/SelectionRule.h>
+//#include <Eigen/SpectrA/Util/SelectionRule.h>
 #include <unsupported/Eigen/CXX11/Tensor>
 
 void Davidson(Eigen::SparseMatrix<float, Eigen::RowMajor> &Ham, int Dim, int NumberOfEV, int L, std::vector<double> &DavidsonEV);
@@ -716,7 +716,7 @@ void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
     PrintHamiltonianMatrixMathematica(Ham);
 }
 
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State)
+std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State,  Eigen::Tensor<double, 4> &TwoRDM)
 {
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -1289,7 +1289,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
     }
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
-	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
+	TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;

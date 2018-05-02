@@ -12,7 +12,12 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
+#include <unsupported/Eigen/CXX11/Tensor>
+
 #include "Bootstrap.h"
+#include "Functions.h"
+#include "RealTime.h"
+
 
 
 // #define H2H2H2
@@ -23,7 +28,6 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< std::vector< int > > OccupiedOrbitals, std::vector< std::vector< int > > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
 double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
 
 
@@ -635,20 +639,22 @@ int main(int argc, char* argv[])
 
 	//END DEBUG - Bootstrap
 
+    // These hold the density matrix and energies of each impurity.
+    std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
+    std::vector< Eigen::Tensor<double, 4> > Fragment2RDM(Input.NumFragments);
+    std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
+
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    while(fabs(DMETPotentialChange) > 1E-10) // || uOptIt < 10) // Do DMET until correlation potential has converged.
+    while(fabs(DMETPotentialChange) > 1E-6) // || uOptIt < 10) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
 
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
-        // These hold the density matrix and energies of each impurity.
-        std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
+        
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments); // Vector of double incase multiple solutions are desired from one impurity.
-        std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
-
 
         /* These are the list of occupied and virtual orbitals of the full system calculation. This is necessary in case I want
            to change the choice of occupied orbitals, such as with MoM. For now, they are intialized to be the lowest energy MOs */
@@ -923,7 +929,7 @@ int main(int argc, char* argv[])
                 // Now, solve the impurity.
                 std::vector< double > FCIEnergies;
                 Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
-                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x]);
+                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x]);
                 FragmentEnergies[x] = FCIEnergies;
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
@@ -996,7 +1002,7 @@ int main(int argc, char* argv[])
 
         // std::string tmpstring;
         // std::getline(std::cin, tmpstring);
-        if (uOptIt > 25)
+        if (uOptIt > 0)
         {
             std::cout << "DMET: Maximum number of interations reached." << std::endl;
             Output << "DMET: Maximum number of interations reached." << std::endl;
@@ -1005,5 +1011,10 @@ int main(int argc, char* argv[])
     }
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;
+
+    RealTime RT;
+    RT.Init(Input, 0, FragmentDensities, Fragment2RDM, FragmentRotations[0]);
+    RT.FormX();
+    std::cout << RT.X << std::endl;
     return 0;
 }

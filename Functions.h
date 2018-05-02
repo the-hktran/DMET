@@ -32,3 +32,4 @@ std::vector<unsigned short int> ListDifference(std::vector<bool>, std::vector<bo
 float TwoElectronIntegral(unsigned short int, unsigned short int, unsigned short int, unsigned short int, bool, bool, bool, bool, std::map<std::string, double>&, Eigen::MatrixXd&);
 short int CountOrbitalPosition(unsigned short int, bool, std::vector<unsigned short int>, int);
 short int CountSameImpurity(std::vector<bool>, std::vector<bool>, std::vector<int>);
+std::vector< double > ImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int,  Eigen::Tensor<double, 4>&);

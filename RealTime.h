@@ -26,6 +26,6 @@ public:
 	std::vector< Eigen::MatrixXd > FragmentDensities;
 	std::vector< Eigen::Tensor<double, 4> > Fragment2RDM;
 
-	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&);
+	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&, std::vector< Eigen::Tensor<double, 4> >&, Eigen::MatrixXd);
 	void FormX();
 };
