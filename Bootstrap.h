@@ -35,4 +35,5 @@ public:
 	void ReadBEInput(); // Do this later.
 	void debugInit(InputObj);
 	void doBootstrap(InputObj&, Eigen::MatrixXd&, std::ofstream&);
+	void printDebug(std::ofstream&);
 }; 

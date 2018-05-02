@@ -13,6 +13,7 @@
 #include <queue>
 #include "Bootstrap.h"
 #include "Functions.h"
+#include "NewtonRaphson.cpp"
 
 // This is a debug function for the time being
 void Bootstrap::debugInit(InputObj Input)
@@ -52,4 +53,13 @@ void Bootstrap::doBootstrap(InputObj &Input, Eigen::MatrixXd &MFDensity, std::of
 	NumFrag = Input.NumFragments;
 
 	CollectSchmidt(MFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
+}
+
+void Bootstrap::printDebug(std::ofstream &Output)
+{
+	for (int x = 0; x < RotationMatrices.size(); x++)
+	{
+		Output << RotationMatrices[x] << std::endl;
+		Output << "\n";
+	}
 }

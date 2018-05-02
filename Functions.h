@@ -9,6 +9,10 @@
 // DMET.cpp
 void SchmidtDecomposition(Eigen::MatrixXd&, Eigen::MatrixXd&, std::vector< int >, std::vector< int >, int, std::ofstream&);
 void GetCASPos(InputObj, int, std::vector< int >&, std::vector< int >&);
+double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
+double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
+double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 
 // FCIForBE.cpp
 std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);

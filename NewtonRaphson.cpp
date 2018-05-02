@@ -18,6 +18,7 @@
 #include <boost/math/special_functions/next.hpp> // For float_distance.
 #include <boost/math/special_functions/cbrt.hpp> // For boost::math::cbrt.
 
+#include "Bootstrap.h"
 #include "Functions.h"
 
 class BENewton
@@ -34,10 +35,30 @@ public:
 
 	std::vector< Eigen::MatrixXd > DensityReference;
 
+	void InitFromBE(Bootstrap);
+
 	double dLoss(double);
 	std::tuple<double, double> BENewtonIteration(double);
 	double FCIwrtLambda(double);
+	void FormDensityReference();
 };
+
+void BENewton::FormDensityReference()
+{
+	std::vector< Eigen::MatrixXd > CollectFCIDensity;
+	for (int x = 0; x < Input.NumFragments; x++)
+	{
+		Eigen::MatrixXd FragDensity;
+		BEImpurityFCI(FragDensity, Input, FragmentIndex, RotationMatrix, ChemicalPotential, State, BEPotential[x]);
+		CollectFCIDensity.push_back(FragDensity);
+	}
+	DensityReference = CollectFCIDensity;
+}
+
+void BENewton::InitFromBE(Bootstrap BE)
+{
+	//FragmentIndex
+}
 
 double BENewton::FCIwrtLambda(double Lambda)
 {

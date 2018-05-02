@@ -582,45 +582,56 @@ int main(int argc, char* argv[])
     // }
 
 	// DEBUG - Bootstrap
-	Bootstrap BE;
-	BE.debugInit(Input); 
+	//Bootstrap BE;
+	//BE.debugInit(Input); 
 
-	// Now do SCF to get density matrix.
-	std::vector< int > OccupiedOrbitals;
-	std::vector< int > VirtualOrbitals;
-	for (int i = 0; i < NumOcc; i++)
-	{
-		OccupiedOrbitals.push_back(i);
-	}
-	for (int i = NumOcc; i < NumAO; i++)
-	{
-		VirtualOrbitals.push_back(i);
-	}
-	// OccupiedOrbitals[NumOcc - 1] = NumOcc;
-	// VirtualOrbitals[0] = NumOcc - 1;
-	Input.OccupiedOrbitals = OccupiedOrbitals;
-	Input.VirtualOrbitals = VirtualOrbitals;
-	double SCFEnergy = 0.0;
-	std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
-	std::vector< Eigen::MatrixXd > SCFMD1RDM;
-	std::vector< double > AllEnergies;
-	std::priority_queue< std::pair< double, int > > SCFMDEnergyQueue;
-	std::vector< std::vector< int > > SCFMDOccupied;
-	std::vector< std::vector< int > > SCFMDVirtual;
-	std::vector< Eigen::MatrixXd > SCFMDCoeff;
-	std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
+	//// Now do SCF to get density matrix.
+	//std::vector< int > OccupiedOrbitals;
+	//std::vector< int > VirtualOrbitals;
+	//for (int i = 0; i < NumOcc; i++)
+	//{
+	//	OccupiedOrbitals.push_back(i);
+	//}
+	//for (int i = NumOcc; i < NumAO; i++)
+	//{
+	//	VirtualOrbitals.push_back(i);
+	//}
+	//// OccupiedOrbitals[NumOcc - 1] = NumOcc;
+	//// VirtualOrbitals[0] = NumOcc - 1;
+	//Input.OccupiedOrbitals = OccupiedOrbitals;
+	//Input.VirtualOrbitals = VirtualOrbitals;
+	//double SCFEnergy = 0.0;
+	//std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
+	//std::vector< Eigen::MatrixXd > SCFMD1RDM;
+	//std::vector< double > AllEnergies;
+	//std::priority_queue< std::pair< double, int > > SCFMDEnergyQueue;
+	//std::vector< std::vector< int > > SCFMDOccupied;
+	//std::vector< std::vector< int > > SCFMDVirtual;
+	//std::vector< Eigen::MatrixXd > SCFMDCoeff;
+	//std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
 
-	std::ofstream BlankOutput;
+	//std::ofstream BlankOutput;
 
-	Eigen::VectorXd OrbitalEV;
-	int SCFCount = 0;
-	Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
-	SCFEnergy = SCF(Bias, 0, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+	//Eigen::VectorXd OrbitalEV;
+	//int SCFCount = 0;
+	//Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+	//SCFEnergy = SCF(Bias, 0, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
 
-	return 0;
-
-	// Get all Schmidt Decompositions.
-	BE.doBootstrap(Input, DensityMatrix, Output);
+	//// Get all Schmidt Decompositions.
+	//for (int i = 0; i < DensityMatrix.rows(); i++)
+	//{
+	//	for (int j = 0; j < DensityMatrix.cols(); j++)
+	//	{
+	//		if (fabs(DensityMatrix.coeffRef(i, j)) < 1E-12)
+	//		{
+	//			DensityMatrix(i, j) = 0;
+	//		}
+	//	}
+	//}
+	//Output << DensityMatrix << std::endl;
+	//BE.doBootstrap(Input, DensityMatrix, Output);
+	//BE.printDebug(Output);
+	//return 0;
 
 	//END DEBUG - Bootstrap
 
