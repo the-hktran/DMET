@@ -28,4 +28,5 @@ public:
 
 	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&, std::vector< Eigen::Tensor<double, 4> >&, Eigen::MatrixXd);
 	void FormX();
+	Eigen::MatrixXd UpdateR();
 };

@@ -154,4 +154,43 @@ void RealTime::FormX()
 			X(cOrb, iBathOrb) = Xic;
 		}
 	} // End loop over X matrix elements.
+
+	// Print outs to debug
+	// std::cout << "PBath\n" << PBath << std::endl;
+	// std::cout << "InversePBath\n" << InversePBath << std::endl;
+	// std::cout << "PBathBar\n" << PBathBar << std::endl;
+	// std::cout << "InversePBathBar\n" << InversePBathBar << std::endl;
+	// std::cout << "P\n" << FragmentDensities[FragmentIndex] << std::endl;
+	// std::cout << "h^tilde\n";
+	// for (int i = 0; i < 8; i++)
+	// {
+	// 	for (int j = 0; j < 8; j++)
+	// 	{
+	// 		std::cout << OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, i, j) << "\t";
+	// 	}
+	// 	std::cout << std::endl;
+	// }
+	// std::cout << "V\n" << std::endl;
+	// for (int i = 0; i < 8; i++)
+	// {
+	// 	for (int j = 0; j < 8; j++)
+	// 	{
+	// 		std::cout << i << "\t" << j << std::endl;
+	// 		for (int k = 0; k < 8; k++)
+	// 		{
+	// 			for (int l = 0; l < 8; l++)
+	// 			{
+	// 				std::cout << TwoElectronEmbedding(Input.Integrals, RotationMatrix, i, j, k, l) << "\t";
+	// 			}
+	// 			std::cout << std::endl;
+	// 		}
+	// 		std::cout << "\n\n";
+	// 	}
+	// }
+}
+
+Eigen::MatrixXd RealTime::UpdateR()
+{
+	RotationMatrix = X * RotationMatrix;
+	return RotationMatrix;
 }
