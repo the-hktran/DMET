@@ -1,15 +1,19 @@
 #include <iostream>
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <complex>
 
 #include "RealTime.h"
 #include "Functions.h"
 
-void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDensities, std::vector < Eigen::Tensor<double, 4> > &Frag2RDM, Eigen::MatrixXd RMat)
+void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDensities, std::vector< Eigen::Tensor<double, 4> > &Frag2RDM, Eigen::MatrixXd RMat)
 {
 	Input = Inp;
 	FragmentIndex = x;
-	FragmentDensities = FragDensities;
-	Fragment2RDM = Frag2RDM;
+	for (int i = 0; i < FragDensities.size(); i++)
+	{
+		FragmentDensities.push_back(FragDensities[i].cast< std::complex<double> >());
+		Fragment2RDM.push_back(Frag2RDM[i].cast< std::complex<double> >());
+	}
 	RotationMatrix = RMat;
 
 	NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
@@ -17,7 +21,7 @@ void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDe
 	NumCore = Input.NumOcc - NumAOImp;
 	NumEnv = Input.EnvironmentOrbitals[FragmentIndex].size();
 
-	X = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO);
+	X = Eigen::MatrixXcd::Zero(Input.NumAO, Input.NumAO);
 }
 
 void RealTime::FormX()
@@ -33,7 +37,7 @@ void RealTime::FormX()
 		{
 			int VirtOrbital = Input.EnvironmentOrbitals[FragmentIndex][a];
 			int CoreOrbital = Input.EnvironmentOrbitals[FragmentIndex][c];
-			double Xac = OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, VirtOrbital, CoreOrbital);
+			std::complex<double> Xac = OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, VirtOrbital, CoreOrbital);
 			for (int i = 0; i < 2 * NumAOImp; i++)
 			{
 				for (int j = 0; j < 2 * NumAOImp; j++)
@@ -45,13 +49,13 @@ void RealTime::FormX()
 				}
 			}
 			X(VirtOrbital, CoreOrbital) = Xac;
-			X(CoreOrbital, VirtOrbital) = Xac;
+			X(CoreOrbital, VirtOrbital) = std::conj(Xac);
 		}
 	}
 
 	// Betweeen bath and virtual
 	// First, get pure bath density.
-	Eigen::MatrixXd PBath = Eigen::MatrixXd::Zero(NumAOImp, NumAOImp);
+	Eigen::MatrixXcd PBath = Eigen::MatrixXcd::Zero(NumAOImp, NumAOImp);
 	for (int ib = 0; ib < NumAOImp; ib++)
 	{
 		for (int jb = 0; jb < NumAOImp; jb++)
@@ -62,7 +66,7 @@ void RealTime::FormX()
 			PBath(ib, jb) = FragmentDensities[FragmentIndex].coeffRef(BathPos[ib], BathPos[jb]);
 		}
 	}
-	Eigen::MatrixXd  InversePBath = PBath.inverse();
+	Eigen::MatrixXcd  InversePBath = PBath.inverse();
 
 	for (int a = 0; a < NumVirt; a++)
 	{
@@ -70,10 +74,10 @@ void RealTime::FormX()
 		{
 			int VirtOrb = Input.EnvironmentOrbitals[FragmentIndex][a];
 			int BathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + ib];
-			double Xai = 0;
+			std::complex<double> Xai = 0;
 			for (int jb = 0; jb < NumAOImp; jb++)
 			{
-				double Xai_jb = 0;
+				std::complex<double> Xai_jb = 0;
 				for (int i = 0; i < 2 * NumAOImp; i++) // First sum
 				{
 					int jBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + jb];
@@ -96,27 +100,27 @@ void RealTime::FormX()
 				Xai += Xai_jb * InversePBath.coeffRef(jb, ib);
 			} // End Sum over bath orbitals
 			X(VirtOrb, BathOrb) = Xai;
-			X(BathOrb, VirtOrb) = Xai;
+			X(BathOrb, VirtOrb) = std::conj(Xai);
 		}
 	} // End all virt-bath interactions.
 
 	// Between bath and core
 	// First, generate Pbath bar.
-	Eigen::MatrixXd PBathBar = 2 * Eigen::MatrixXd::Identity(PBath.rows(), PBath.cols()) - PBath;
-	Eigen::MatrixXd InversePBathBar = PBathBar.inverse();
+	Eigen::MatrixXcd PBathBar = 2 * Eigen::MatrixXcd::Identity(PBath.rows(), PBath.cols()) - PBath;
+	Eigen::MatrixXcd InversePBathBar = PBathBar.inverse();
 	for (int ib = 0; ib < NumAOImp; ib++)
 	{
 		int iBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + ib];
 		for (int c = NumVirt + NumAOImp; c < NumEnv; c++)
 		{
 			int cOrb = Input.EnvironmentOrbitals[FragmentIndex][c];
-			double Xic = 0;
+			std::complex<double> Xic = 0;
 			for (int jb = 0; jb < NumAOImp; jb++)
 			{
 				int jBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + jb];
-				double Xic_jb = 0;
+				std::complex<double> Xic_jb = 0;
 				
-				Xic_jb = 2 * OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, jBathOrb, cOrb);
+				Xic_jb = 2.0 * OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, jBathOrb, cOrb);
 
 				for (int i = 0; i < 2 * NumAOImp; i++)
 				{
@@ -151,7 +155,7 @@ void RealTime::FormX()
 				Xic += Xic_jb * InversePBathBar.coeffRef(iBathOrb, jBathOrb);
 			} // End outer sum over bath states.
 			X(iBathOrb, cOrb) = Xic;
-			X(cOrb, iBathOrb) = Xic;
+			X(cOrb, iBathOrb) = std::conj(Xic);
 		}
 	} // End loop over X matrix elements.
 
@@ -189,8 +193,33 @@ void RealTime::FormX()
 	// }
 }
 
-Eigen::MatrixXd RealTime::UpdateR()
+Eigen::MatrixXcd RealTime::UpdateR(double TimeStep)
 {
-	RotationMatrix = X * RotationMatrix;
+	std::complex<double> ImUnit(0.0, 1.0);
+	Eigen::MatrixXcd dR = RotationMatrix * X / (ImUnit) * TimeStep;
+	RotationMatrix = RotationMatrix + dR;
+	for (int i = 0; i < RotationMatrix.cols(); i++)
+	{
+		RotationMatrix.col(i).normalize();
+	}
 	return RotationMatrix;
+}
+
+Eigen::MatrixXcd RealTime::UpdateH(double ChemPotential)
+{
+	Eigen::MatrixXcd tmpMat1;
+	Eigen::Tensor<std::complex<double>, 4> tmpMat2;
+	TDHam = TDHamiltonian(tmpMat1, Input, FragmentIndex, RotationMatrix, ChemPotential, 0, tmpMat2);
+}
+
+Eigen::VectorXcd RealTime::UpdateEigenstate(double TimeStep)
+{
+	ImpurityEigenstate = ImpurityEigenstate + TimeStep * TDHam * ImpurityEigenstate;
+	ImpurityEigenstate.normalize();
+	return ImpurityEigenstate;
+}
+
+void RealTime::UpdateRDM()
+{
+
 }

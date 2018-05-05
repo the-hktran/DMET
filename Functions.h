@@ -33,3 +33,9 @@ float TwoElectronIntegral(unsigned short int, unsigned short int, unsigned short
 short int CountOrbitalPosition(unsigned short int, bool, std::vector<unsigned short int>, int);
 short int CountSameImpurity(std::vector<bool>, std::vector<bool>, std::vector<int>);
 std::vector< double > ImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int,  Eigen::Tensor<double, 4>&);
+
+// ComplexDMET.cpp
+std::complex<double> OneElectronPlusCore(InputObj&, Eigen::MatrixXcd&, int, int, int);
+std::complex<double> TwoElectronEmbedding(std::map<std::string, double>&, Eigen::MatrixXcd&, int, int, int, int);
+std::complex<double> OneElectronEmbedding(std::map<std::string, double>&, Eigen::MatrixXcd&, int, int);
+Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj&, int, Eigen::MatrixXcd&, double, int, Eigen::Tensor<std::complex<double>, 4>&);

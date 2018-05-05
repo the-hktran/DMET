@@ -1015,6 +1015,8 @@ int main(int argc, char* argv[])
     RealTime RT;
     RT.Init(Input, 0, FragmentDensities, Fragment2RDM, FragmentRotations[0]);
     RT.FormX();
-    std::cout << RT.X << std::endl;
+	RT.UpdateR(0.005);
+    std::cout << RT.RotationMatrix << std::endl;
+	RT.TDHam = 
     return 0;
 }

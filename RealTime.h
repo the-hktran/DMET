@@ -14,19 +14,25 @@
 #include <queue>
 #include "ReadInput.h"
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <complex>
 
 class RealTime
 {
 public:
 	InputObj Input;
-	Eigen::MatrixXd X;
-	Eigen::MatrixXd RotationMatrix;
+	Eigen::MatrixXcd X;
+	Eigen::MatrixXcd RotationMatrix;
 	int FragmentIndex;
 	int NumAOImp, NumVirt, NumCore, NumEnv;
-	std::vector< Eigen::MatrixXd > FragmentDensities;
-	std::vector< Eigen::Tensor<double, 4> > Fragment2RDM;
+	std::vector< Eigen::MatrixXcd > FragmentDensities;
+	std::vector< Eigen::Tensor<std::complex< double >, 4> > Fragment2RDM;
+	Eigen::MatrixXcd TDHam;
+	Eigen::VectorXcd ImpurityEigenstate;
 
 	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&, std::vector< Eigen::Tensor<double, 4> >&, Eigen::MatrixXd);
 	void FormX();
-	Eigen::MatrixXd UpdateR();
+	Eigen::MatrixXcd UpdateR(double);
+	Eigen::MatrixXcd UpdateH(double);
+	Eigen::VectorXcd UpdateEigenstate(double);
+	void UpdateRDM();
 };
