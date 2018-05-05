@@ -643,7 +643,9 @@ int main(int argc, char* argv[])
     std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
     std::vector< Eigen::Tensor<double, 4> > Fragment2RDM(Input.NumFragments);
     std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
+	std::vector< Eigen::VectorXd > FragmentEigenstates(Input.NumFragments);
 
+	double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
@@ -866,7 +868,6 @@ int main(int argc, char* argv[])
         // std::cout << DensityMatrix << std::endl;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
-        double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
         double CostMu = 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
@@ -929,7 +930,7 @@ int main(int argc, char* argv[])
                 // Now, solve the impurity.
                 std::vector< double > FCIEnergies;
                 Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
-                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x]);
+                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x], FragmentEigenstates[x]);
                 FragmentEnergies[x] = FCIEnergies;
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
@@ -1017,6 +1018,5 @@ int main(int argc, char* argv[])
     RT.FormX();
 	RT.UpdateR(0.005);
     std::cout << RT.RotationMatrix << std::endl;
-	RT.TDHam = 
     return 0;
 }

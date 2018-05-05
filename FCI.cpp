@@ -716,7 +716,7 @@ void PrintHamiltonianMatrix(Eigen::MatrixXf &Ham)
     PrintHamiltonianMatrixMathematica(Ham);
 }
 
-std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State,  Eigen::Tensor<double, 4> &TwoRDM)
+std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State,  Eigen::Tensor<double, 4> &TwoRDM, Eigen::VectorXd &Eigenstate)
 {
     int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
     int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -1287,6 +1287,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         // std::cout << "\n" << HamEV.eigenvalues()[k];
 //        Output << "\n" << HamEV.eigenvalues()[k];
     }
+	Eigenstate = HamEV.eigenvectors().col(0);
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
 	TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
