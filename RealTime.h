@@ -28,8 +28,12 @@ public:
 	std::vector< Eigen::Tensor<std::complex<double>, 4> > Fragment2RDM;
 	Eigen::MatrixXcd TDHam;
 	Eigen::VectorXcd ImpurityEigenstate;
+	
+	// Things that should be in an FCI class.
+	std::vector< std::vector< bool > > aStrings;
+	std::vector< std::vector< bool > > bStrings;
 
-	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&, std::vector< Eigen::Tensor<double, 4> >&, Eigen::MatrixXd);
+	void Init(InputObj&, int, std::vector< Eigen::MatrixXd >&, std::vector< Eigen::Tensor<double, 4> >&, Eigen::MatrixXd, std::vector< Eigen::VectorXd >&);
 	void FormX();
 	Eigen::MatrixXcd UpdateR(double);
 	Eigen::MatrixXcd UpdateH(double);

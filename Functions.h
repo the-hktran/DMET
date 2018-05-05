@@ -18,7 +18,7 @@ double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int
 std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);
 
 // FCI.cpp
-Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd&);
+Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd);
 Eigen::MatrixXd Form1RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
 int BinomialCoeff(int, int); // n choose k
 int Z_ForIndex(int, int, int, int);
@@ -38,4 +38,6 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::Matri
 std::complex<double> OneElectronPlusCore(InputObj&, Eigen::MatrixXcd&, int, int, int);
 std::complex<double> TwoElectronEmbedding(std::map<std::string, double>&, Eigen::MatrixXcd&, int, int, int, int);
 std::complex<double> OneElectronEmbedding(std::map<std::string, double>&, Eigen::MatrixXcd&, int, int);
-Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj&, int, Eigen::MatrixXcd&, double, int, Eigen::Tensor<std::complex<double>, 4>&);
+Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj&, int, Eigen::MatrixXcd&, double, int, Eigen::Tensor<std::complex<double>, 4>&, std::vector< std::vector< bool > >&, std::vector< std::vector< bool > >&);
+Eigen::MatrixXcd Form1RDM(InputObj&, int, Eigen::VectorXcd, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
+Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj&, int, Eigen::VectorXcd, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXcd);

@@ -5,7 +5,7 @@
 #include "RealTime.h"
 #include "Functions.h"
 
-void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDensities, std::vector< Eigen::Tensor<double, 4> > &Frag2RDM, Eigen::MatrixXd RMat)
+void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDensities, std::vector< Eigen::Tensor<double, 4> > &Frag2RDM, Eigen::MatrixXd RMat, std::vector< Eigen::VectorXd > &FragEigenstate)
 {
 	Input = Inp;
 	FragmentIndex = x;
@@ -15,6 +15,7 @@ void RealTime::Init(InputObj &Inp, int x, std::vector< Eigen::MatrixXd > &FragDe
 		Fragment2RDM.push_back(Frag2RDM[i].cast< std::complex<double> >());
 	}
 	RotationMatrix = RMat;
+	ImpurityEigenstate = FragEigenstate[x].cast< std::complex<double> >();
 
 	NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
 	NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -193,6 +194,9 @@ void RealTime::FormX()
 	// }
 }
 
+// The flow of updates is: Update R -> Update H -> Update Cs -> Update RDM
+
+/* Updates rotation matrix with X matrix. The new rotation matrix is normalized. */
 Eigen::MatrixXcd RealTime::UpdateR(double TimeStep)
 {
 	std::complex<double> ImUnit(0.0, 1.0);
@@ -205,22 +209,28 @@ Eigen::MatrixXcd RealTime::UpdateR(double TimeStep)
 	return RotationMatrix;
 }
 
+/* Updates the Hamiltonian using the new rotation matrix */
 Eigen::MatrixXcd RealTime::UpdateH(double ChemPotential)
 {
 	Eigen::MatrixXcd tmpMat1;
 	Eigen::Tensor<std::complex<double>, 4> tmpMat2;
-	TDHam = TDHamiltonian(tmpMat1, Input, FragmentIndex, RotationMatrix, ChemPotential, 0, tmpMat2);
+	// This also generates aStrings and bStrings
+	TDHam = TDHamiltonian(tmpMat1, Input, FragmentIndex, RotationMatrix, ChemPotential, 0, tmpMat2, aStrings, bStrings);
 	return TDHam;
 }
 
+/* Updates the FCI coefficients using the new H */
 Eigen::VectorXcd RealTime::UpdateEigenstate(double TimeStep)
 {
-	ImpurityEigenstate = ImpurityEigenstate + TimeStep * TDHam * ImpurityEigenstate;
+	std::complex<double> ImUnit(0.0, 1.0);
+	ImpurityEigenstate = ImpurityEigenstate + TimeStep * TDHam * ImpurityEigenstate / ImUnit;
 	ImpurityEigenstate.normalize();
 	return ImpurityEigenstate;
 }
 
+/* Updates the new RDMs using the new coefficients */
 void RealTime::UpdateRDM()
 {
-
+	FragmentDensities[FragmentIndex] = Form1RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings);
+	Fragment2RDM[FragmentIndex] = Form2RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings, FragmentDensities[FragmentIndex]);
 }

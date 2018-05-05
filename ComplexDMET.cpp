@@ -199,7 +199,7 @@ Eigen::MatrixXcd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd E
 
 /* Calculates the 2RDM with elements P_ijkl = <a^dagger_i a^dagger_j a_k a_l>
 However, note that given the definition of P_{ij|kl} = < a_j^dagger a_l^dagger a_i a_k > this means that the element TwoRDM(i,j,k,l) actually corresponds to P_{ki|lj} */
-Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings, Eigen::MatrixXcd &OneRDM)
+Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings, Eigen::MatrixXcd OneRDM)
 {
 	std::vector<int> FragPos;
 	std::vector<int> BathPos;
@@ -457,7 +457,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 	return TwoRDM;
 }
 
-Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXcd &RotationMatrix, double ChemicalPotential, int State, Eigen::Tensor<std::complex<double>, 4> &TwoRDM)
+Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXcd &RotationMatrix, double ChemicalPotential, int State, Eigen::Tensor<std::complex<double>, 4> &TwoRDM, std::vector< std::vector< bool > > &aStringsOut, std::vector< std::vector< bool > > &bStringsOut)
 {
 	int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
 	int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -579,6 +579,8 @@ Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input,
 			}
 		}
 	}
+	aStringsOut = aStrings;
+	bStringsOut = bStrings;
 
 	unsigned int NonzeroElements = Dim + aSingleDifference.size() * bDim * 2 + bSingleDifference.size() * aDim * 2 + aDoubleDifference.size() * bDim * 2
 		+ bDoubleDifference.size() * aDim * 2 + aSingleDifference.size() * bSingleDifference.size() * 4;
