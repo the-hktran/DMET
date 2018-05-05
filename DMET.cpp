@@ -1015,19 +1015,10 @@ int main(int argc, char* argv[])
 
     RealTime RT;
     RT.Init(Input, 0, FragmentDensities, Fragment2RDM, FragmentRotations[0], FragmentEigenstates);
-    RT.FormX();
-	RT.UpdateR(0.005);
-    RT.UpdateH(ChemicalPotential);
-    RT.UpdateEigenstate(0.005);
-    std::cout << RT.ImpurityEigenstate << std::endl;
-    RT.UpdateRDM();
-    std::cout << RT.FragmentDensities[0] << std::endl;
-
-    Eigen::VectorXcd test = Eigen::VectorXcd::Zero(2);
-    test[0] = std::complex<double>(1.0, 1.0);
-
-    std::cout << test << std::endl;
-    test.normalize();
-    std::cout << test << std::endl;
+	for (int i = 0; i < 1000; i++)
+	{
+		RT.TimeUpdate(0.005, ChemicalPotential);
+		std::cout << RT.FragmentDensities[0].coeffRef(0, 0) << std::endl;
+	}
     return 0;
 }

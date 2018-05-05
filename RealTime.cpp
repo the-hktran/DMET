@@ -234,3 +234,12 @@ void RealTime::UpdateRDM()
 	FragmentDensities[FragmentIndex] = Form1RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings);
 	Fragment2RDM[FragmentIndex] = Form2RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings, FragmentDensities[FragmentIndex]);
 }
+
+void RealTime::TimeUpdate(double TimeStep, double ChemPot)
+{
+	FormX();
+	UpdateR(TimeStep);
+	UpdateH(ChemPot);
+	UpdateEigenstate(TimeStep);
+	UpdateRDM();
+}

@@ -39,4 +39,6 @@ public:
 	Eigen::MatrixXcd UpdateH(double);
 	Eigen::VectorXcd UpdateEigenstate(double);
 	void UpdateRDM();
+	
+	void TimeUpdate(double, double);
 };
