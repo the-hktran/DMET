@@ -21,7 +21,7 @@
 
 std::complex<double> OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXcd &RotationMatrix, int c, int d)
 {
-	double hcd = 0;
+	std::complex<double> hcd = 0;
 	for (int p = 0; p < RotationMatrix.rows(); p++)
 	{
 		for (int q = 0; q < RotationMatrix.rows(); q++)
@@ -32,10 +32,38 @@ std::complex<double> OneElectronEmbedding(std::map<std::string, double> &Integra
 	return hcd;
 }
 
+std::complex<double> TwoElectronIntegral(unsigned short int m, unsigned short int n, unsigned short int k, unsigned short int l, bool m_isAlpha, bool n_isAlpha, bool k_isAlpha, bool l_isAlpha, std::map<std::string, double> &Integrals, Eigen::MatrixXcd &RotationMatrix)
+{
+	std::complex<double> mknl = 0; // First term. (mk|nl)
+	std::complex<double> mlnk = 0; // Second term. (ml|nk)
+
+					 /* Deal with first term first */
+	if ((m_isAlpha != k_isAlpha) || (n_isAlpha != l_isAlpha)) // Means spin component is different.
+	{
+		mknl = 0;
+	}
+	else
+	{
+		mknl = TwoElectronEmbedding(Integrals, RotationMatrix, m - 1, n - 1, k - 1, l - 1);
+		// Integrals[std::to_string(m) + " " + std::to_string(k) + " " + std::to_string(n) + " " + std::to_string(l)];
+	}
+	/* Now, the second term */
+	if ((m_isAlpha != l_isAlpha) || (n_isAlpha != k_isAlpha))
+	{
+		mlnk = 0;
+	}
+	else
+	{
+		mlnk = TwoElectronEmbedding(Integrals, RotationMatrix, m - 1, n - 1, l - 1, k - 1);
+		// Integrals[std::to_string(m) + " " + std::to_string(l) + " " + std::to_string(n) + " " + std::to_string(k)];
+	}
+	return mknl - mlnk;
+}
+
 /* Equation 11 in J.S. Kretchmer and G.K-L. Chan, Preprint: https://arxiv.org/abs/1609.07678, (2016). */
 std::complex<double> TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXcd &RotationMatrix, int c, int d, int e, int f)
 {
-	double Vcdef = 0;
+	std::complex<double> Vcdef = 0;
 	for (int p = 0; p < RotationMatrix.rows(); p++)
 	{
 		for (int q = 0; q < RotationMatrix.rows(); q++)
@@ -56,14 +84,14 @@ std::complex<double> TwoElectronEmbedding(std::map<std::string, double> &Integra
 electrons. */
 std::complex<double> OneElectronPlusCore(InputObj &Input, Eigen::MatrixXcd &RotationMatrix, int FragmentIndex, int c, int d)
 {
-	double tildehcd = 0;
+	std::complex<double> tildehcd = 0;
 	tildehcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, c, d);
 	for (int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
 	{
 		int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
-		double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, d, uu);
-		double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, uu, d);
-		tildehcd += (2 * Vcudu - Vcuud);
+		std::complex<double> Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, d, uu);
+		std::complex<double> Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, c, uu, uu, d);
+		tildehcd += (2.0 * Vcudu - Vcuud);
 	}
 	return tildehcd;
 }
@@ -120,7 +148,7 @@ Eigen::MatrixXcd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd E
 							{
 								continue;
 							}
-							DijA += BraSign * KetSign * std::conj(Eigenvector[ai + bi * aStrings.size()]) * Eigenvector[aj + bj * aStrings.size()];
+							DijA += (double)BraSign * (double)KetSign * std::conj(Eigenvector[ai + bi * aStrings.size()]) * Eigenvector[aj + bj * aStrings.size()];
 						}
 					}
 				}
@@ -158,7 +186,7 @@ Eigen::MatrixXcd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd E
 							{
 								continue;
 							}
-							DijB += BraSign * KetSign * std::conj(Eigenvector[ai + bi * aStrings.size()]) * Eigenvector[aj + bj * aStrings.size()];
+							DijB += (double)BraSign * (double)KetSign * std::conj(Eigenvector[ai + bi * aStrings.size()]) * Eigenvector[aj + bj * aStrings.size()];
 						}
 					}
 				}
@@ -183,7 +211,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 	< a^t_i,alpha a^t_j,alpha a_k,alpha a_l,alpha + a^t_i,alpha a^t_j,beta a_k,alpha a_l,beta
 	a^t_i,beta a^t_j,alpha a_k,beta a_l,alpha + a^t_i,beta a^t_j,beta a_k,beta a_l,beta >
 	We will refer to these as elements 1, 2, 3, and 4 respectively. */
-	Eigen::Tensor < std::complex<double>, 4> TwoRDM(2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp);
+	Eigen::Tensor< std::complex<double>, 4 > TwoRDM(2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp);
 	for (int i = 0; i < 2 * NumAOImp; i++)
 	{
 		// This is the orbital associated with the index, in the CAS index.
@@ -250,7 +278,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 									{
 										continue;
 									}
-									Pijkl += BraSign * KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
+									Pijkl += (double)BraSign * (double)KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
 								}
 							}
 						}
@@ -301,7 +329,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 									{
 										continue;
 									}
-									Pijkl += BraSign * KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
+									Pijkl += (double)BraSign * (double)KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
 								}
 							}
 						}
@@ -352,7 +380,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 									{
 										continue;
 									}
-									Pijkl += BraSign * KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
+									Pijkl += (double)BraSign * (double)KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
 								}
 							}
 						}
@@ -409,7 +437,7 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj &Input, int FragmentInd
 									{
 										continue;
 									}
-									Pijkl += BraSign * KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
+									Pijkl += (double)BraSign * (double)KetSign * std::conj(Eigenvector[aBra + bBra * aStrings.size()]) * Eigenvector[aKet + bKet * aStrings.size()];
 								}
 							}
 						}
@@ -559,12 +587,12 @@ Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input,
 	//<< "\nChecking " << NonzeroElements << " elements.\n" << std::endl;
 
 	std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;
-	Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
+	Eigen::SparseMatrix<std::complex<double>, Eigen::RowMajor> Ham(Dim, Dim);
 	// Ham.reserve(Eigen::VectorXi::Constant(Dim,NonzeroElements));
 	// clock_t Timer = clock();
 	double Timer = omp_get_wtime();
 
-	typedef Eigen::Triplet<float> T;
+	typedef Eigen::Triplet< std::complex<double> > T;
 	std::vector<T> tripletList;
 	// std::vector< std::vector<T> > tripletList_Private(NumThreads);
 
@@ -910,8 +938,8 @@ Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input,
 			// Note that the sign is the product of the signs of the alpha and beta strings. This is because we can permute them independently.
 			// tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
 			// tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
-			tripletList_Private.push_back(T(Index1, Index2, (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
-			tripletList_Private.push_back(T(Index2, Index1, std::conj((float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble)));
+			tripletList_Private.push_back(T(Index1, Index2, (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+			tripletList_Private.push_back(T(Index2, Index1, std::conj((double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble)));
 
 			/* We have to be a little more careful in this case. We want the upper triangle, but this only gives us half
 			of the upper triangle. In particular, the upper half of each beta block in upper triangle of the full matrix
@@ -940,8 +968,8 @@ Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj &Input,
 																								   // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
 																								   // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
 																								   /* IDK why but this is the culprit to the memory issue */
-			tripletList_Private.push_back(T(Index1, Index2, (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
-			tripletList_Private.push_back(T(Index2, Index1, std::conj((float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble)));
+			tripletList_Private.push_back(T(Index1, Index2, (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+			tripletList_Private.push_back(T(Index2, Index1, std::conj((double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble)));
 		}
 #pragma omp critical
 		tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());

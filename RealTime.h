@@ -25,7 +25,7 @@ public:
 	int FragmentIndex;
 	int NumAOImp, NumVirt, NumCore, NumEnv;
 	std::vector< Eigen::MatrixXcd > FragmentDensities;
-	std::vector< Eigen::Tensor<std::complex< double >, 4> > Fragment2RDM;
+	std::vector< Eigen::Tensor<std::complex<double>, 4> > Fragment2RDM;
 	Eigen::MatrixXcd TDHam;
 	Eigen::VectorXcd ImpurityEigenstate;
 
