@@ -210,6 +210,7 @@ Eigen::MatrixXcd RealTime::UpdateH(double ChemPotential)
 	Eigen::MatrixXcd tmpMat1;
 	Eigen::Tensor<std::complex<double>, 4> tmpMat2;
 	TDHam = TDHamiltonian(tmpMat1, Input, FragmentIndex, RotationMatrix, ChemPotential, 0, tmpMat2);
+	return TDHam;
 }
 
 Eigen::VectorXcd RealTime::UpdateEigenstate(double TimeStep)

@@ -1287,7 +1287,7 @@ std::vector< double > ImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Inpu
         // std::cout << "\n" << HamEV.eigenvalues()[k];
 //        Output << "\n" << HamEV.eigenvalues()[k];
     }
-	Eigenstate = HamEV.eigenvectors().col(0);
+	Eigenstate = HamEV.eigenvectors().col(State).cast<double>();
 
     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
 	TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
