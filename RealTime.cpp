@@ -243,3 +243,28 @@ void RealTime::TimeUpdate(double TimeStep, double ChemPot)
 	UpdateEigenstate(TimeStep);
 	UpdateRDM();
 }
+
+void RealTime::RunTimeEvolution(double EndTime, double TimeStep, double ChemPot, int QDRedPos)
+{
+	double t = 0;
+	Times.push_back(t);
+	Properties.push_back(std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)));
+
+	while (t < EndTime)
+	{
+		t += TimeStep;
+		TimeUpdate(TimeStep, ChemPot);
+		Times.push_back(t);
+		Properties.push_back(std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)));
+		std::cout << t << "\t" << std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)) << std::endl;
+	}
+}
+
+void RealTime::PrintToOutput(std::ofstream &Output)
+{
+	Output << "Results of time evolution:" << std::endl;
+	for (int i = 0; i < Times.size(); i++)
+	{
+		Output << Times[i] << "\t" << Properties[i] << std::endl;
+	}
+}

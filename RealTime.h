@@ -28,6 +28,10 @@ public:
 	std::vector< Eigen::Tensor<std::complex<double>, 4> > Fragment2RDM;
 	Eigen::MatrixXcd TDHam;
 	Eigen::VectorXcd ImpurityEigenstate;
+
+	// Stores observable or calculation result with respect to time.
+	std::vector<double> Times;
+	std::vector<double> Properties;
 	
 	// Things that should be in an FCI class.
 	std::vector< std::vector< bool > > aStrings;
@@ -41,4 +45,7 @@ public:
 	void UpdateRDM();
 	
 	void TimeUpdate(double, double);
+	void RunTimeEvolution(double, double, double, int);
+
+	void PrintToOutput(std::ofstream&);
 };
