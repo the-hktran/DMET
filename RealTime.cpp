@@ -61,7 +61,6 @@ void RealTime::FormX()
 	{
 		for (int jb = 0; jb < NumAOImp; jb++)
 		{
-			std::cout << ib << jb << std::endl;
 			int iBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + ib];
 			int jBathOrb = Input.EnvironmentOrbitals[FragmentIndex][NumVirt + jb];
 			PBath(ib, jb) = FragmentDensities[FragmentIndex].coeffRef(BathPos[ib], BathPos[jb]);
@@ -244,11 +243,12 @@ void RealTime::TimeUpdate(double TimeStep, double ChemPot)
 	UpdateRDM();
 }
 
-void RealTime::RunTimeEvolution(double EndTime, double TimeStep, double ChemPot, int QDRedPos)
+void RealTime::RunTimeEvolution(double EndTime, double TimeStep, double ChemPot, int QDRedPos, std::ofstream &Output)
 {
 	double t = 0;
 	Times.push_back(t);
 	Properties.push_back(std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)));
+	Output << "Results of time evolution:" << std::endl;
 
 	while (t < EndTime)
 	{
@@ -257,6 +257,7 @@ void RealTime::RunTimeEvolution(double EndTime, double TimeStep, double ChemPot,
 		Times.push_back(t);
 		Properties.push_back(std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)));
 		std::cout << t << "\t" << std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)) << std::endl;
+		Output << t << "\t" << std::real(FragmentDensities[FragmentIndex].coeffRef(QDRedPos, QDRedPos)) << std::endl;
 	}
 }
 

@@ -1014,11 +1014,11 @@ int main(int argc, char* argv[])
     Output << "DMET: DMET has converged." << std::endl;
 
 	InputObj ExcitedInput;
-	ExcitedInput.SetNames("qd_td.in", argv[2], argv[3]);
+	ExcitedInput.SetNames("qd8td.in", argv[2], argv[3]);
 	ExcitedInput.Set();
     RealTime RT;
-    RT.Init(ExcitedInput, 3, FragmentDensities, Fragment2RDM, FragmentRotations[3], FragmentEigenstates);
-	RT.RunTimeEvolution(50, 0.005, ChemicalPotential, 1);
+    RT.Init(ExcitedInput, 1, FragmentDensities, Fragment2RDM, FragmentRotations[1], FragmentEigenstates);
+	RT.RunTimeEvolution(50, 0.05, ChemicalPotential, 1, Output);
 	RT.PrintToOutput(Output);
     return 0;
 }

@@ -45,7 +45,7 @@ public:
 	void UpdateRDM();
 	
 	void TimeUpdate(double, double);
-	void RunTimeEvolution(double, double, double, int);
+	void RunTimeEvolution(double, double, double, int, std::ofstream&);
 
 	void PrintToOutput(std::ofstream&);
 };
