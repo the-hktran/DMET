@@ -1013,12 +1013,15 @@ int main(int argc, char* argv[])
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;
 
+    std::vector<int> FragPos;
+    std::vector<int> BathPos;
 	InputObj ExcitedInput;
 	ExcitedInput.SetNames("qd8td.in", argv[2], argv[3]);
 	ExcitedInput.Set();
     RealTime RT;
-    RT.Init(ExcitedInput, 1, FragmentDensities, Fragment2RDM, FragmentRotations[1], FragmentEigenstates);
-	RT.RunTimeEvolution(50, 0.05, ChemicalPotential, 1, Output);
+    GetCASPos(Input, 2, FragPos, BathPos);
+    RT.Init(ExcitedInput, 2, FragmentDensities, Fragment2RDM, FragmentRotations[2], FragmentEigenstates);
+	RT.RunTimeEvolution(50, 0.05, ChemicalPotential, FragPos[0], Output);
 	RT.PrintToOutput(Output);
     return 0;
 }

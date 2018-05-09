@@ -236,11 +236,22 @@ void RealTime::UpdateRDM()
 
 void RealTime::TimeUpdate(double TimeStep, double ChemPot)
 {
+	double Start = omp_get_wtime();
 	FormX();
+	std::cout << "FormX: " << omp_get_wtime() - Start << std::endl;
+	Start = omp_get_wtime();
 	UpdateR(TimeStep);
+	std::cout << "UpdateR: " << omp_get_wtime() - Start << std::endl;
+	Start = omp_get_wtime();
 	UpdateH(ChemPot);
+	std::cout << "UpdateH: " << omp_get_wtime() - Start << std::endl;
+	Start = omp_get_wtime();
 	UpdateEigenstate(TimeStep);
+	std::cout << "UpdateES: " << omp_get_wtime() - Start << std::endl;
+	Start = omp_get_wtime();
 	UpdateRDM();
+	std::cout << "FormX: " << omp_get_wtime() - Start << std::endl;
+	Start = omp_get_wtime();
 }
 
 void RealTime::RunTimeEvolution(double EndTime, double TimeStep, double ChemPot, int QDRedPos, std::ofstream &Output)
