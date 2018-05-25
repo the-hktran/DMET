@@ -25,8 +25,9 @@ public:
 	int NumFrag;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
+	// Each vector is a different fragment.
 	// Index 1 is overlapping fragment.
-	// Index 2 is the orbital we want to match to that fragment
+	// Index 2 is the orbital we want to match to that fragment -- We input this from the CURRENT fragment and we can search it in OTHER fragments.
 	// Index 3 is the value of the potential on that orbital for this fragment.
 	std::vector< std::vector< std::tuple< int, int, double > > > BEPotential;
 

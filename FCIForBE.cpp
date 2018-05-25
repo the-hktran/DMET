@@ -10,11 +10,8 @@
 #include <map>
 #include "ReadInput.h"
 #include <fstream>
-#include <Eigen/SpectrA/SymEigsSolver.h>
-#include <Eigen/SpectrA/MatOp/SparseGenMatProd.h>
 #include <Eigen/Core>
 #include <Eigen/SparseCore>
-#include <Eigen/SpectrA/Util/SelectionRule.h>
 #include <unsupported/Eigen/CXX11/Tensor>
 #include "Functions.h"
 
