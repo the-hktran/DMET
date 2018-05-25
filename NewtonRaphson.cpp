@@ -38,7 +38,7 @@ public:
 	void InitFromBE(Bootstrap);
 
 	double dLoss(double);
-	std::pair<double, double> BENewtonIteration(double);
+	std::pair<double, double> BENewtonIteration(double const);
 	double FCIwrtLambda(double);
 	void FormDensityReference();
 	double GetLambda();
@@ -101,7 +101,7 @@ double BENewton::dLoss(double Lambda)
 	return (dL2 - dL1) / (2 * StepSize);
 }
 
-std::pair<double, double> BENewton::BENewtonIteration(double Lambda)
+std::pair<double, double> BENewton::BENewtonIteration(double const Lambda)
 {
 	double f = FCIwrtLambda(Lambda);
 	double df = dLoss(Lambda);

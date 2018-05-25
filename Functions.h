@@ -19,7 +19,7 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::Mat
 
 // FCI.cpp
 Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd);
-Eigen::MatrixXd Form1RDM(InputObj&, int, Eigen::VectorXd, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
+Eigen::MatrixXd Form1RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
 int BinomialCoeff(int, int); // n choose k
 int Z_ForIndex(int, int, int, int);
 int StringIndex(std::vector<int>, int);

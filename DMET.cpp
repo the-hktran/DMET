@@ -1003,7 +1003,7 @@ int main(int argc, char* argv[])
 
         // std::string tmpstring;
         // std::getline(std::cin, tmpstring);
-        if (uOptIt > 0)
+        if (uOptIt > 20)
         {
             std::cout << "DMET: Maximum number of interations reached." << std::endl;
             Output << "DMET: Maximum number of interations reached." << std::endl;

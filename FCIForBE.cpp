@@ -603,7 +603,7 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 		//        Output << "\n" << HamEV.eigenvalues()[k];
 	}
 	
-	DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
+	DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State).cast<float>(), aStrings, bStrings);
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
 
 	/* Now we calculate the fragment energy */
