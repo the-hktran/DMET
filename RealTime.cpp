@@ -230,7 +230,7 @@ Eigen::VectorXcd RealTime::UpdateEigenstate(double TimeStep)
 /* Updates the new RDMs using the new coefficients */
 void RealTime::UpdateRDM()
 {
-	FragmentDensities[FragmentIndex] = Form1RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings);
+	FragmentDensities[FragmentIndex] = Form1RDMComplex(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings);
 	Fragment2RDM[FragmentIndex] = Form2RDM(Input, FragmentIndex, ImpurityEigenstate, aStrings, bStrings, FragmentDensities[FragmentIndex]);
 }
 

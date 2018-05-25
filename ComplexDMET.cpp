@@ -97,7 +97,7 @@ std::complex<double> OneElectronPlusCore(InputObj &Input, Eigen::MatrixXcd &Rota
 }
 
 /* This calculates the elements < a_i,alpha^\dagger a_j,alpha + a_i,beta^\dagger a_j,beta > */
-Eigen::MatrixXcd Form1RDM(InputObj &Input, int FragmentIndex, Eigen::VectorXcd Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
+Eigen::MatrixXcd Form1RDMComplex(InputObj &Input, int FragmentIndex, Eigen::VectorXcd Eigenvector, std::vector< std::vector< bool > > aStrings, std::vector< std::vector< bool > > bStrings)
 {
 	std::vector<int> FragPos;
 	std::vector<int> BathPos;

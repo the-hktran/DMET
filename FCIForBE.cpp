@@ -602,7 +602,7 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 		// std::cout << "\n" << HamEV.eigenvalues()[k];
 		//        Output << "\n" << HamEV.eigenvalues()[k];
 	}
-
+	
 	DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
 	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
 
