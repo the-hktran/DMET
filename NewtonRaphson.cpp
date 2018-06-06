@@ -20,29 +20,7 @@
 
 #include "Bootstrap.h"
 #include "Functions.h"
-
-class BENewton
-{
-public:
-	int FragmentIndex;
-	Eigen::MatrixXd IterDensity;
-	InputObj &Input;
-	Eigen::MatrixXd RotationMatrix;
-	double ChemicalPotential; 
-	int State;
-	int MatchedOrbital; // Which orbital we are matching.
-	std::vector< std::vector< std::tuple< int, int, double> > > BEPotential;
-
-	std::vector< Eigen::MatrixXd > DensityReference;
-
-	void InitFromBE(Bootstrap);
-
-	double dLoss(double);
-	std::pair<double, double> BENewtonIteration(double const);
-	double FCIwrtLambda(double);
-	void FormDensityReference();
-	double GetLambda();
-};
+#include "NewtonRaphson.h"
 
 void BENewton::FormDensityReference()
 {
@@ -149,4 +127,14 @@ double BENewton::GetLambda()
 double BENewtonSolver(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::tuple< int, int, double> BEPotential)
 {
 	return 0;
+}
+
+double FormJacobian(
+
+void NewtonRaphson::doNewton()
+{
+	for (int i = 0; i < 100; i++)
+	{
+
+	}
 }

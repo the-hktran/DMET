@@ -24,6 +24,8 @@ public:
 	int NumOcc;
 	int NumFrag;
 
+	double ChemicalPotential;
+
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
 	// Index 1 is overlapping fragment.
@@ -32,9 +34,15 @@ public:
 	std::vector< std::vector< std::tuple< int, int, double > > > BEPotential;
 
 	std::vector< Eigen::MatrixXd > RotationMatrices;
+	std::vector< Eigen::MatrixXd > ImpurityDensities;
+
 	void CollectSchmidt(Eigen::MatrixXd, std::ofstream&);
 	void ReadBEInput(); // Do this later.
 	void debugInit(InputObj);
-	void doBootstrap(InputObj&, Eigen::MatrixXd&, std::ofstream&);
+	void RunImpurityCalculations();
+	void doBootstrap(InputObj&, Eigen::MatrixXd&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
 	void printDebug(std::ofstream&);
+
+private:
+	double dLambda = 0.1;
 }; 
