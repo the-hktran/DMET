@@ -32,11 +32,9 @@ public:
 	int State;
 	int MatchedOrbital; // Which orbital we are matching.
 	std::vector< std::vector< std::tuple< int, int, double> > > BEPotential;
-    int NumConditions = BEPotential.size()
+    int NumConditions = BEPotential.size();
 
 	std::vector< Eigen::MatrixXd > DensityReference;
-
-	void InitFromBE(int, InputObj&, Eigen::MatrixXd&, Eigen::MatrixXd&, double, int, );
 
 	double dLoss(double);
 	std::pair<double, double> BENewtonIteration(double const);

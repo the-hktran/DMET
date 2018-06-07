@@ -587,8 +587,8 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 	/* This section is for direct diagonalization. Uncomment if desired. */
 	Timer = omp_get_wtime();
 	std::cout << "FCI: Beginning Direct Diagonalization... ";
-	Eigen::MatrixXd HamDense = Ham;
-	Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > HamEV;
+	Eigen::MatrixXf HamDense = Ham;
+	Eigen::SelfAdjointEigenSolver< Eigen::MatrixXf > HamEV;
 	HamEV.compute(HamDense);
 
 	std::cout << " done" << std::endl;

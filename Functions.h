@@ -18,7 +18,7 @@ double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int
 std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);
 
 // FCI.cpp
-Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd);
+Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd&);
 Eigen::MatrixXd Form1RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
 int BinomialCoeff(int, int); // n choose k
 int Z_ForIndex(int, int, int, int);

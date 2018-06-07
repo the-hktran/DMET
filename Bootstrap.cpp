@@ -35,8 +35,8 @@ void Bootstrap::debugInit(InputObj Input)
 
 std::vector< Eigen::MatrixXd > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > > BEPotential , int State)
 {
-	std::vector< std::vector< Eigen::MatrixXd > > AllBE1RDM;
-	std::vector< std::vector< Eigen::MatrixXd > > AllBE2RDM;
+	std::vector< Eigen::MatrixXd > AllBE1RDM;
+	// std::vector< std::vector< Eigen::MatrixXd > > AllBE2RDM;
 	for (int x = 0; x < NumFrag; x++)
 	{
 		Eigen::MatrixXd OneRDM;
@@ -47,14 +47,15 @@ std::vector< Eigen::MatrixXd > Bootstrap::CollectRDM(std::vector< std::vector< s
 		// 	Eigen::MatrixXd OneRDM;
 		// 	Eigen::MatrixXd TwoRDM;
 
-		BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPotential[x])
-		Fragment1RDM.push_back(OneRDM);
-		Fragment2RDM.push_back(TwoRDM);
+		BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPotential[x]);
+			// Fragment1RDM.push_back(OneRDM);
+			// Fragment2RDM.push_back(TwoRDM);
 		// }
 		// AllBE1RDM.push_back(Fragment1RDM);
 		// AllBE2RDM.push_back(Fragment2RDM);
-		AllBE1RDM.push_back(Fragment1RDM);
+		AllBE1RDM.push_back(OneRDM);
 	}
+	return AllBE1RDM;
 }
 
 std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> DensityReference, Eigen::MatrixXd IterDensity, int FragmentIndex)
@@ -90,13 +91,15 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> Densi
 	}
 }
 
-Eigen::MatrixXd Bootstrap::CalcJacobian()
+Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 {
 	int NumConditions = 0;
 	std::vector<int> NumFragCond(NumFrag);
 
 	std::vector< Eigen::MatrixXd > OneRDMs;
-	OneRDMs = CollectRDM(BEPotential);
+	OneRDMs = CollectRDM(BEPotential, State);
+
+	f = Eigen::VectorXd::Zero(NumConditions);
 
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -110,10 +113,20 @@ Eigen::MatrixXd Bootstrap::CalcJacobian()
 	// [ df1/dx1, ..., df1/dxn ]
 	// [ ..................... ]
 	// [ dfn/dx1, ..., dfn/dxn ]
+	// fi are the squared losses at the different matched orbitals
+	// xi are the different lambdas used to match each orbital
 
 	int JCol = 0;
+	int fCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
+		auto BEMinusdLambda = BEPotential;
+
+		// Collect all the density matrices for this iteration.
+		Eigen::MatrixXd FragOneRDMMinusdLambda;
+		BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
+		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
+
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
 			// Make the + dLambda potential for the fragment.
@@ -123,17 +136,18 @@ Eigen::MatrixXd Bootstrap::CalcJacobian()
 			// Collect all the density matrices for this iteration.
 			Eigen::MatrixXd FragOneRDMPlusdLambda;
 			BEImpurityFCI(FragOneRDMPlusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPlusdLambda[x]);
-			std::vector<double> LossesPlus = FragmentLoss(OneRDMs[x], FragOneRDMPlusdLambda, x);
+			std::vector<double> LossesPlus = FragmentLoss(OneRDMs, FragOneRDMPlusdLambda, x);
 
-			// Make the - dLambda potential for the fragment.
-			auto BEMinusdLambda = BEPotential;
-			std::get<2>(BEMinusdLambda[x][i]) = std::get<2>(BEPotential[x][i]) - dLambda;
+			// // Make the - dLambda potential for the fragment.
+			// auto BEMinusdLambda = BEPotential;
+			// std::get<2>(BEMinusdLambda[x][i]) = std::get<2>(BEPotential[x][i]) - dLambda;
 
-			// Collect all the density matrices for this iteration.
-			Eigen::MatrixXd FragOneRDMMinusdLambda;
-			BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
-			std::vector<double> LossesMinus = FragmentLoss(OneRDMs[x], FragOneRDMMinusdLambda, x);
+			// // Collect all the density matrices for this iteration.
+			// Eigen::MatrixXd FragOneRDMMinusdLambda;
+			// BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
+			// std::vector<double> LossesMinus = FragmentLoss(OneRDMs[x], FragOneRDMMinusdLambda, x);
 			
+			// Fill in J
 			int JRow = 0;
 			for (int j = 0; j < x; j++)
 			{
@@ -141,9 +155,16 @@ Eigen::MatrixXd Bootstrap::CalcJacobian()
 			}
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMinus[j]) / (2 * dLambda);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMinus[j]) / (dLambda);
 			}
 			JCol++;
+		}
+
+		// Fill in f
+		for (int j = 0; j < LossesMinus.size(); j++)
+		{
+			f[fCount] = LossesMinus[j];
+			fCount++;
 		}
 	}
 	return J;
@@ -157,6 +178,50 @@ void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
 		int NumEnvVirt = NumAO - NumOcc - FragmentOrbitals.size();
 		SchmidtDecomposition(MFDensity, RotMat, FragmentOrbitals[x], EnvironmentOrbitals[x], NumEnvVirt, Output);
 		RotationMatrices.push_back(RotMat);
+	}
+}
+
+void Bootstrap::VectorToBE(Eigen::VectorXd X)
+{
+	int xCount = 0;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		for (int i = 0; i < BEPotential.size(); i++)
+		{
+			std::get<2>(BEPotential[x][i]) = X[xCount];
+			xCount++;
+		}
+	}
+}
+
+Eigen::VectorXd Bootstrap::BEToVector()
+{
+	Eigen::VectorXd X = Eigen::VectorXd::Zero(NumConditions);
+	int xCount = 0;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		for (int i = 0; i < BEPotential[x].size(); i++)
+		{
+			X[xCount] = std::get<2>(BEPotential[x][i]);
+			xCount++;
+		}
+	}
+}
+
+void Bootstrap::NewtonRaphson()
+{
+	// First, vectorize Lambdas
+	Eigen::VectorXd x = BEToVector();
+
+	// Initialize J and f
+	Eigen::VectorXd f;
+	Eigen::MatrixXd J = CalcJacobian(f);
+
+	while(f.squaredNorm() > 1e-6)
+	{ 
+		x = x - J.inverse() * f;
+		VectorToBE(x); // Updates the BEPotential for the J and f update next.
+		J = CalcJacobian(f); // Update here to check the loss.
 	}
 }
 

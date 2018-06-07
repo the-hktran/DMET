@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <queue>
 #include "ReadInput.h"
+#include "Functions.h"
 
 class Bootstrap
 {
@@ -24,7 +25,11 @@ public:
 	int NumOcc;
 	int NumFrag;
 
+	int NumConditions;
+
 	double ChemicalPotential;
+	InputObj Input;
+	int State = 0;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
@@ -45,4 +50,10 @@ public:
 
 private:
 	double dLambda = 0.1;
+	std::vector< double > FragmentLoss(std::vector<Eigen::MatrixXd>, Eigen::MatrixXd, int);
+	std::vector< Eigen::MatrixXd > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, int);
+	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
+	void VectorToBE(Eigen::VectorXd);
+	Eigen::VectorXd BEToVector();
+	void NewtonRaphson();
 }; 

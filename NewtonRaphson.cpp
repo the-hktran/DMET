@@ -34,11 +34,6 @@ void BENewton::FormDensityReference()
 	DensityReference = CollectFCIDensity;
 }
 
-void BENewton::InitFromBE(Bootstrap BE)
-{
-	//FragmentIndex
-}
-
 double BENewton::FCIwrtLambda(double Lambda)
 {
 	std::get<2>(BEPotential[FragmentIndex][MatchedOrbital]) = Lambda;
