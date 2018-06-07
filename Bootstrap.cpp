@@ -33,7 +33,7 @@ void Bootstrap::debugInit(InputObj Input)
 	}
 }
 
-std::vector< Eigen::MatrixXd > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > > BEPotential , int State)
+std::vector< Eigen::MatrixXd > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > > BEPot, double Mu, int ElecState)
 {
 	std::vector< Eigen::MatrixXd > AllBE1RDM;
 	// std::vector< std::vector< Eigen::MatrixXd > > AllBE2RDM;
@@ -47,7 +47,7 @@ std::vector< Eigen::MatrixXd > Bootstrap::CollectRDM(std::vector< std::vector< s
 		// 	Eigen::MatrixXd OneRDM;
 		// 	Eigen::MatrixXd TwoRDM;
 
-		BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPotential[x]);
+		BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], Mu, ElecState, BEPot[x]);
 			// Fragment1RDM.push_back(OneRDM);
 			// Fragment2RDM.push_back(TwoRDM);
 		// }
@@ -97,7 +97,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector<int> NumFragCond(NumFrag);
 
 	std::vector< Eigen::MatrixXd > OneRDMs;
-	OneRDMs = CollectRDM(BEPotential, State);
+	OneRDMs = CollectRDM(BEPotential, ChemicalPotential, State);
 
 	f = Eigen::VectorXd::Zero(NumConditions);
 
@@ -208,6 +208,34 @@ Eigen::VectorXd Bootstrap::BEToVector()
 	}
 }
 
+void Bootstrap::OptMu()
+{
+	// We will do Newton Raphson to optimize the chemical potential.
+	// First, intialize Mu to Chemical Potential and calculate intial loss.
+	double dMu = 0.1;
+	double Mu = ChemicalPotential;
+	std::vector< Eigen::MatrixXd > Densities = CollectRDM(BEPotential, Mu, State);
+	double Loss = CalcCostChemPot(Densities, Input);
+
+	while (fabs(Loss) > 1e-6)
+	{
+		// Calculate Loss at Mu + dMu
+		Densities = CollectRDM(BEPotential, Mu + dMu, State);
+		double LossPlus = CalcCostChemPot(Densities, Input);
+		double dLdMu = (LossPlus - Loss) / dMu;
+
+		Mu = Mu - Loss / dLdMu;
+
+		// Update Loss at new, updated Mu
+		Densities = CollectRDM(BEPotential, Mu, State);
+		Loss = CalcCostChemPot(Densities, Input);
+	}
+
+	// After everything is done, store Mu into ChemicalPotential for the rest of the object.
+	ChemicalPotential = Mu;
+	
+}
+
 void Bootstrap::NewtonRaphson()
 {
 	// First, vectorize Lambdas
@@ -243,7 +271,7 @@ void Bootstrap::doBootstrap(InputObj &Input, Eigen::MatrixXd &MFDensity, std::ve
 	// Now that we have the rotation matrices, we can iterate through each fragment and get the impurity densities.
 	for (int x = 0; x < NumFrag; x++)
 	{
-		ImpurityFCI(ImpurityDensities[x], Input, x, RotationMatrices[x], ChemicalPotential, 0, Impurity2RDM[x], ImpurityEigenstates[x]);
+		ImpurityFCI(ImpurityDensities[x], Input, x, RotationMatrices[x], ChemicalPotential, State, Impurity2RDM[x], ImpurityEigenstates[x]);
 	}
 
 	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.

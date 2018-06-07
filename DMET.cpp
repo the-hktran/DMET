@@ -145,7 +145,7 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
 //    return CF;
 //}
 
-double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj Input)
+double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj &Input)
 {
     double CF = 0;
     for(int x = 0; x < FragmentDensities.size(); x++) // sum over fragments

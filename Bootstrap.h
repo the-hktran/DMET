@@ -51,9 +51,10 @@ public:
 private:
 	double dLambda = 0.1;
 	std::vector< double > FragmentLoss(std::vector<Eigen::MatrixXd>, Eigen::MatrixXd, int);
-	std::vector< Eigen::MatrixXd > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, int);
+	std::vector< Eigen::MatrixXd > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, double, int);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
 	void VectorToBE(Eigen::VectorXd);
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
+	void OptMu();
 }; 
