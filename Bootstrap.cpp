@@ -16,13 +16,14 @@
 #include "NewtonRaphson.h"
 
 // This is a debug function for the time being
-void Bootstrap::debugInit(InputObj Input)
+void Bootstrap::debugInit(InputObj Inp)
 {
-	NumAO = Input.NumAO;
-	NumOcc = Input.NumOcc;
-	NumFrag = Input.FragmentOrbitals.size();
-	FragmentOrbitals = Input.FragmentOrbitals;
-	EnvironmentOrbitals = Input.EnvironmentOrbitals;
+	NumAO = Inp.NumAO;
+	NumOcc = Inp.NumOcc;
+	NumFrag = Inp.FragmentOrbitals.size();
+	FragmentOrbitals = Inp.FragmentOrbitals;
+	EnvironmentOrbitals = Inp.EnvironmentOrbitals;
+	Input = Inp;
 
 	for (int x = 0; x < 10; x++)
 	{
@@ -217,6 +218,8 @@ void Bootstrap::OptMu()
 	std::vector< Eigen::MatrixXd > Densities = CollectRDM(BEPotential, Mu, State);
 	double Loss = CalcCostChemPot(Densities, Input);
 
+	std::cout << "BE: Optimizing chemical potential." << std::endl;
+	// Do Newton's method until convergence
 	while (fabs(Loss) > 1e-6)
 	{
 		// Calculate Loss at Mu + dMu
@@ -229,8 +232,10 @@ void Bootstrap::OptMu()
 		// Update Loss at new, updated Mu
 		Densities = CollectRDM(BEPotential, Mu, State);
 		Loss = CalcCostChemPot(Densities, Input);
-	}
 
+		std::cout << "BE: Iteration yielded mu = " << Mu << " and Loss = " << Loss << std::endl;
+	}
+	std::cout << "BE: Chemical potential converged." << std::endl;
 	// After everything is done, store Mu into ChemicalPotential for the rest of the object.
 	ChemicalPotential = Mu;
 	
@@ -245,11 +250,14 @@ void Bootstrap::NewtonRaphson()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
+	std::cout << "BE: Optimizing site potential." << std::endl;
+
 	while(f.squaredNorm() > 1e-6)
 	{ 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		J = CalcJacobian(f); // Update here to check the loss.
+		std::cout << "BE: Site potential obtained\n" << x << "BE: with loss \n" << f << std::endl;
 	}
 }
 
@@ -285,4 +293,10 @@ void Bootstrap::printDebug(std::ofstream &Output)
 		Output << RotationMatrices[x] << std::endl;
 		Output << "\n";
 	}
+}
+
+void Bootstrap::runDebug()
+{
+	OptMu();
+	NewtonRaphson();
 }

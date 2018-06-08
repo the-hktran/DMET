@@ -27,7 +27,7 @@ public:
 
 	int NumConditions;
 
-	double ChemicalPotential;
+	double ChemicalPotential = 0;
 	InputObj Input;
 	int State = 0;
 
@@ -47,6 +47,7 @@ public:
 	void RunImpurityCalculations();
 	void doBootstrap(InputObj&, Eigen::MatrixXd&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
 	void printDebug(std::ofstream&);
+	void runDebug();
 
 private:
 	double dLambda = 0.1;
