@@ -89,18 +89,13 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> Densi
 	std::vector< double > AllLosses;
 	for (int MatchedOrbital = 0; MatchedOrbital < BEPotential[FragmentIndex].size(); MatchedOrbital++)
 	{
-		std::cout << "to" << std::endl;
 		std::vector< int > FragPosImp, BathPosImp, FragPosBath, BathPosBath;
-		std::cout << "cleveland!" << std::endl;
 		GetCASPos(Input, FragmentIndex, FragPosImp, BathPosImp);
 		GetCASPos(Input, std::get<0>(BEPotential[FragmentIndex][MatchedOrbital]), FragPosBath, BathPosBath);
-		std::cout << "or celtics plz" << std::endl;
 
 		int PElementImp = 0;
 		for (int i = 0; i < Input.FragmentOrbitals[FragmentIndex].size(); i++)
 		{
-			std::cout << "imp = " << i << std::endl;
-			std::cout << Input.FragmentOrbitals[FragmentIndex][i] << "\t" << std::get<1>(BEPotential[FragmentIndex][MatchedOrbital]) << std::endl;
 			if (Input.FragmentOrbitals[FragmentIndex][i] == std::get<1>(BEPotential[FragmentIndex][MatchedOrbital]))
 			{
 				break;
@@ -110,22 +105,15 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> Densi
 		int PElementBath = 0;
 		for (int i = 0; i < Input.FragmentOrbitals[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])].size(); i++)
 		{
-			std::cout << "bath = " << i << std::endl;
-			std::cout << std::get<0>(BEPotential[FragmentIndex][MatchedOrbital]) << "\t" << Input.FragmentOrbitals[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])][i] << "\t" << std::get<1>(BEPotential[FragmentIndex][MatchedOrbital]) << std::endl;
 			if (Input.FragmentOrbitals[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])][i] == std::get<1>(BEPotential[FragmentIndex][MatchedOrbital]))
 			{
 				break;
 			}
 			PElementBath++;
 		}
-		std::cout << "sizes\n" << FragPosImp.size() << "\n" << FragPosBath.size() << std::endl;
-		std::cout << FragPosBath[PElementBath] << "\t" << FragPosImp[PElementImp] << std::endl;
-
 		double Loss = DensityReference[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])].coeffRef(FragPosBath[PElementBath], FragPosBath[PElementBath]) - IterDensity.coeffRef(FragPosImp[PElementImp], FragPosImp[PElementImp]);
 		Loss = Loss * Loss;
-		std::cout << Loss << std::endl;
 		AllLosses.push_back(Loss);
-		std::cout << "lebron" << std::endl;
 	}
 	return AllLosses;
 }
@@ -153,7 +141,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 		// Collect all the density matrices for this iteration.
 		Eigen::MatrixXd FragOneRDMMinusdLambda;
-		std::cout << "x = " << x << std::endl;
 		BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
 		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
 
@@ -165,10 +152,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 			// Collect all the density matrices for this iteration.
 			Eigen::MatrixXd FragOneRDMPlusdLambda;
-			std::cout << "i = " << i << std::endl;
 			BEImpurityFCI(FragOneRDMPlusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPlusdLambda[x]);
 			std::vector<double> LossesPlus = FragmentLoss(OneRDMs, FragOneRDMPlusdLambda, x);
-			std::cout << "losses good" << std::endl;
 
 			// // Make the - dLambda potential for the fragment.
 			// auto BEMinusdLambda = BEPotential;
@@ -185,17 +170,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			{
 				JRow += NumFragCond[x];
 			}
-			std::cout << JRow << std::endl;
-			std::cout << J.rows() << std::endl;
-			std::cout << LossesMinus.size() << std::endl;
-			std::cout << LossesPlus.size() << std::endl;
-			std::cout << JRow << std::endl;
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				std::cout << "--" << JRow + j << std::endl;
-				std::cout << "--" << JCol << std::endl;
-				std::cout << "--" << LossesPlus[j] << std::endl;
-				std::cout << "--" << LossesMinus[j] << std::endl;
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMinus[j]) / (dLambda);
 			}
 			JCol++;
@@ -227,7 +203,7 @@ void Bootstrap::VectorToBE(Eigen::VectorXd X)
 	int xCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		for (int i = 0; i < BEPotential.size(); i++)
+		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
 			std::get<2>(BEPotential[x][i]) = X[xCount];
 			xCount++;
@@ -243,11 +219,11 @@ Eigen::VectorXd Bootstrap::BEToVector()
 	{
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
-			std::cout << x << "\t" << i << std::endl;
 			X[xCount] = std::get<2>(BEPotential[x][i]);
 			xCount++;
 		}
 	}
+	return X;
 }
 
 void Bootstrap::OptMu()
@@ -293,7 +269,7 @@ void Bootstrap::NewtonRaphson()
 
 	std::cout << "BE: Optimizing site potential." << std::endl;
 
-	while(f.squaredNorm() > 1e-6)
+	while (f.squaredNorm() > 1e-6)
 	{ 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
