@@ -604,7 +604,7 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 	}
 	
 	DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State).cast<float>(), aStrings, bStrings);
-	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
+	// Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
 
 	/* Now we calculate the fragment energy */
 	double Energy = 0;
@@ -612,24 +612,24 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 	std::vector<int> BathPos;
 	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
 
-	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
-	{
-		int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
-		for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
-		{
-			int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
-			for (int k = 0; k < DensityMatrix.rows(); k++)
-			{
-				int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
-				for (int l = 0; l < DensityMatrix.rows(); l++)
-				{
-					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
-					Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
-				}
-			}
-			Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
-		}
-	}
+	// for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
+	// {
+	// 	int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
+	// 	for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
+	// 	{
+	// 		int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
+	// 		for (int k = 0; k < DensityMatrix.rows(); k++)
+	// 		{
+	// 			int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
+	// 			for (int l = 0; l < DensityMatrix.rows(); l++)
+	// 			{
+	// 				int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
+	// 				Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+	// 			}
+	// 		}
+	// 		Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+	// 	}
+	// }
 
 	FCIEnergies[0] = Energy; // I don't see a need to save all lower states, so let's just put it in the bottom of the vector.
 							 // for (int k = 0; k < State; k++)

@@ -26,6 +26,8 @@ public:
 	int NumFrag;
 
 	int NumConditions;
+	std::vector<int> NumFragCond;
+	bool isTS = true;
 
 	double ChemicalPotential = 0;
 	InputObj Input;
@@ -37,6 +39,9 @@ public:
 	// Index 2 is the orbital we want to match to that fragment -- We input this from the CURRENT fragment and we can search it in OTHER fragments.
 	// Index 3 is the value of the potential on that orbital for this fragment.
 	std::vector< std::vector< std::tuple< int, int, double > > > BEPotential;
+
+	// Contains the INDEX of the center position orbital on each fragment.
+	std::vector< std::vector< int > > BECenterPosition; // Need to implement a way to figure this out.
 
 	std::vector< Eigen::MatrixXd > RotationMatrices;
 	std::vector< Eigen::MatrixXd > ImpurityDensities;
@@ -58,4 +63,5 @@ private:
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
+	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, InputObj&);
 }; 

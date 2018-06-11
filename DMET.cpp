@@ -821,7 +821,7 @@ int main(int argc, char* argv[])
 
              SCFMDEnergyQueue.pop();
          }
-        
+        break;
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
         //{
@@ -868,7 +868,7 @@ int main(int argc, char* argv[])
         // std::cout << DensityMatrix << std::endl;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
-        double CostMu = 1E-4; // 100; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
+        double CostMu = 1E-4; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;
