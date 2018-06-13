@@ -123,8 +123,30 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector< Eigen::MatrixXd > OneRDMs;
 	OneRDMs = CollectRDM(BEPotential, ChemicalPotential, State);
 
-	f = Eigen::VectorXd::Zero(NumConditions);
-	Eigen::MatrixXd J = Eigen::MatrixXd::Zero(NumConditions, NumConditions);
+	double LMu = CalcCostChemPot(OneRDMs, BECenterPosition, Input);
+	double dMu = 1E-4;
+	std::vector< Eigen::MatrixXd > DensitiesPlusdMu;
+	DensitiesPlusdMu = CollectRDM(BEPotential, ChemicalPotential + dMu, State);
+	double LMuPlus = CalcCostChemPot(DensitiesPlusdMu, BECenterPosition, Input);
+	// We need every density matrix to calculation LMu, but since we only calculate one fragment each loop, we will use this vector
+	// to store the different contributions to LMu per fragment, and then when we add the BE potential, we only affect one fragment
+	// so we'll use the difference between LMu in that fragment to figure out the new LMu.
+	std::vector<double> LMuByFrag;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		std::vector<Eigen::MatrixXd> SingleRDM;
+		std::vector< std::vector< int > > SingleCenter;
+		SingleRDM.push_back(OneRDMs[x]);
+		SingleCenter.push_back(BECenterPosition[x]);
+		double LMuX = CalcCostChemPot(SingleRDM, SingleCenter, Input);
+		LMuByFrag.push_back(LMuX);
+	}
+
+	f = Eigen::VectorXd::Zero(NumConditions + 1);
+	Eigen::MatrixXd J = Eigen::MatrixXd::Zero(NumConditions + 1, NumConditions + 1);
+
+	f[NumConditions] = LMu;
+	J(NumConditions, NumConditions) = (LMuPlus - LMu) / dMu;
 
 	// Jacobian is 
 	// [ df1/dx1, ..., df1/dxn ]
@@ -137,12 +159,44 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	int fCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
+		if (x > 0 && isTS)
+		{
+			for (int xTS = 1; xTS < NumFrag; xTS++)
+			{
+				for (int iTS = 0; iTS < BEPotential[xTS].size(); iTS++)
+				{
+					int JRow = 0;
+					for (int j = 0; j < xTS; j++)
+					{
+						JRow += NumFragCond[xTS];
+					}
+					for (int j = 0; j < BEPotential[xTS].size(); j++)
+					{
+						J(JRow + j, JCol) = J.coeffRef(j, JCol % BEPotential[xTS].size());
+					}
+					JCol++;
+				}
+				for (int j = 0; j < BEPotential[xTS].size(); j++)
+				{
+					f[fCount] = f[j];
+					fCount++;
+				}
+			}
+			break;
+		}
+
 		auto BEMinusdLambda = BEPotential;
 
 		// Collect all the density matrices for this iteration.
 		Eigen::MatrixXd FragOneRDMMinusdLambda;
 		BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
 		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
+
+		int JRow = 0;
+		for (int j = 0; j < x; j++)
+		{
+			JRow += NumFragCond[j];
+		}
 
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
@@ -165,19 +219,32 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// std::vector<double> LossesMinus = FragmentLoss(OneRDMs[x], FragOneRDMMinusdLambda, x);
 			
 			// Fill in J
-			int JRow = 0;
-			for (int j = 0; j < x; j++)
-			{
-				JRow += NumFragCond[x];
-			}
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMinus[j]) / (dLambda);
 			}
+
+			// Add in chemical potential portion.
+			std::vector< Eigen::MatrixXd > SingleRDMPlus;
+			std::vector< std::vector< int > > SingleBECenter;
+			SingleRDMPlus.push_back(FragOneRDMPlusdLambda);
+			SingleBECenter.push_back(BECenterPosition[x]);
+			double LMuPlus = CalcCostChemPot(SingleRDMPlus, SingleBECenter, Input);
+			J(J.rows() - 1, JCol) = (LMuPlus - LMuByFrag[x]) / dLambda;
+
 			JCol++;
 		}
 
+		// Last column is derivative of each loss with respect to chemical potential.
+		// The last element of this column is already handled.
+		std::vector<double> LossesPlusMu = FragmentLoss(OneRDMs, DensitiesPlusdMu[x], x);
+		for (int j = 0; j < LossesPlusMu.size(); j++)
+		{
+			J(JRow + j, NumConditions) = (LossesPlusMu[j] - LossesMinus[j]) / dMu;
+		}
+
 		// Fill in f
+		// The chemical potential loss is already filled in.
 		for (int j = 0; j < LossesMinus.size(); j++)
 		{
 			f[fCount] = LossesMinus[j];
@@ -209,6 +276,7 @@ void Bootstrap::VectorToBE(Eigen::VectorXd X)
 			xCount++;
 		}
 	}
+	ChemicalPotential = X[X.size() - 1];
 }
 
 Eigen::VectorXd Bootstrap::BEToVector()
@@ -223,6 +291,7 @@ Eigen::VectorXd Bootstrap::BEToVector()
 			xCount++;
 		}
 	}
+	X[X.size() - 1] = ChemicalPotential;
 	return X;
 }
 
@@ -255,7 +324,6 @@ void Bootstrap::OptMu()
 	std::cout << "BE: Chemical potential converged." << std::endl;
 	// After everything is done, store Mu into ChemicalPotential for the rest of the object.
 	ChemicalPotential = Mu;
-	
 }
 
 void Bootstrap::NewtonRaphson()
@@ -266,6 +334,10 @@ void Bootstrap::NewtonRaphson()
 	// Initialize J and f
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
+
+	std::cout << f << std::endl;
+	std::cout << J << std::endl;
+	return;
 
 	std::cout << "BE: Optimizing site potential." << std::endl;
 
