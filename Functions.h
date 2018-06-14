@@ -16,7 +16,8 @@ double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int
 double CalcCostChemPot(std::vector<Eigen::MatrixXd>, InputObj&);
 
 // FCIForBE.cpp
-std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);
+// std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);
+std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >, std::vector<int> FragPositionCenter = std::vector<int>());
 
 // FCI.cpp
 Eigen::Tensor<double, 4> Form2RDM(InputObj&, int, Eigen::VectorXf, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXd&);

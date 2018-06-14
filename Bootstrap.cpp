@@ -25,19 +25,19 @@ void Bootstrap::debugInit(InputObj Inp)
 	EnvironmentOrbitals = Inp.EnvironmentOrbitals;
 	Input = Inp;
 
-	for (int x = 0; x < 8; x++)
+	for (int x = 0; x < NumFrag; x++)
 	{
 		std::vector< std::tuple <int , int, double > > FragmentBEPotential;
-		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 1) % 8, (x + 2) % 8, 0));
-		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 7) % 8, (x + 8) % 8, 0));
+		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 1) % NumFrag, (x + 2) % NumFrag, 0.0));
+		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + NumFrag - 1) % NumFrag, (x + NumFrag) % NumFrag, 0.0));
 		BEPotential.push_back(FragmentBEPotential);
 
 		std::vector< int >  CenterPos;
-		if (x == 6)
+		if (x == NumFrag - 2)
 		{
 			CenterPos.push_back(2);
 		}
-		else if (x == 7)
+		else if (x == NumFrag - 1)
 		{
 			CenterPos.push_back(0);
 		}
@@ -148,7 +148,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	OneRDMs = CollectRDM(BEPotential, ChemicalPotential, State);
 
 	double LMu = CalcCostChemPot(OneRDMs, BECenterPosition, Input);
-	double dMu = 1E-4;
 	std::vector< Eigen::MatrixXd > DensitiesPlusdMu;
 	DensitiesPlusdMu = CollectRDM(BEPotential, ChemicalPotential + dMu, State);
 	double LMuPlus = CalcCostChemPot(DensitiesPlusdMu, BECenterPosition, Input);
@@ -312,7 +311,7 @@ void Bootstrap::VectorToBE(Eigen::VectorXd X)
 
 Eigen::VectorXd Bootstrap::BEToVector()
 {
-	Eigen::VectorXd X = Eigen::VectorXd::Zero(NumConditions);
+	Eigen::VectorXd X = Eigen::VectorXd::Zero(NumConditions + 1);
 	int xCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -366,13 +365,9 @@ void Bootstrap::NewtonRaphson()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
-	std::cout << f << std::endl;
-	std::cout << J << std::endl;
-	return;
-
 	std::cout << "BE: Optimizing site potential." << std::endl;
 
-	while (f.squaredNorm() > 1e-6)
+	while (f.squaredNorm() > 1e-12)
 	{ 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
@@ -415,8 +410,32 @@ void Bootstrap::printDebug(std::ofstream &Output)
 	}
 }
 
+// This calculates the BE energy assuming chemical potential and BE potential have both been optimized.
+double Bootstrap::CalcBEEnergy()
+{
+	double Energy = 0;
+	// Loop through each fragment to calculate the energy of each.
+	std::cout << "HERE WE GO" << std::endl;
+	std::vector<double> FragEnergy;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		if (x > 0 && isTS)
+		{
+			Energy += FragEnergy[0];
+			continue;
+		}
+		
+		Eigen::MatrixXd OneRDM;
+		FragEnergy = BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPotential[x], BECenterPosition[x]);
+		Energy += FragEnergy[0];
+	}
+	return Energy;
+}
+
 void Bootstrap::runDebug()
 {
 	// OptMu();
 	NewtonRaphson();
+	double Energy = CalcBEEnergy();
+	std::cout << "HERE IT IS: " << Energy << std::endl;
 }

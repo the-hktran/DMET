@@ -55,7 +55,8 @@ public:
 	void runDebug();
 
 private:
-	double dLambda = 0.1;
+	double dLambda = 1E-4;
+	double dMu = 1E-1;
 	std::vector< double > FragmentLoss(std::vector<Eigen::MatrixXd>, Eigen::MatrixXd, int);
 	std::vector< Eigen::MatrixXd > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, double, int);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
@@ -64,4 +65,5 @@ private:
 	void NewtonRaphson();
 	void OptMu();
 	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, InputObj&);
+	double CalcBEEnergy();
 }; 
