@@ -295,6 +295,16 @@ void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
 	}
 }
 
+void CollectInputs()
+{
+	for (int x = 0; x < NumFrags; x++)
+	{
+		InputObj FragInput = Input;
+		FragInput.Integrals = RotateIntegrals(Input.Integrals, RotationMatrices[x]);
+		Inputs.push_back(FragInput);
+	}
+}
+
 void Bootstrap::VectorToBE(Eigen::VectorXd X)
 {
 	int xCount = 0;
@@ -372,7 +382,7 @@ void Bootstrap::NewtonRaphson()
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		J = CalcJacobian(f); // Update here to check the loss.
-		std::cout << "BE: Site potential obtained\n" << x << "BE: with loss \n" << f << std::endl;
+		std::cout << "BE: Site potential obtained\n" << x << "\nBE: with loss \n" << f << std::endl;
 	}
 }
 

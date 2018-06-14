@@ -14,6 +14,7 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
 double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 double CalcCostChemPot(std::vector<Eigen::MatrixXd>, InputObj&);
+std::map<std::string, double> RotateIntegrals(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix);
 
 // FCIForBE.cpp
 // std::vector< double > BEImpurityFCI(Eigen::MatrixXd&, InputObj&, int, Eigen::MatrixXd&, double, int, std::vector< std::tuple< int, int, double> >);

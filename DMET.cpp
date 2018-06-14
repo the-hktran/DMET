@@ -351,6 +351,26 @@ double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     return hcd;
 }
 
+std::map<std::string, double> RotateIntegrals(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix)
+{
+    std::map<std::string, double> EmbeddedERI;
+    for (int p = 0; p < RotationMatrix.rows(); p++)
+    {
+        for (int q = 0; q < RotationMatrix.rows(); q++)
+        {
+            EmbeddedERI[std::to_string(p + 1) + " " + std::to_string(q + 1) + " 0 0"] = OneElectronEmbedding(Integrals, RotationMatrix, p, q);
+            for (int r = 0; r < RotationMatrix.rows(); r++)
+            {
+                for (int s = 0; s < RotationMatrix.rows(); s++)
+                {
+                    EmbeddedERI[std::to_string(p + 1) + " " + std::to_string(q + 1) + " " + std::to_string(r + 1) + " " + std::to_string(s + 1)] = TwoElectronEmbedding(Integrals, RotationMatrix, p, q, r, s);
+                }
+            }
+        }
+    }
+    return EmbeddedERI;
+}
+
 /* Equation 11 in J.S. Kretchmer and G.K-L. Chan, Preprint: https://arxiv.org/abs/1609.07678, (2016). */
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f)
 {

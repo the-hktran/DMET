@@ -31,6 +31,7 @@ public:
 
 	double ChemicalPotential = 0;
 	InputObj Input;
+	std::vector<InputObj> Inputs;
 	int State = 0;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
