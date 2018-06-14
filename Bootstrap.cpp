@@ -28,12 +28,24 @@ void Bootstrap::debugInit(InputObj Inp)
 	for (int x = 0; x < 8; x++)
 	{
 		std::vector< std::tuple <int , int, double > > FragmentBEPotential;
-		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 1) % 8, FragmentOrbitals[x][2], 0));
-		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 7) % 8, FragmentOrbitals[x][0], 0));
+		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 1) % 8, (x + 2) % 8, 0));
+		FragmentBEPotential.push_back(std::tuple< int, int, double >((x + 7) % 8, (x + 8) % 8, 0));
 		BEPotential.push_back(FragmentBEPotential);
 
 		std::vector< int >  CenterPos;
-		CenterPos.push_back(1);
+		if (x == 6)
+		{
+			CenterPos.push_back(2);
+		}
+		else if (x == 7)
+		{
+			CenterPos.push_back(0);
+		}
+		else
+		{
+			CenterPos.push_back(1);
+		}
+		// CenterPos.push_back(1);
 		BECenterPosition.push_back(CenterPos);
 	}
 
@@ -50,6 +62,11 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> Frag1RDMs, std::v
     double CF = 0;
     for(int x = 0; x < Frag1RDMs.size(); x++) // sum over fragments
     {
+		if (x > 0 && isTS)
+		{
+			CF *= NumFrag;
+			break;
+		}
         std::vector< int > FragPos;
         std::vector< int > BathPos;
         GetCASPos(Inp, x , FragPos, BathPos);
@@ -92,6 +109,11 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> Densi
 		std::vector< int > FragPosImp, BathPosImp, FragPosBath, BathPosBath;
 		GetCASPos(Input, FragmentIndex, FragPosImp, BathPosImp);
 		GetCASPos(Input, std::get<0>(BEPotential[FragmentIndex][MatchedOrbital]), FragPosBath, BathPosBath);
+		std::cout << "Testing positions" << std::endl;
+		for (int i = 0; i < FragPosImp.size(); i++)
+		{
+			std::cout << FragPosImp[i] << "\t" << FragPosBath[i] << std::endl;
+		}
 
 		int PElementImp = 0;
 		for (int i = 0; i < Input.FragmentOrbitals[FragmentIndex].size(); i++)
@@ -111,6 +133,8 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector<Eigen::MatrixXd> Densi
 			}
 			PElementBath++;
 		}
+		std::cout << FragPosImp[PElementImp] << "\t" << FragPosBath[PElementBath] << std::endl;
+		std::cout << IterDensity.coeffRef(FragPosImp[PElementImp], FragPosImp[PElementImp]) << "\t" << DensityReference[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])].coeffRef(FragPosBath[PElementBath], FragPosBath[PElementBath]) << std::endl;
 		double Loss = DensityReference[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])].coeffRef(FragPosBath[PElementBath], FragPosBath[PElementBath]) - IterDensity.coeffRef(FragPosImp[PElementImp], FragPosImp[PElementImp]);
 		Loss = Loss * Loss;
 		AllLosses.push_back(Loss);
@@ -163,18 +187,23 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		{
 			for (int xTS = 1; xTS < NumFrag; xTS++)
 			{
+				int JRow = 0;
+				for (int j = 0; j < xTS; j++)
+				{
+					JRow += NumFragCond[j];
+				}
 				for (int iTS = 0; iTS < BEPotential[xTS].size(); iTS++)
 				{
-					int JRow = 0;
-					for (int j = 0; j < xTS; j++)
-					{
-						JRow += NumFragCond[xTS];
-					}
 					for (int j = 0; j < BEPotential[xTS].size(); j++)
 					{
 						J(JRow + j, JCol) = J.coeffRef(j, JCol % BEPotential[xTS].size());
 					}
+					J(J.rows() - 1, JCol) = J.coeffRef(J.rows() - 1, JCol % BEPotential[xTS].size());
 					JCol++;
+				}
+				for (int j = 0; j < BEPotential[xTS].size(); j++)
+				{
+					J(JRow + j, J.cols() - 1) = J.coeffRef(j, J.cols() - 1);
 				}
 				for (int j = 0; j < BEPotential[xTS].size(); j++)
 				{
@@ -185,12 +214,12 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			break;
 		}
 
-		auto BEMinusdLambda = BEPotential;
-
-		// Collect all the density matrices for this iteration.
-		Eigen::MatrixXd FragOneRDMMinusdLambda;
-		BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
-		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
+		// auto BEMinusdLambda = BEPotential;
+		// // Collect all the density matrices for this iteration.
+		// Eigen::MatrixXd FragOneRDMMinusdLambda;
+		// BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
+		// std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
+		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, OneRDMs[x], x);
 
 		int JRow = 0;
 		for (int j = 0; j < x; j++)
@@ -208,6 +237,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			Eigen::MatrixXd FragOneRDMPlusdLambda;
 			BEImpurityFCI(FragOneRDMPlusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPlusdLambda[x]);
 			std::vector<double> LossesPlus = FragmentLoss(OneRDMs, FragOneRDMPlusdLambda, x);
+			std::cout << "For x = " << x << " and i = " << i << "\n" << FragOneRDMPlusdLambda << std::endl;
 
 			// // Make the - dLambda potential for the fragment.
 			// auto BEMinusdLambda = BEPotential;
@@ -230,6 +260,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			SingleRDMPlus.push_back(FragOneRDMPlusdLambda);
 			SingleBECenter.push_back(BECenterPosition[x]);
 			double LMuPlus = CalcCostChemPot(SingleRDMPlus, SingleBECenter, Input);
+			std::cout << "Mu Loss\n" << LMuPlus << "\t" << LMuByFrag[x] << std::endl;
 			J(J.rows() - 1, JCol) = (LMuPlus - LMuByFrag[x]) / dLambda;
 
 			JCol++;
