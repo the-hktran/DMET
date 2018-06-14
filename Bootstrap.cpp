@@ -295,9 +295,9 @@ void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
 	}
 }
 
-void CollectInputs()
+void Bootstrap::CollectInputs()
 {
-	for (int x = 0; x < NumFrags; x++)
+	for (int x = 0; x < NumFrag; x++)
 	{
 		InputObj FragInput = Input;
 		FragInput.Integrals = RotateIntegrals(Input.Integrals, RotationMatrices[x]);
@@ -377,7 +377,7 @@ void Bootstrap::NewtonRaphson()
 
 	std::cout << "BE: Optimizing site potential." << std::endl;
 
-	while (f.squaredNorm() > 1e-12)
+	while (f.squaredNorm() > 1e-8)
 	{ 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
