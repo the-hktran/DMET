@@ -36,7 +36,7 @@ public:
 	// Some definitions for excited state embedding
 	int State = 0;
 	std::vector<int> FragState;
-	int MaxStates = 2;
+	int MaxState = 2;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
@@ -62,14 +62,14 @@ public:
 private:
 	double dLambda = 1E-4;
 	double dMu = 1E-4;
-	std::vector< double > FragmentLoss(std::vector<Eigen::MatrixXd>, Eigen::MatrixXd, int);
-	std::vector< Eigen::MatrixXd > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, double, int);
+	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
+	std::vector< std::vector< Eigen::MatrixXd > > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, double, int);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
 	void VectorToBE(Eigen::VectorXd);
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
-	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, InputObj&);
+	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	double CalcBEEnergy();
 	void CollectInputs();
 }; 

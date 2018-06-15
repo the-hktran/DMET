@@ -22,7 +22,7 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
 double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 
-std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::vector< std::tuple< int, int, double> > BEPotential, std::vector<int> FragCenterPosition)
+std::vector< double > BEImpurityFCI(std::vector<Eigen::MatrixXd> &DensityMatrix, InputObj &Input, int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State, std::vector< std::tuple< int, int, double> > BEPotential, int MaxState, std::vector<int> FragCenterPosition)
 {
 	int NumAOImp = Input.FragmentOrbitals[FragmentIndex].size();
 	int NumVirt = Input.NumAO - NumAOImp - Input.NumOcc;
@@ -604,13 +604,18 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 	}
 	
 	std::cout << "FCI: Forming one particle RDM... ";
-	DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State).cast<float>(), aStrings, bStrings);
+	for (int k = 0; k < MaxState; k++)
+	{
+		Eigen::MatrixXd OneRDM = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(k).cast<float>(), aStrings, bStrings);
+		DensityMatrix.push_back(OneRDM);
+	}
+
 	std::cout << "done." << std::endl;
 	Eigen::Tensor<double, 4> TwoRDM;
 	if (!FragCenterPosition.empty())
 	{
 		std::cout << "FCI: Forming two particle RDM... ";
-		TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
+		TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix[State]);
 		std::cout << "done." << std::endl;
 	}
 	
@@ -627,19 +632,19 @@ std::vector< double > BEImpurityFCI(Eigen::MatrixXd &DensityMatrix, InputObj &In
 			std::cout << "FCI center is position " << ReducedIndexToOrbital(FragCenterPosition[i], Input, FragmentIndex) << std::endl;
 			std::cout << "FCI center is orbital " << ReducedIndexToOrbital(FragPos[FragCenterPosition[i]], Input, FragmentIndex) << std::endl;
 			int iOrbital = ReducedIndexToOrbital(FragPos[FragCenterPosition[i]], Input, FragmentIndex);
-			for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
+			for (int j = 0; j < DensityMatrix[State].rows(); j++) // sum over all imp and bath orbitals
 			{
 				int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
-				for (int k = 0; k < DensityMatrix.rows(); k++)
+				for (int k = 0; k < DensityMatrix[State].rows(); k++)
 				{
 					int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
-					for (int l = 0; l < DensityMatrix.rows(); l++)
+					for (int l = 0; l < DensityMatrix[State].rows(); l++)
 					{
 						int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
 						Energy += 0.5 * TwoRDM(FragPos[FragCenterPosition[i]], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
 					}
 				}
-				Energy += 0.5 * DensityMatrix(FragPos[FragCenterPosition[i]], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+				Energy += 0.5 * DensityMatrix[State](FragPos[FragCenterPosition[i]], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
 			}
 		}
 	}
