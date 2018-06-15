@@ -49,6 +49,19 @@ void Bootstrap::debugInit(InputObj Inp)
 		BECenterPosition.push_back(CenterPos);
 	}
 
+	FragState = std::vector<int>(NumFrag);
+	// H10
+	FragState[0] = 1;
+	FragState[1] = 1;
+	FragState[2] = 1;
+	FragState[3] = 1;
+	FragState[4] = 1;
+	FragState[5] = 1;
+	FragState[6] = 1;
+	FragState[7] = 1;
+	FragState[8] = 1;
+	FragState[9] = 1;
+
 	// Will be important to initialize this immediately when BE is implemented.
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -439,6 +452,7 @@ double Bootstrap::CalcBEEnergy()
 		FragEnergy = BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPotential[x], BECenterPosition[x]);
 		Energy += FragEnergy[0];
 	}
+	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;
 }
 

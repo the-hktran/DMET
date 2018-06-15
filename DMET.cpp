@@ -407,6 +407,20 @@ double OneElectronPlusCore (InputObj &Input, Eigen::MatrixXd &RotationMatrix, in
 	return tildehcd;
 }
 
+double OneElectronPlusCoreRotated (InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d)
+{
+	double tildehcd = 0;
+	tildehcd = Input.Integrals[std::to_string(c + 1) + " " + std::to_string(d + 1) + " 0 0"];
+	for (int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
+	{
+		int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
+		double Vcudu = Input.Integrals[std::to_string(c + 1) + " " + std::to_string(d + 1) + " " + std::to_string(uu + 1) + " " + std::to_string(uu + 1)];
+		double Vcuud = Input.Integrals[std::to_string(c + 1) + " " + std::to_string(uu + 1) + " " + std::to_string(uu + 1) + " " + std::to_string(d + 1)];
+		tildehcd += (2 * Vcudu - Vcuud);
+	}
+	return tildehcd;
+}
+
 /* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
 {
@@ -841,7 +855,7 @@ int main(int argc, char* argv[])
 
              SCFMDEnergyQueue.pop();
          }
-        break;
+        break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
         //{
@@ -888,7 +902,7 @@ int main(int argc, char* argv[])
         // std::cout << DensityMatrix << std::endl;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
-        double CostMu = 1E-4; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
+        double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
         double CostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;

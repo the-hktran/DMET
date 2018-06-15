@@ -32,7 +32,11 @@ public:
 	double ChemicalPotential = 0;
 	InputObj Input;
 	std::vector<InputObj> Inputs;
+
+	// Some definitions for excited state embedding
 	int State = 0;
+	std::vector<int> FragState;
+	int MaxStates = 2;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
