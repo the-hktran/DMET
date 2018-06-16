@@ -1051,7 +1051,7 @@ int main(int argc, char* argv[])
     std::cout << "Init" << std::endl;
     BE.debugInit(Input);
     std::cout << "schmidt" << std::endl;
-    BE.CollectSchmidt(DensityMatrix, Output);
+    BE.CollectSchmidt(FullDensities, Output);
     std::cout << "run" << std::endl;
     BE.runDebug();
 

@@ -36,6 +36,7 @@ public:
 	// Some definitions for excited state embedding
 	int State = 0;
 	std::vector<int> FragState;
+	std::vector<int> BathState;
 	int MaxState = 2;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
@@ -51,17 +52,17 @@ public:
 	std::vector< Eigen::MatrixXd > RotationMatrices;
 	std::vector< Eigen::MatrixXd > ImpurityDensities;
 
-	void CollectSchmidt(Eigen::MatrixXd, std::ofstream&);
+	void CollectSchmidt(std::vector<Eigen::MatrixXd>, std::ofstream&);
 	void ReadBEInput(); // Do this later.
 	void debugInit(InputObj);
 	void RunImpurityCalculations();
-	void doBootstrap(InputObj&, Eigen::MatrixXd&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
+	void doBootstrap(InputObj&, std::vector<Eigen::MatrixXd>&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
 	void printDebug(std::ofstream&);
 	void runDebug();
 
 private:
 	double dLambda = 1E-4;
-	double dMu = 1E-4;
+	double dMu = 1E-1;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	std::vector< std::vector< Eigen::MatrixXd > > CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > >, double, int);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);

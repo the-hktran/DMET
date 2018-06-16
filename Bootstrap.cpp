@@ -51,16 +51,16 @@ void Bootstrap::debugInit(InputObj Inp)
 
 	FragState = std::vector<int>(NumFrag);
 	// H10
-	FragState[0] = 0;
-	FragState[1] = 0;
-	FragState[2] = 0;
-	FragState[3] = 0;
-	FragState[4] = 0;
-	FragState[5] = 0;
-	FragState[6] = 0;
-	FragState[7] = 0;
-	FragState[8] = 0;
-	FragState[9] = 0;
+	FragState[0] = 1;
+	FragState[1] = 1;
+	FragState[2] = 1;
+	FragState[3] = 1;
+	FragState[4] = 1;
+	FragState[5] = 1;
+	FragState[6] = 1;
+	FragState[7] = 1;
+	FragState[8] = 1;
+	FragState[9] = 1;
 
 	// Will be important to initialize this immediately when BE is implemented.
 	for (int x = 0; x < NumFrag; x++)
@@ -298,13 +298,13 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	return J;
 }
 
-void Bootstrap::CollectSchmidt(Eigen::MatrixXd MFDensity, std::ofstream &Output)
+void Bootstrap::CollectSchmidt(std::vector<Eigen::MatrixXd> MFDensity, std::ofstream &Output)
 {
 	for (int x = 0; x < NumFrag; x++)
 	{
 		Eigen::MatrixXd RotMat = Eigen::MatrixXd::Zero(NumAO, NumAO);
 		int NumEnvVirt = NumAO - NumOcc - FragmentOrbitals.size();
-		SchmidtDecomposition(MFDensity, RotMat, FragmentOrbitals[x], EnvironmentOrbitals[x], NumEnvVirt, Output);
+		SchmidtDecomposition(MFDensity[BathState[x]], RotMat, FragmentOrbitals[x], EnvironmentOrbitals[x], NumEnvVirt, Output);
 		RotationMatrices.push_back(RotMat);
 	}
 }
@@ -400,7 +400,7 @@ void Bootstrap::NewtonRaphson()
 	}
 }
 
-void Bootstrap::doBootstrap(InputObj &Input, Eigen::MatrixXd &MFDensity, std::vector< Eigen::MatrixXd > &TEST, std::ofstream &Output)
+void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDensity, std::vector< Eigen::MatrixXd > &TEST, std::ofstream &Output)
 {
 	FragmentOrbitals = Input.FragmentOrbitals;
 	EnvironmentOrbitals = Input.EnvironmentOrbitals;
