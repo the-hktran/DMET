@@ -59,6 +59,7 @@ public:
 	void doBootstrap(InputObj&, std::vector<Eigen::MatrixXd>&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
 	void printDebug(std::ofstream&);
 	void runDebug();
+	double CalcBEEnergyByFrag();
 
 private:
 	double dLambda = 1E-4;

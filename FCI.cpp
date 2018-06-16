@@ -419,6 +419,7 @@ Eigen::Tensor<double, 4> Form2RDM(InputObj &Input, int FragmentIndex, Eigen::Vec
           a^t_i,beta a^t_j,alpha a_k,beta a_l,alpha + a^t_i,beta a^t_j,beta a_k,beta a_l,beta >
        We will refer to these as elements 1, 2, 3, and 4 respectively. */
 	Eigen::Tensor < double, 4> TwoRDM(2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp, 2 * NumAOImp);
+    #pragma omp parallel for
 	for (int i = 0; i < 2 * NumAOImp; i++)
 	{
 		// This is the orbital associated with the index, in the CAS index.

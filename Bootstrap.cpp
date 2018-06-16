@@ -50,17 +50,29 @@ void Bootstrap::debugInit(InputObj Inp)
 	}
 
 	FragState = std::vector<int>(NumFrag);
+	BathState = std::vector<int>(NumFrag);
 	// H10
 	FragState[0] = 1;
-	FragState[1] = 1;
-	FragState[2] = 1;
-	FragState[3] = 1;
-	FragState[4] = 1;
-	FragState[5] = 1;
-	FragState[6] = 1;
-	FragState[7] = 1;
-	FragState[8] = 1;
-	FragState[9] = 1;
+	FragState[1] = 0;
+	FragState[2] = 0;
+	FragState[3] = 0;
+	FragState[4] = 0;
+	FragState[5] = 0;
+	FragState[6] = 0;
+	FragState[7] = 0;
+	FragState[8] = 0;
+	FragState[9] = 0;
+
+	BathState[0] = 0;
+	BathState[1] = 0;
+	BathState[2] = 0;
+	BathState[3] = 0;
+	BathState[4] = 0;
+	BathState[5] = 0;
+	BathState[6] = 0;
+	BathState[7] = 0;
+	BathState[8] = 0;
+	BathState[9] = 0;
 
 	// Will be important to initialize this immediately when BE is implemented.
 	for (int x = 0; x < NumFrag; x++)
@@ -391,7 +403,7 @@ void Bootstrap::NewtonRaphson()
 
 	std::cout << "BE: Optimizing site potential." << std::endl;
 
-	while (f.squaredNorm() > 1e-8)
+	while (f.squaredNorm() > 1e-4)
 	{ 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
@@ -457,10 +469,31 @@ double Bootstrap::CalcBEEnergy()
 	return Energy;
 }
 
+double Bootstrap::CalcBEEnergyByFrag()
+{
+	std::cout << "BE: Calculating one shot BE energy." << std::endl;
+	std::vector<double> FragEnergies;
+	// Collect fragment energies for each type of state. This depends on St, which impurity state is chosen and which bath state is used for the embedding.
+	for (int St = 0; St < MaxState; St++)
+	{
+		std::vector<Eigen::MatrixXd> OneRDM;
+		std::vector<double> FragEnergy;
+		FragEnergy = BEImpurityFCI(OneRDM, Input, 0, RotationMatrices[0], ChemicalPotential, St, BEPotential[0], MaxState, BECenterPosition[0]);
+		FragEnergies.push_back(FragEnergy[0]);
+	}
+	double Energy = 0;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		Energy += FragEnergies[FragState[x]];
+	}
+	Energy += Input.Integrals["0 0 0 0"];
+	return Energy;
+}
+
 void Bootstrap::runDebug()
 {
-	// OptMu();
-	NewtonRaphson();
-	double Energy = CalcBEEnergy();
+	// NewtonRaphson(); // Comment out to do one shot
+	// double Energy = CalcBEEnergy();
+	double Energy = CalcBEEnergyByFrag();
 	std::cout << "HERE IT IS: " << Energy << std::endl;
 }
