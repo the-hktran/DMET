@@ -499,8 +499,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
-                GenerateRandomDensityTS(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -799,8 +799,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
-                GenerateRandomDensityTS(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -870,8 +870,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
-                GenerateRandomDensityTS(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensityTS(DensityMatrix);
             }
         }
 
@@ -1137,8 +1137,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
-                GenerateRandomDensityTS(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -1208,8 +1208,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
-                GenerateRandomDensityTS(DensityMatrix);
+                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // GenerateRandomDensityTS(DensityMatrix);
             }
         }
 

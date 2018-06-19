@@ -21,7 +21,7 @@
 
 
 // #define H2H2H2
-// #define H10
+#define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
@@ -569,13 +569,13 @@ int main(int argc, char* argv[])
         Input.NumSoln = 20;
     #endif // H2H2H2
     #ifdef H10
-        // ImpurityStates[0] = 1;
+        ImpurityStates[0] = 1;
         // BathStates[0] = 1;
         // BathStates[1] = 1;
         // BathStates[2] = 1;
         // BathStates[3] = 1;
         // BathStates[4] = 1;
-        Input.NumSoln = 1;
+        // Input.NumSoln = 1;
     #endif
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
@@ -837,6 +837,16 @@ int main(int argc, char* argv[])
                  i--;
                  continue;
              }
+             #ifdef H10
+             if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(1, 1)) > 1E-3 || fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(2, 2)) > 1E-3) && uOptIt == 1)
+             {
+                 std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                 Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                 SCFMDEnergyQueue.pop();
+                 i--;
+                 continue;
+             }
+             #endif
              std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
              std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
              Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
@@ -855,7 +865,7 @@ int main(int argc, char* argv[])
 
              SCFMDEnergyQueue.pop();
          }
-        break; // Skips to the end to initiate BE or otherwise.
+        // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
         //{

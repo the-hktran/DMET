@@ -167,7 +167,7 @@ void InputObj::Set()
         }
     }
 
-    if(DensityOption != 1 && DensityOption != 0 && DensityOption != 2)
+    if(DensityOption != 1 && DensityOption != 0 && DensityOption != 2 && DensityOption != 3)
     {
         std::cerr << "Something is wrong in the input file." << std::endl;
         std::string tmpString;
