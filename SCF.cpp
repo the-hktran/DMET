@@ -43,6 +43,26 @@ void GenerateRandomDensity(Eigen::MatrixXd &DensityMatrix)
     DensityMatrix / DensityMatrix.trace();
 }
 
+// This generates a random density matrix where the diagonals are 1 and the off diagonals are translationally symmetric.
+void GenerateRandomDensityTS(Eigen::MatrixXd &DensityMatrix)
+{
+    // Generate a list of random elements to be put into the off diagonal.
+    std::vector<double> RandomElement;
+    for (int i = 0; i < DensityMatrix.rows(); i++)
+    {
+        RandomElement.push_back(rand() / RAND_MAX);
+    }
+    for (int i = 0; i < DensityMatrix.rows(); i++)
+    {
+        DensityMatrix(i, i) = 1.0;
+        for (int j = i + 1; j < DensityMatrix.cols(); j++)
+        {
+            DensityMatrix(i, j) = RandomElement[j];
+            DensityMatrix(j, i) = DensityMatrix.coeffRef(i, j);
+        }
+    }
+}
+
 /// <summary>
 /// Sum of element wise product of two matrices. I think Eigen has an implementation for this, so I should
 /// try to remove this function.
@@ -286,7 +306,16 @@ double SCFIteration(Eigen::MatrixXd &DensityMatrix, InputObj &Input, Eigen::Matr
     
     Eigen::MatrixXd ErrorMatrix = FockMatrix * DensityMatrix * Input.OverlapMatrix - Input.OverlapMatrix * DensityMatrix * FockMatrix; // DIIS error matrix of the current iteration: FPS - SPF
     AllErrorMatrices.push_back(ErrorMatrix); // Save error matrix for DIIS.
-    // DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
+    if (Input.Options[0]) // Means use DIIS
+    {
+        DIIS(FockMatrix, AllFockMatrices, AllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
+    } // If DIIS isn't being used, nothing needs to be done.
+
+    if (AllFockMatrices.size() >= 5) // We only want about 5 Fock matrices for DIIS, so we'll throw away the earlier ones.
+	{
+		AllFockMatrices.erase(AllFockMatrices.begin(), AllFockMatrices.begin() + 1);
+		AllErrorMatrices.erase(AllErrorMatrices.begin(), AllErrorMatrices.begin() + 1);
+    }
 
     Eigen::MatrixXd FockOrtho = SOrtho.transpose() * FockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemFockOrtho(FockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
@@ -458,19 +487,20 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             /* This is a work-around that I put in. The first guess of the density is a zero matrix and this is not good. Unfortunately, DIIS
                rarely corrects this so I find that it helps to clear the Fock and Error matrices after a few iterations and we have a more reasonable
                guess of the coefficient, and thus density, matrices. Then DIIS converges to a reasonable solution. */
-            if(Count == 5)
-            {
-                AllFockMatrices.clear();
-                AllErrorMatrices.clear();
-            }
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
 
             if(Count % 200 == 0) // Shouldn't take this long.
             {
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                GenerateRandomDensity(DensityMatrix);
+                // GenerateRandomDensity(DensityMatrix);
                 // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -586,6 +616,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             if(Input.DensityOption == 0) NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             if(Input.DensityOption == 1) GenerateRandomDensity(DensityMatrix);
             if(Input.DensityOption == 2) DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+            if(Input.DensityOption == 3) GenerateRandomDensityTS(DensityMatrix);
         }
     }
 
@@ -605,6 +636,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
         }
         Output << "\n";
     }
+    Output << "And Density Matrix:\n" << DensityMatrix << std::endl;
     
 	Output << "This solution took " << (clock() - ClockStart) / CLOCKS_PER_SEC << " seconds." << std::endl;
 
@@ -754,11 +786,11 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             /* This is a work-around that I put in. The first guess of the density is a zero matrix and this is not good. Unfortunately, DIIS
                rarely corrects this so I find that it helps to clear the Fock and Error matrices after a few iterations and we have a more reasonable
                guess of the coefficient, and thus density, matrices. Then DIIS converges to a reasonable solution. */
-            if(Count == 5)
-            {
-                AllFockMatrices.clear();
-                AllErrorMatrices.clear();
-            }
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
 
             if(Count % 200 == 0) // Shouldn't take this long.
             {
@@ -766,8 +798,9 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                GenerateRandomDensity(DensityMatrix);
+                // GenerateRandomDensity(DensityMatrix);
                 // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -836,8 +869,9 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllFockMatrices.clear();
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
-                GenerateRandomDensity(DensityMatrix);
+                // GenerateRandomDensity(DensityMatrix);
                 // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                GenerateRandomDensityTS(DensityMatrix);
             }
         }
 
@@ -884,6 +918,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             if(Input.DensityOption == 0) NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             if(Input.DensityOption == 1) GenerateRandomDensity(DensityMatrix);
             if(Input.DensityOption == 2) DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+            if(Input.DensityOption == 3) GenerateRandomDensityTS(DensityMatrix);
         }
     }
 
@@ -1090,11 +1125,11 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             /* This is a work-around that I put in. The first guess of the density is a zero matrix and this is not good. Unfortunately, DIIS
                rarely corrects this so I find that it helps to clear the Fock and Error matrices after a few iterations and we have a more reasonable
                guess of the coefficient, and thus density, matrices. Then DIIS converges to a reasonable solution. */
-            if(Count == 5)
-            {
-                AllFockMatrices.clear();
-                AllErrorMatrices.clear();
-            }
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
 
             if(Count % 50 == 0) // Shouldn't take this long.
             {
@@ -1102,7 +1137,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                GenerateRandomDensityTS(DensityMatrix);
             }
         } // Means we have converged with the bias. Now we remove the bias and converge to the minimum
 
@@ -1159,11 +1195,11 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             SCFCount++;
             if(SCFCount >= MaxSCF && MaxSCF != -1) return 0;
 
-            if(Count == 5)
-            {
-                AllFockMatrices.clear();
-                AllErrorMatrices.clear();
-            }
+            // if(Count == 5)
+            // {
+            //     AllFockMatrices.clear();
+            //     AllErrorMatrices.clear();
+            // }
 
             if(Count % 50 == 0)
             {
@@ -1172,7 +1208,8 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
                 AllErrorMatrices.clear();
                 // NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
                 // GenerateRandomDensity(DensityMatrix);
-                DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                // DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+                GenerateRandomDensityTS(DensityMatrix);
             }
         }
 
@@ -1219,6 +1256,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
             if(Input.DensityOption == 0) NewDensityMatrix(DensityMatrix, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals);
             if(Input.DensityOption == 1) GenerateRandomDensity(DensityMatrix);
             if(Input.DensityOption == 2) DensityMatrix = Eigen::MatrixXd::Random(DensityMatrix.rows(), DensityMatrix.cols());
+            if(Input.DensityOption == 3) GenerateRandomDensityTS(DensityMatrix);
         }
     }
 
