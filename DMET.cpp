@@ -569,13 +569,12 @@ int main(int argc, char* argv[])
         Input.NumSoln = 20;
     #endif // H2H2H2
     #ifdef H10
-        ImpurityStates[0] = 1;
-        // BathStates[0] = 1;
-        // BathStates[1] = 1;
-        // BathStates[2] = 1;
-        // BathStates[3] = 1;
-        // BathStates[4] = 1;
-        // Input.NumSoln = 1;
+        // ImpurityStates[0] = 1;
+        BathStates[0] = 1;
+        BathStates[1] = 1;
+        BathStates[2] = 1;
+        BathStates[3] = 1;
+        BathStates[4] = 1;
     #endif
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
