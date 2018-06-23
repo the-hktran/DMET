@@ -19,6 +19,7 @@ class Bootstrap
 {
 public:
 	std::string BEInputName = "matching.be";
+	std::ofstream* Output;
 	std::vector< std::vector< int > > FragmentOrbitals;
 	std::vector< std::vector< int > > EnvironmentOrbitals;
 	int NumAO;
@@ -54,7 +55,7 @@ public:
 
 	void CollectSchmidt(std::vector<Eigen::MatrixXd>, std::ofstream&);
 	void ReadBEInput(); // Do this later.
-	void debugInit(InputObj);
+	void debugInit(InputObj, std::ofstream&);
 	void RunImpurityCalculations();
 	void doBootstrap(InputObj&, std::vector<Eigen::MatrixXd>&, std::vector< Eigen::MatrixXd >&, std::ofstream&);
 	void printDebug(std::ofstream&);
@@ -74,4 +75,5 @@ private:
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	double CalcBEEnergy();
 	void CollectInputs();
+	void PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> >);
 }; 

@@ -16,8 +16,10 @@
 #include "NewtonRaphson.h"
 
 // This is a debug function for the time being
-void Bootstrap::debugInit(InputObj Inp)
+void Bootstrap::debugInit(InputObj Inp, std::ofstream &OutStream)
 {
+	Output = &OutStream;
+
 	NumAO = Inp.NumAO;
 	NumOcc = Inp.NumOcc;
 	NumFrag = Inp.FragmentOrbitals.size();
@@ -52,16 +54,16 @@ void Bootstrap::debugInit(InputObj Inp)
 	FragState = std::vector<int>(NumFrag);
 	BathState = std::vector<int>(NumFrag);
 	// H10
-	FragState[0] = 1;
-	FragState[1] = 1;
-	FragState[2] = 1;
-	FragState[3] = 1;
-	FragState[4] = 1;
-	FragState[5] = 1;
-	FragState[6] = 1;
-	FragState[7] = 1;
-	FragState[8] = 1;
-	FragState[9] = 1;
+	FragState[0] = 2;
+	FragState[1] = 2;
+	FragState[2] = 2;
+	FragState[3] = 2;
+	FragState[4] = 2;
+	FragState[5] = 2;
+	FragState[6] = 2;
+	FragState[7] = 2;
+	FragState[8] = 2;
+	FragState[9] = 2;
 
 	BathState[0] = 0;
 	BathState[1] = 0;
@@ -81,6 +83,14 @@ void Bootstrap::debugInit(InputObj Inp)
 	{
 		NumConditions += BEPotential[x].size();
 		NumFragCond.push_back(BEPotential[x].size());
+	}
+}
+
+void Bootstrap::PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> > OneRDMs)
+{
+	for (int x = 0; x < OneRDMs.size(); x++)
+	{
+		*Output << "BE-DMET: One RDM for Fragment " << x << " is\n" << OneRDMs[x][FragState[x]] << std::endl;
 	}
 }
 
@@ -136,11 +146,6 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector< std::vector<Eigen::Ma
 		std::vector< int > FragPosImp, BathPosImp, FragPosBath, BathPosBath;
 		GetCASPos(Input, FragmentIndex, FragPosImp, BathPosImp);
 		GetCASPos(Input, std::get<0>(BEPotential[FragmentIndex][MatchedOrbital]), FragPosBath, BathPosBath);
-		std::cout << "Testing positions" << std::endl;
-		for (int i = 0; i < FragPosImp.size(); i++)
-		{
-			std::cout << FragPosImp[i] << "\t" << FragPosBath[i] << std::endl;
-		}
 
 		int PElementImp = 0;
 		for (int i = 0; i < Input.FragmentOrbitals[FragmentIndex].size(); i++)
@@ -160,9 +165,6 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector< std::vector<Eigen::Ma
 			}
 			PElementBath++;
 		}
-		std::cout << FragPosImp[PElementImp] << "\t" << FragPosBath[PElementBath] << std::endl;
-		std::cout << IterDensity[FragState[FragmentIndex]].coeffRef(FragPosImp[PElementImp], FragPosImp[PElementImp]) 
-			<< "\t" << DensityReference[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])][FragState[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])]].coeffRef(FragPosBath[PElementBath], FragPosBath[PElementBath]) << std::endl;
 		double Loss = DensityReference[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])][FragState[std::get<0>(BEPotential[FragmentIndex][MatchedOrbital])]].coeffRef(FragPosBath[PElementBath], FragPosBath[PElementBath]) 
 			- IterDensity[FragState[FragmentIndex]].coeffRef(FragPosImp[PElementImp], FragPosImp[PElementImp]);
 		Loss = Loss * Loss;
@@ -175,6 +177,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 {
 	std::vector< std::vector< Eigen::MatrixXd > > OneRDMs;
 	OneRDMs = CollectRDM(BEPotential, ChemicalPotential, State);
+	PrintOneRDMs(OneRDMs);
 
 	double LMu = CalcCostChemPot(OneRDMs, BECenterPosition, FragState, Input);
 	std::vector< std::vector< Eigen::MatrixXd > > DensitiesPlusdMu;
@@ -265,7 +268,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			std::vector<Eigen::MatrixXd> FragOneRDMPlusdLambda;
 			BEImpurityFCI(FragOneRDMPlusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPlusdLambda[x], MaxState);
 			std::vector<double> LossesPlus = FragmentLoss(OneRDMs, FragOneRDMPlusdLambda, x);
-			std::cout << "For x = " << x << " and i = " << i << "\n" << FragOneRDMPlusdLambda[FragState[x]] << std::endl;
+			std::cout << "One RDM for Fragment " << x << " and Condition Number " << i << " is\n" << FragOneRDMPlusdLambda[FragState[x]] << std::endl;
+			*Output << "One RDM for Fragment " << x << " and Condition Number " << i << " is\n" << FragOneRDMPlusdLambda[FragState[x]] << std::endl;
 
 			// // Make the - dLambda potential for the fragment.
 			// auto BEMinusdLambda = BEPotential;
@@ -397,6 +401,8 @@ Eigen::VectorXd Bootstrap::BEToVector()
 
 void Bootstrap::NewtonRaphson()
 {
+	std::cout << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
+	*Output << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
 	// First, vectorize Lambdas
 	Eigen::VectorXd x = BEToVector();
 
@@ -404,14 +410,21 @@ void Bootstrap::NewtonRaphson()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
-	std::cout << "BE: Optimizing site potential." << std::endl;
+	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
+	*Output << "BE-DMET: Optimizing site potential." << std::endl;
+
+	int NRIteration = 1;
 
 	while (f.squaredNorm() > 1e-8)
-	{ 
+	{
+		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
+		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		J = CalcJacobian(f); // Update here to check the loss.
-		std::cout << "BE: Site potential obtained\n" << x << "\nBE: with loss \n" << f << std::endl;
+		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		NRIteration++;
 	}
 }
 
@@ -454,7 +467,8 @@ double Bootstrap::CalcBEEnergy()
 {
 	double Energy = 0;
 	// Loop through each fragment to calculate the energy of each.
-	std::cout << "HERE WE GO" << std::endl;
+	std::cout << "BE-DMET: Calculating DMET Energy..." << std::endl;
+	*Output << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	std::vector<double> FragEnergy;
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -467,7 +481,8 @@ double Bootstrap::CalcBEEnergy()
 		std::vector<Eigen::MatrixXd> OneRDM;
 		FragEnergy = BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], ChemicalPotential, FragState[x], BEPotential[x], MaxState, BECenterPosition[x]);
 		Energy += FragEnergy[0];
-		std::cout << "Energy of Fragment " << x << " is " << FragEnergy[0] << std::endl;
+		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy[0] << std::endl;
+		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy[0] << std::endl;
 	}
 	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;
@@ -475,7 +490,8 @@ double Bootstrap::CalcBEEnergy()
 
 double Bootstrap::CalcBEEnergyByFrag()
 {
-	std::cout << "BE: Calculating one shot BE energy." << std::endl;
+	std::cout << "BE-DMET: Calculating one shot BE energy..." << std::endl;
+	*Output << "BE-DMET: Calculating one shot BE energy..." << std::endl;
 	std::vector<double> FragEnergies;
 	// Collect fragment energies for each type of state. This depends on St, which impurity state is chosen and which bath state is used for the embedding.
 	for (int St = 0; St < MaxState; St++)
@@ -489,6 +505,8 @@ double Bootstrap::CalcBEEnergyByFrag()
 	for (int x = 0; x < NumFrag; x++)
 	{
 		Energy += FragEnergies[FragState[x]];
+		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergies[FragState[x]] << std::endl;
+		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergies[FragState[x]] << std::endl;
 	}
 	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;
@@ -496,8 +514,11 @@ double Bootstrap::CalcBEEnergyByFrag()
 
 void Bootstrap::runDebug()
 {
+	std::cout << "BE-DMET: Beginning Bootstrap Embedding..." << std::endl;
+	*Output << "BE-DMET: Beginning Bootstrap Embedding..." << std::endl;
 	NewtonRaphson(); // Comment out to do one shot
 	double Energy = CalcBEEnergy();
 	// double Energy = CalcBEEnergyByFrag();
-	std::cout << "HERE IT IS: " << Energy << std::endl;
+	std::cout << "BE-DMET: DMET Energy = " << Energy << std::endl;
+	*Output << "BE-DMET: DMET Energy = " << Energy << std::endl;
 }

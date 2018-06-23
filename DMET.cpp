@@ -21,7 +21,7 @@
 
 
 // #define H2H2H2
-#define H10
+// #define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF);
@@ -569,12 +569,12 @@ int main(int argc, char* argv[])
         Input.NumSoln = 20;
     #endif // H2H2H2
     #ifdef H10
-        // ImpurityStates[0] = 1;
+        ImpurityStates[0] = 3;
         BathStates[0] = 1;
-        BathStates[1] = 1;
-        BathStates[2] = 1;
-        BathStates[3] = 1;
-        BathStates[4] = 1;
+        // BathStates[1] = 1;
+        // BathStates[2] = 1;
+        // BathStates[3] = 1;
+        // BathStates[4] = 1;
     #endif
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
@@ -864,7 +864,7 @@ int main(int argc, char* argv[])
 
              SCFMDEnergyQueue.pop();
          }
-        // break; // Skips to the end to initiate BE or otherwise.
+        break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
         //{
@@ -1058,7 +1058,7 @@ int main(int argc, char* argv[])
 
     Bootstrap BE;
     std::cout << "Init" << std::endl;
-    BE.debugInit(Input);
+    BE.debugInit(Input, Output);
     std::cout << "schmidt" << std::endl;
     BE.CollectSchmidt(FullDensities, Output);
     std::cout << "run" << std::endl;
