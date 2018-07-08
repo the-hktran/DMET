@@ -113,6 +113,13 @@ void InputObj::Set()
         }
         FragmentOrbitals.push_back(OrbitalsOnThisFragment);
         EnvironmentOrbitals.push_back(OrbitalsOutsideThisFragment);
+
+        // Now store the choice function.
+        int ChosenState;
+        IntegralsFile >> ChosenState;
+        ImpurityStates.push_back(ChosenState);
+        IntegralsFile >> ChosenState;
+        BathStates.push_back(ChosenState);
     }
 
     double tmpDouble;

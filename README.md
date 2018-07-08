@@ -37,9 +37,11 @@ The input file is formatted as such. First, a string of input parameters should 
 - (Double, Positive) Starting Norm of the biasing potential.
 - (Double, Positive) Starting Lambda of the biasing potential.
 - (Integer, Positive) Number of impurities. The next following lines define the impurities. There should be as many lines after this line as the number of impurities.
-  - (Integer, Positive) Number of orbitals in the current impurity. The following lines define the number of the orbitals. There should be as many lines as number of orbitals in the current impurity.
+  - (Integer, Positive) Number of orbitals in the current impurity. The following lines define the number of the orbitals. There should be as many lines as number of orbitals in the current impurity plus two.
     - (Integer, Non-Negative) The label of the orbitals to be included in this impurity.
-	- [Same as above]
+    - (Integer, Non-Negative) The impurity state to be chosen for this fragment.
+    - (Integer, Non-Negative) The bath state to be chosen for this fragment.
+  - [Same as above]
 	
 Next, the values for the two electron integrals (nm|kl) are listed in the following format
 ```
@@ -47,7 +49,7 @@ Next, the values for the two electron integrals (nm|kl) are listed in the follow
 ```
 It should be noted that the nuclear repulsion has n, m, k, and l set to zero and the one electron integrals are labelled by n and m while k and l are set to zero. This is the format of Q-Chem.
 
-Below is an example input for H<sub>2</sub>-H<sub>2</sub>-H<sub>2</sub>. There are 6 electrons in 6 orbitals. 10 SCF solutions are desired, which will be used as bath states for the embedding. DIIS is not used, MOM is used, and the density matrix is randomized in the SCFMD method. 1000 SCF iterations is the maximum. The starting norm is 0.1 and the starting lambda is 1. There are 3 impurities in total. The first has 2 orbitals, orbital 0 and 1. The second has 2 orbitals, orbitals 2 and 3. The third has 2 orbitals, orbitals 4 and 5.
+Below is an example input for H<sub>2</sub>-H<sub>2</sub>-H<sub>2</sub>. There are 6 electrons in 6 orbitals. 10 SCF solutions are desired, which will be used as bath states for the embedding. DIIS is not used, MOM is used, and the density matrix is randomized in the SCFMD method. 1000 SCF iterations is the maximum. The starting norm is 0.1 and the starting lambda is 1. There are 3 impurities in total. The first has 2 orbitals, orbital 0 and 1. We will embed the ground impurity solution in the ground bath solution. The second has 2 orbitals, orbitals 2 and 3. We will embed the first excited impurity solution in the ground bath solution. The third has 2 orbitals, orbitals 4 and 5. We will embed the ground impurity solution in the ground bath solution.
 
 ```
 6 6 10
@@ -55,9 +57,9 @@ Below is an example input for H<sub>2</sub>-H<sub>2</sub>-H<sub>2</sub>. There a
 1000
 0.1 1
 3
-2 0 1
-2 2 3
-2 4 5
+2 0 1 0 0
+2 2 3 1 0
+2 4 5 0 0
  0.86029666242200	1	1	1	1
 -0.00569069357932	1	1	1	2
   (And the rest of the integrals)

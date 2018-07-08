@@ -38,7 +38,7 @@ public:
 	int State = 0;
 	std::vector<int> FragState;
 	std::vector<int> BathState;
-	int MaxState = 2;
+	int MaxState = 6;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.

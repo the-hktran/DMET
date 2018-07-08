@@ -54,27 +54,27 @@ void Bootstrap::debugInit(InputObj Inp, std::ofstream &OutStream)
 	FragState = std::vector<int>(NumFrag);
 	BathState = std::vector<int>(NumFrag);
 	// H10
-	FragState[0] = 2;
-	FragState[1] = 2;
-	FragState[2] = 2;
-	FragState[3] = 2;
-	FragState[4] = 2;
-	FragState[5] = 2;
-	FragState[6] = 2;
-	FragState[7] = 2;
-	FragState[8] = 2;
-	FragState[9] = 2;
+	FragState[0] = 3;
+	FragState[1] = 3;
+	FragState[2] = 3;
+	FragState[3] = 3;
+	FragState[4] = 3;
+	FragState[5] = 3;
+	FragState[6] = 3;
+	FragState[7] = 3;
+	FragState[8] = 3;
+	FragState[9] = 3;
 
-	BathState[0] = 0;
-	BathState[1] = 0;
-	BathState[2] = 0;
-	BathState[3] = 0;
-	BathState[4] = 0;
-	BathState[5] = 0;
-	BathState[6] = 0;
-	BathState[7] = 0;
-	BathState[8] = 0;
-	BathState[9] = 0;
+	BathState[0] = 1;
+	BathState[1] = 1;
+	BathState[2] = 1;
+	BathState[3] = 1;
+	BathState[4] = 1;
+	BathState[5] = 1;
+	BathState[6] = 1;
+	BathState[7] = 1;
+	BathState[8] = 1;
+	BathState[9] = 1;
 
 	isTS = true;
 
@@ -124,7 +124,7 @@ std::vector< std::vector< Eigen::MatrixXd > > Bootstrap::CollectRDM(std::vector<
 	for (int x = 0; x < NumFrag; x++)
 	{
 		std::vector< Eigen::MatrixXd > OneRDM;
-		if (x > 0 && isTS == true)
+		if (x > 0 && isTS)
 		{
 			OneRDM = AllBE1RDM[0];
 			AllBE1RDM.push_back(OneRDM);

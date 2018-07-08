@@ -34,6 +34,8 @@ class InputObj
         int NumFragments;
         std::vector< std::vector< int > > FragmentOrbitals;
         std::vector< std::vector< int > > EnvironmentOrbitals;
+        std::vector<int> ImpurityStates;
+        std::vector<int> BathStates;
 
 		/* Some things that are nice to carry around */
 		Eigen::MatrixXd SOrtho;

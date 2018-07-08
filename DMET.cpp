@@ -20,7 +20,7 @@
 
 
 
-// #define H2H2H2
+#define H2H2H2
 // #define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
@@ -28,7 +28,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< std::vector< int > > OccupiedOrbitals, std::vector< std::vector< int > > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 1);
 
 
 /* 
@@ -561,21 +561,25 @@ int main(int argc, char* argv[])
         BathStates[i] = 0;
     }
 
-    #ifdef H2H2H2
-        ImpurityStates[1] = 1;
-        // BathStates[0] = 1;
-        // BathStates[2] = 1;
-        BathStates[0] = 1;
-        Input.NumSoln = 20;
-    #endif // H2H2H2
-    #ifdef H10
-        ImpurityStates[0] = 3;
-        BathStates[0] = 1;
-        // BathStates[1] = 1;
-        // BathStates[2] = 1;
-        // BathStates[3] = 1;
-        // BathStates[4] = 1;
-    #endif
+    // #ifdef H2H2H2
+    //     ImpurityStates[0] = 1;
+    //     ImpurityStates[1] = 2;
+    //     ImpurityStates[2] = 1;
+    //     // BathStates[0] = 1;
+    //     // BathStates[2] = 4;
+    //     // BathStates[3] = 1;
+    // #endif // H2H2H2
+    // #ifdef H10
+    //     ImpurityStates[0] = 3;
+    //     BathStates[0] = 1;
+    //     // BathStates[1] = 1;
+    //     // BathStates[2] = 1;
+    //     // BathStates[3] = 1;
+    //     // BathStates[4] = 1;
+    // #endif
+
+    ImpurityStates = Input.ImpurityStates;
+    BathStates = Input.BathStates;
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
@@ -782,8 +786,23 @@ int main(int argc, char* argv[])
         std::ofstream BlankOutput;
 
         // First, run SCF some number of times to find a few solutions.
+        bool useDIIS = Input.Options[0];
          for (int i = 0; i < Input.NumSoln; i++)
          {
+             if (i == 0) // For the ground state always use DIIS.
+             {
+                 Input.Options[0] = true;
+             }
+             #ifdef H2H2H2
+             if (i == 1)
+             {
+                //  int MiddleH2 = Input.NumAO / 2;
+                //  DensityMatrix(MiddleH2 - 1, MiddleH2) = 0;
+                //  DensityMatrix(MiddleH2, MiddleH2 - 1) = 0;
+                DensityMatrix = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO);
+                DensityMatrix = 0.5 * DensityMatrix;
+             }
+             #endif
              // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
              std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
              std::cout.rdbuf(NULL); // sets to null
@@ -800,6 +819,10 @@ int main(int argc, char* argv[])
              SCFMDVirtual.push_back(VirtualOrbitals);
              SCFMDCoeff.push_back(CoeffMatrix);
              SCFMDOrbitalEV.push_back(OrbitalEV);
+             if (i == 0) // Reset to original DIIS vs no DIIS option.
+             {
+                 Input.Options[0] = useDIIS;
+             }
          }
         
          for (int i = 0; i < NumSCFStates; i++)
@@ -846,6 +869,16 @@ int main(int argc, char* argv[])
                  continue;
              }
              #endif
+             #ifdef H2H2H2
+             if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(DensityMatrix.rows() - 2, DensityMatrix.rows() - 2)) > 1E-3) && uOptIt == 1)
+             {
+                 std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                 Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                 SCFMDEnergyQueue.pop();
+                 i--;
+                 continue;
+             }
+             #endif
              std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
              std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
              Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
@@ -864,7 +897,7 @@ int main(int argc, char* argv[])
 
              SCFMDEnergyQueue.pop();
          }
-        break; // Skips to the end to initiate BE or otherwise.
+        // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
         //{
@@ -915,7 +948,7 @@ int main(int argc, char* argv[])
         double CostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;
-        while(fabs(CostMu) > 1E-3) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
+        while(fabs(CostMu) > 1E-2) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
             std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << std::endl;
             Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
@@ -1001,6 +1034,10 @@ int main(int argc, char* argv[])
                 ChemicalPotential += StepSizeMu; // Change chemical potential.
             }
             MuIteration++;
+            if (MuIteration > 10)
+            {
+                break;
+            }
 
             // double DMETEnergy = 0;
             // for(int x = 0; x < Input.NumFragments; x++)
@@ -1056,13 +1093,13 @@ int main(int argc, char* argv[])
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;
 
-    Bootstrap BE;
-    std::cout << "Init" << std::endl;
-    BE.debugInit(Input, Output);
-    std::cout << "schmidt" << std::endl;
-    BE.CollectSchmidt(FullDensities, Output);
-    std::cout << "run" << std::endl;
-    BE.runDebug();
+    // Bootstrap BE;
+    // std::cout << "Init" << std::endl;
+    // BE.debugInit(Input, Output);
+    // std::cout << "schmidt" << std::endl;
+    // BE.CollectSchmidt(FullDensities, Output);
+    // std::cout << "run" << std::endl;
+    // BE.runDebug();
 
     return 0;
 }
