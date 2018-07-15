@@ -28,7 +28,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd CASOverlap, Eigen::MatrixXd &SOrtho, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd &RotationMatrix, double FragmentOcc, int NumAOImp, double ChemicalPotential, int FragmentIndex);
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int SolnNum, Eigen::MatrixXd &DensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, Eigen::MatrixXd &CoeffMatrix, std::vector<int> &OccupiedOrbitals, std::vector<int> &VirtualOrbitals, int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &OrbitalEV);
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< std::vector< int > > OccupiedOrbitals, std::vector< std::vector< int > > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 1);
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
 
 
 /* 
@@ -830,10 +830,10 @@ int main(int argc, char* argv[])
              if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
              {
                  // Run metadynamics again.
-                 std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-                 std::cout.rdbuf(NULL); // sets to null
+                 //std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+                 //std::cout.rdbuf(NULL); // sets to null
                  SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-                 std::cout.rdbuf(orig_buf); // restore buffer
+                 //std::cout.rdbuf(orig_buf); // restore buffer
                  std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
                  Bias.push_back(tmpTuple);
                  SCFEnergy *= -1;
@@ -850,7 +850,7 @@ int main(int argc, char* argv[])
              DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
              std::vector< double > EmptyAllEnergies;
              SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2) // || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
              {
                  // Remove this solution from the list and go on to the next one.
                  std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
@@ -968,6 +968,69 @@ int main(int argc, char* argv[])
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
+                // #ifdef H2H2H2
+                // bool unEntangled = false;
+                // int ColToCheck = 2;
+                // if (x == 1)
+                // {
+                //     ColToCheck = 1;
+                // }
+                // for (int k = 0; k < RotationMatrix.rows(); k++)
+                // {
+                //     if (fabs(fabs(RotationMatrix.coeffRef(k, ColToCheck)) - 1 / sqrt(2)) < 1E-3)
+                //     {
+                //         unEntangled = true;
+                //         break;
+                //     }
+                // }
+                // if (unEntangled)
+                // {
+                //     if (x == 0)
+                //     {
+                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 3)) - 1 / sqrt(2)) < 1E-3) // > means make the middle dimer active.
+                //         {
+                //             Eigen::VectorXd R2 = RotationMatrix.col(2);
+                //             Eigen::VectorXd R3 = RotationMatrix.col(3);
+                //             RotationMatrix.col(2) = R3;
+                //             RotationMatrix.col(3) = R2;
+                //         }
+                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 4)) - 1 / sqrt(2)) < 1E-3)
+                //         {
+                //             Eigen::VectorXd R4 = RotationMatrix.col(4);
+                //             Eigen::VectorXd R5 = RotationMatrix.col(5);
+                //             RotationMatrix.col(4) = R5;
+                //             RotationMatrix.col(5) = R4;
+                //         }
+                //     }
+                //     if (x == 1)
+                //     {
+                //         if (fabs(fabs(RotationMatrix.coeffRef(0, 1)) - fabs(RotationMatrix.coeffRef(0, 4))) < 1E-3) // > means make same
+                //         {
+                //             Eigen::VectorXd R0 = RotationMatrix.col(0);
+                //             Eigen::VectorXd R1 = RotationMatrix.col(1);
+                //             RotationMatrix.col(0) = R1;
+                //             RotationMatrix.col(1) = R0;
+                //         }
+                //     }
+                //     if (x == 2)
+                //     {
+                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 3 - x)) - 1 / sqrt(2)) < 1E-3)
+                //         {
+                //             Eigen::VectorXd R2 = RotationMatrix.col(2 - x);
+                //             Eigen::VectorXd R3 = RotationMatrix.col(3 - x);
+                //             RotationMatrix.col(2 - x) = R3;
+                //             RotationMatrix.col(3 - x) = R2;
+                //         }
+                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 4 - x)) - 1 / sqrt(2)) < 1E-3)
+                //         {
+                //             Eigen::VectorXd R4 = RotationMatrix.col(4 - x);
+                //             Eigen::VectorXd R5 = RotationMatrix.col(5 - x);
+                //             RotationMatrix.col(4 - x) = R5;
+                //             RotationMatrix.col(5 - x) = R4;
+                //         }
+                //     }
+                // }
+                // #endif
                 FragmentRotations[x] = RotationMatrix;
 
                 // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
@@ -1063,7 +1126,7 @@ int main(int argc, char* argv[])
 
         std::cout << "DMET: Beginning DMET potential optimization." << std::endl;
         Output << "DMET: Beginning DMET potential optimization." << std::endl;
-        UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedByState, VirtualByState, FragmentDensities, FullDensities, Output, FragmentRotations, ImpurityStates, BathStates);
+        // UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedByState, VirtualByState, FragmentDensities, FullDensities, Output, FragmentRotations, ImpurityStates, BathStates);
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         double CostU = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
         std::cout << "DMET: The cost function of this iteration is " << CostU << std::endl;
@@ -1087,6 +1150,10 @@ int main(int argc, char* argv[])
         {
             std::cout << "DMET: Maximum number of interations reached." << std::endl;
             Output << "DMET: Maximum number of interations reached." << std::endl;
+            break;
+        }
+        if (CostU < 1E-3)
+        {
             break;
         }
     }

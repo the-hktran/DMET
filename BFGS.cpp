@@ -298,7 +298,7 @@ void FormDMETPotential(Eigen::MatrixXd &DMETPotential, std::vector< std::vector<
 // 	return GradD;
 // }
 
-double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 1)
+double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2)
 {
     double L = 0.0;
     if (CostFunctionVariant == 1) // Match all DIAGONAL impurity elements.
@@ -365,7 +365,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
 
-	double du = 1E-2; // to calculate [L(u + du) - L(u)] / du
+	double du = 1E-6; // to calculate [L(u + du) - L(u)] / du
     double L_Initial = CalcL(Input, FragmentDensities, InitialDensities, FragmentRotations, BathStates);
 
     std::vector< std::vector< double > > PotElemPlusDU;
@@ -590,7 +590,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< std::vector< double > > PotentialElements, std::vector< std::vector < std::pair< int, int > > > PotentialPositions, Eigen::VectorXd p, Eigen::MatrixXd DMETPotential, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > BathStates, std::vector< std::vector< int > > OccupiedByState, std::vector< std::vector< int > > VirtualByState)
 {
     double a = 0.0; // Size of line step.
-    double da = 1E-1; // We will increment a by this much until a loose minimum is found
+    double da = 1E-4; // We will increment a by this much until a loose minimum is found
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
@@ -668,7 +668,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
             // std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(tmpDensity1, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
             // Bias1.push_back(tmpTuple);
             std::cout.rdbuf(orig_buf);
-            std::cout << "DNext\n" << tmpDensity1 << std::endl;
+            // std::cout << "DNext\n" << tmpDensity1 << std::endl;
             DNext[a] = 2 * tmpDensity1;
         }
         // std::cout.rdbuf(orig_buf); // restore buffer
@@ -799,7 +799,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         NormOfGrad = GradCF.squaredNorm(); // (GradCF - PrevGrad).squaredNorm();
         std::cout << "DMET: Norm of gradient = " << NormOfGrad << std::endl;
         std::cout << "DMET: L = " << L << std::endl;
-        if (fabs(L) < 1E-2)
+        if (fabs(L) < 1E-1)
         {
             break;
         }
