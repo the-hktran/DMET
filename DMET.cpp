@@ -20,7 +20,7 @@
 
 
 
-#define H2H2H2
+// #define H2H2H2
 // #define H10
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
@@ -491,6 +491,41 @@ void makeDMETFCIDUMP(InputObj &Input, Eigen::MatrixXd &RotationMatrix)
     FCIDUMP << Input.Integrals["0 0 0 0"] << "\t0\t0\t0\t0" << std::endl;
 }
 
+Eigen::MatrixXd MakeOrthogonalMatrix(Eigen::MatrixXd S)
+{
+    int NumAO = S.rows();
+    Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(S);
+    Eigen::SparseMatrix< double > LambdaSOrtho(NumAO, NumAO); // Holds the inverse sqrt matrix of eigenvalues of S ( Lambda^-1/2 )
+    typedef Eigen::Triplet<double> T;
+    std::vector<T> tripletList;
+    for(int i = 0; i < NumAO; i++)
+    {
+        tripletList.push_back(T(i, i, 1 / sqrt(EigensystemS.eigenvalues()[i])));
+    }
+    LambdaSOrtho.setFromTriplets(tripletList.begin(), tripletList.end());
+    Eigen::MatrixXd SOrtho = EigensystemS.eigenvectors() * LambdaSOrtho * EigensystemS.eigenvectors().transpose(); // S^-1/2
+	return SOrtho;
+}
+
+Eigen::MatrixXd ReadMatrixFromFile(std::string Filename, int Dim)
+{
+    Eigen::MatrixXd Mat(Dim, Dim);
+    Mat = Eigen::MatrixXd::Zero(Dim, Dim);
+    std::ifstream File(Filename);
+
+    double tmpDouble;
+    for (int Row = 0; Row < Dim; Row++)
+    {
+        for (int Col = 0; Col < Dim; Col++)
+        {
+            File >> tmpDouble;
+            Mat(Row, Col) = tmpDouble;
+        }
+    }
+    
+    return Mat;
+}
+
 // int main(int argc, char* argv[])
 // {
 //     InputObj Input;
@@ -612,6 +647,15 @@ int main(int argc, char* argv[])
 
     Eigen::MatrixXd DMETPotential = Eigen::MatrixXd::Zero(Input.NumAO, Input.NumAO); // Correlation potential. Will be optimize to match density matrices.
     Eigen::MatrixXd DMETPotentialPrev = DMETPotential; // Will check self-consistency of this potential.
+
+    // If orthogonalized orbitals are read in from the input, this will unorthogonalize them when necessary.
+    std::string LocalToAOName = "ao2loc.loc";
+    std::ifstream LocalToAOFile(LocalToAOName);
+    Eigen::MatrixXd LocalToAO = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO);
+    if (LocalToAOFile.good()) // Otherwise, keep the transformation an identity so that nothing happens.
+    {
+        LocalToAO = ReadMatrixFromFile(LocalToAOName, Input.NumAO);
+    }
     
     // DEBUGGING - This is the H10 u from Wouter's code
     // for (int i = 0; i < 5; i++)
@@ -686,6 +730,7 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
+    bool OneShot = true;
     while(fabs(DMETPotentialChange) > 1E-6) // || uOptIt < 10) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
@@ -796,11 +841,18 @@ int main(int argc, char* argv[])
              #ifdef H2H2H2
              if (i == 1)
              {
+                //std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias;
+                //Bias = EmptyBias;
                 //  int MiddleH2 = Input.NumAO / 2;
                 //  DensityMatrix(MiddleH2 - 1, MiddleH2) = 0;
                 //  DensityMatrix(MiddleH2, MiddleH2 - 1) = 0;
-                DensityMatrix = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO);
-                DensityMatrix = 0.5 * DensityMatrix;
+                // DensityMatrix <<     1.01285  , 0.759489 ,  0.604052 ,-0.0110383 , 0.0128477  ,-0.240511,
+                //                     0.759489 ,   1.01285 ,-0.0110383 ,  0.604052 , -0.240511 , 0.0128477,
+                //                     0.604052, -0.0110383  , 0.974305 , -0.518977  , 0.604052, -0.0110383,
+                //                     -0.0110383  , 0.604052 , -0.518977 ,  0.974305 ,-0.0110383 ,  0.604052,
+                //                     0.0128477 , -0.240511  , 0.604052, -0.0110383 ,   1.01285  , 0.759489,
+                //                     -0.240511 , 0.0128477, -0.0110383 ,  0.604052 ,  0.759489  ,  1.01285; // solution at d = 1.80
+                // DensityMatrix = 0.5 * DensityMatrix;
              }
              #endif
              // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
@@ -850,7 +902,7 @@ int main(int argc, char* argv[])
              DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
              std::vector< double > EmptyAllEnergies;
              SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2) // || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
              {
                  // Remove this solution from the list and go on to the next one.
                  std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
@@ -1032,6 +1084,20 @@ int main(int argc, char* argv[])
                 // }
                 // #endif
                 FragmentRotations[x] = RotationMatrix;
+                
+                Eigen::MatrixXd ActiveRotation(NumAO, 2 * NumAOImp);
+                std::vector<int> FragPos;
+                std::vector<int> BathPos;
+                GetCASPos(Input, x, FragPos, BathPos);
+                for (int i = 0; i < NumAOImp; i++)
+                {
+                    ActiveRotation.col(FragPos[i]) = RotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                }
+                for (int i = 0; i < NumAOImp; i++)
+                {
+                    int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
+                    ActiveRotation.col(BathPos[i]) = RotationMatrix.col(ActBathOrb);
+                }
 
                 // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
                 // /* Before we continue with the SCF, we need to reduce the dimensionality of everything into the active space */
@@ -1077,6 +1143,12 @@ int main(int argc, char* argv[])
                 std::cout << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "R:\n" << RotationMatrix << "\nD:\n" << Fragment1RDM << std::endl;
+                Eigen::MatrixXd Unrotated1RDM = ActiveRotation * Fragment1RDM * ActiveRotation.transpose();
+                Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
+                Output << "Density in AO Basis:\n" << AO1RDM << std::endl;
+                Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> OccAndNO(AO1RDM);
+                Output << "With occupation numbers:\n" << OccAndNO.eigenvalues() << std::endl;
+                Output << "and natural orbitals:\n" << OccAndNO.eigenvectors() << std::endl;
                 std::cout << "Frag Density\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
@@ -1085,6 +1157,10 @@ int main(int argc, char* argv[])
 
             std::cout << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
             Output << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
+            // if (OneShot)
+            // {
+            //     break;
+            // }
             /* Change mu somehow */
             if(MuIteration % 2 == 0 && MuIteration > 0)
             {
@@ -1126,7 +1202,10 @@ int main(int argc, char* argv[])
 
         std::cout << "DMET: Beginning DMET potential optimization." << std::endl;
         Output << "DMET: Beginning DMET potential optimization." << std::endl;
-        // UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedByState, VirtualByState, FragmentDensities, FullDensities, Output, FragmentRotations, ImpurityStates, BathStates);
+        if(!OneShot)
+        {
+            UpdatePotential(DMETPotential, Input, CoeffMatrix, OrbitalEV, OccupiedByState, VirtualByState, FragmentDensities, FullDensities, Output, FragmentRotations, ImpurityStates, BathStates);
+        }
         DMETPotentialChange = (DMETPotential - DMETPotentialPrev).squaredNorm(); // Square of elements as error measure.
         double CostU = CalcL(Input, FragmentDensities, FullDensities, FragmentRotations, BathStates);
         std::cout << "DMET: The cost function of this iteration is " << CostU << std::endl;
