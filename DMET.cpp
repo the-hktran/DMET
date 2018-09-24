@@ -1145,10 +1145,9 @@ int main(int argc, char* argv[])
                 Output << "R:\n" << RotationMatrix << "\nD:\n" << Fragment1RDM << std::endl;
                 Eigen::MatrixXd Unrotated1RDM = ActiveRotation * Fragment1RDM * ActiveRotation.transpose();
                 Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
-                Output << "Density in AO Basis:\n" << AO1RDM << std::endl;
-                Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> OccAndNO(AO1RDM);
+                Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> OccAndNO(Unrotated1RDM);
                 Output << "With occupation numbers:\n" << OccAndNO.eigenvalues() << std::endl;
-                Output << "and natural orbitals:\n" << OccAndNO.eigenvectors() << std::endl;
+                Output << "and natural orbitals:\n" << LocalToAO.inverse() * OccAndNO.eigenvectors() << std::endl;
                 std::cout << "Frag Density\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
