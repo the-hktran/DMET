@@ -935,6 +935,21 @@ int main(int argc, char* argv[])
              std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
              Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
              Output << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
+             if (LocalToAOFile.good())
+             {
+                 // Rotate molecular orbitals into AO basis
+                 // First put MOs into a matrix
+                 Eigen::MatrixXd MO(Input.NumAO, SCFMDOccupied[NextIndex].size());
+                 for (int ao = 0; ao < MO.rows(); ao++)
+                 {
+                     for (int mo = 0; mo < MO.cols(); mo++)
+                     {
+                         MO(ao, mo) = CoeffMatrix(ao, SCFMDOccupied[NextIndex][mo]);
+                     }
+                 }
+                 // Then rotate
+                 Output << "DMET: and MOs in AO basis:\n" << LocalToAO * MO << std::endl;
+             }
              // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
              // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
              // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
@@ -1144,10 +1159,15 @@ int main(int argc, char* argv[])
                 Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "R:\n" << RotationMatrix << "\nD:\n" << Fragment1RDM << std::endl;
                 Eigen::MatrixXd Unrotated1RDM = ActiveRotation * Fragment1RDM * ActiveRotation.transpose();
-                Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
+                // Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
                 Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> OccAndNO(Unrotated1RDM);
-                Output << "With occupation numbers:\n" << OccAndNO.eigenvalues() << std::endl;
-                Output << "and natural orbitals:\n" << LocalToAO.inverse() * OccAndNO.eigenvectors() << std::endl;
+                if(LocalToAOFile.good())
+                {
+                    Output << "In the AO Basis:" << std::endl;
+                    Output << "Bath Orbitals:\n" << LocalToAO * RotationMatrix << std::endl;
+                    Output << "Occupation numbers:\n" << OccAndNO.eigenvalues() << std::endl;
+                    Output << "Natural orbitals:\n" << LocalToAO * OccAndNO.eigenvectors() << std::endl;
+                }
                 std::cout << "Frag Density\n" << Fragment1RDM << std::endl;
             }
             // Start checking if chemical potential is converged.
