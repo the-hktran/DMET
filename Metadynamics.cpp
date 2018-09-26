@@ -116,7 +116,7 @@ double Metric(int NumElectrons, Eigen::MatrixXd &FirstDensityMatrix, Eigen::Matr
             d += FirstDensityMatrix(i, j) * SecondDensityMatrix(j, i);
         }
     }
-    d = (double)NumElectrons * (1 - d);
+    d = (double)NumElectrons - d;
     return d;
 }
 
