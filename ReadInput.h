@@ -30,6 +30,9 @@ class InputObj
         double StartNorm = 0.1;
         double StartLambda = 1;
 
+        /* FCI definitions */
+        int NumberOfEV = 1;
+
         /* Definitions for DMET */
         int NumFragments;
         std::vector< std::vector< int > > FragmentOrbitals;
