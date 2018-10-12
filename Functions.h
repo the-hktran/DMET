@@ -11,6 +11,7 @@ void SchmidtDecomposition(Eigen::MatrixXd&, Eigen::MatrixXd&, std::vector< int >
 void GetCASPos(InputObj, int, std::vector< int >&, std::vector< int >&);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
+double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &aRotationMatrix, Eigen::MatrixXd &bRotationMatrix, int c, int d, int e, int f);
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
 double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 double CalcCostChemPot(std::vector<Eigen::MatrixXd>, InputObj&);

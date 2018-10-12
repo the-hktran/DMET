@@ -391,6 +391,25 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
     return Vcdef;
 }
 
+double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &aRotationMatrix, Eigen::MatrixXd &bRotationMatrix, int c, int d, int e, int f)
+{
+    double Vcdef = 0;
+    for(int p = 0; p < aRotationMatrix.rows(); p++)
+    {
+        for(int q = 0; q < bRotationMatrix.rows(); q++)
+        {
+            for(int r = 0; r < aRotationMatrix.rows(); r++)
+            {
+                for(int s = 0; s < bRotationMatrix.rows(); s++)
+                {
+                    Vcdef += aRotationMatrix(p, c) * bRotationMatrix(q, d) * Integrals[std::to_string(p + 1) + " " + std::to_string(r + 1) + " " + std::to_string(q + 1) + " " + std::to_string(s + 1)] * aRotationMatrix(r, e) * bRotationMatrix(s, f);
+                }
+            }
+        }
+    }
+    return Vcdef;
+}
+
 /* This is tilde h_cd, which is the one electron component of the Hamiltonian in the embedding basis, plus XC with the core
    electrons. */
 double OneElectronPlusCore (InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d)
