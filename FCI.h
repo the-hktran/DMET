@@ -16,6 +16,16 @@
 #include "Functions.h"
 #include <unsupported/Eigen/CXX11/Tensor>
 
+using namespace std;
+using namespace Eigen;
+
+typedef vector<double> dv1;
+typedef vector<int> iv1;
+typedef vector<iv1> iv2;
+typedef vector<iv2> iv3;
+typedef vector<long unsigned int> luiv1;
+typedef vector<MatrixXd> vMatrixXd;
+
 class FCI
 {
     public:

@@ -1,4 +1,3 @@
-#pragma once
 #include <iostream>
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
@@ -33,6 +32,23 @@ int __s1, __s2, __s3;
 #define ind2(i,j) i*__s1+j
 #define ind4(i,j,k,l) i*__s3+j*__s2+k*__s1+l
 
+int BinomialCoeff(int n, int k) // n choose k
+{
+    int nCk = 1;
+    int denom = 1;
+    if (k <= 0 || k >= n)
+    {
+        return 1;
+    }
+    for(int i = 0; i < k; i++)
+    {
+        nCk *= (n - i);
+        denom *= (i + 1);
+    }
+    nCk /= denom;
+    return nCk;
+}
+
 /* 
    This is the initalization function when only the input object is given. In this case, we assume that the active space
    is the complete space 
@@ -57,8 +73,8 @@ FCI::FCI(InputObj &Input)
     NumberOfEV = Input.NumberOfEV;
     L = NumberOfEV + 50;
 
-    OneRDMs.reserve(NumberOfEV);
-    TwoRDMs.reserve(NumberOfEV);
+    OneRDMs.resize(NumberOfEV);
+    TwoRDMs.resize(NumberOfEV);
 
     for (int i = 0; i < aDim; i++)
     {
@@ -113,8 +129,8 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
     NumberOfEV = Input.NumberOfEV;
     L = NumberOfEV + 50;
 
-    OneRDMs.reserve(NumberOfEV);
-    TwoRDMs.reserve(NumberOfEV);
+    OneRDMs.resize(NumberOfEV);
+    TwoRDMs.resize(NumberOfEV);
 
     /* Generate the strings. We have to insert the virtual and core orbitals according to their order in the list. */
     std::vector<int> CoreAndVirtualList = CoreList;
@@ -164,8 +180,8 @@ FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vecto
     NumberOfEV = Input.NumberOfEV;
     L = NumberOfEV + 50;
 
-    OneRDMs.reserve(NumberOfEV);
-    TwoRDMs.reserve(NumberOfEV);
+    OneRDMs.resize(NumberOfEV);
+    TwoRDMs.resize(NumberOfEV);
 
     /* Generate the strings. We have to insert the virtual and core orbitals according to their order in the list. */
     std::vector<int> aCoreAndVirtualList = aCoreList;
@@ -310,10 +326,10 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
 
 void FCI::runFCI()
 {
-    Eigenvectors.reserve(NumberOfEV);
-    Energies.reserve(NumberOfEV);
-    Symmetries.reserve(NumberOfEV);
-    FCIErrors.reserve(NumberOfEV);
+    Eigenvectors.resize(NumberOfEV);
+    Energies.resize(NumberOfEV);
+    Symmetries.resize(NumberOfEV);
+    FCIErrors.resize(NumberOfEV);
     int NumStrings = nchoosek(aActive, aElectronsActive);
     int it;
 
