@@ -55,6 +55,7 @@ int BinomialCoeff(int n, int k) // n choose k
 */
 FCI::FCI(InputObj &Input)
 {
+    Inp = Input;
     aElectrons = Input.NumOcc;
     bElectrons = Input.NumOcc;
     aElectronsActive = aElectrons;
@@ -109,16 +110,24 @@ FCI::FCI(InputObj &Input)
 
 FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int> CoreList, std::vector<int> ActiveList, std::vector<int> VirtualList)
 {
+    Inp = Input;
+
     aElectrons = Input.NumOcc;
     bElectrons = Input.NumOcc;
     aElectronsActive = aElectronsAct;
     bElectronsActive = bElectronsAct;
     aActive = ActiveList.size();
     bActive = ActiveList.size();
+    aActiveList = ActiveList;
+    bActiveList = ActiveList;
     aCore = CoreList.size();
     bCore = CoreList.size();
+    aCoreList = CoreList;
+    bCoreList = CoreList;
     aVirtual = VirtualList.size();
     bVirtual = VirtualList.size();
+    aVirtualList = VirtualList;
+    bVirtualList = VirtualList;
     aOrbitals = Input.NumAO;
     bOrbitals = Input.NumAO;
 
@@ -160,14 +169,21 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
     }
 }
 
-FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vector<int> aCoreList, std::vector<int> aActiveList, std::vector<int> aVirtualList, std::vector<int> bCoreList, std::vector<int> bActiveList, std::vector<int> bVirtualList)
+FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vector<int> aCorList, std::vector<int> aActList, std::vector<int> aVirList, std::vector<int> bCorList, std::vector<int> bActList, std::vector<int> bVirList)
 {
+    Inp = Input;
     aElectrons = Input.NumOcc;
     bElectrons = Input.NumOcc;
+    aActiveList = aActList;
+    bActiveList = bActList;
     aActive = aActiveList.size();
     bActive = bActiveList.size();
+    aCoreList = aCorList;
+    bCoreList = bCorList;
     aCore = aCoreList.size();
     bCore = bCoreList.size();
+    aVirtualList = aVirList;
+    bVirtualList = bVirList;
     aVirtual = aVirtualList.size();
     bVirtual = bVirtualList.size();
     aOrbitals = Input.NumAO;
@@ -246,6 +262,8 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
     int N = ActiveOrbitals.size();
     aOEI = new double[N * N];
     aaTEI = new double[N * N * N * N];
+    aOEIPlusCore = new double [N * N];
+    double Vcudu2MinusVcuud = 0.0;
     for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < N; j++)
@@ -258,12 +276,19 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
                     aaTEI[i * N * N * N + j * N * N + k * N + l] = TwoElectronEmbedding(ERIMap, RotationMatrix, ActiveOrbitals[i], ActiveOrbitals[k], ActiveOrbitals[j], ActiveOrbitals[l]);
                 }
             }
+            Vcudu2MinusVcuud = 0.0;
+            for (int u = 0; u < aCoreList.size(); u++)
+            {
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, RotationMatrix, ActiveOrbitals[i], aCoreList[u], ActiveOrbitals[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, RotationMatrix, ActiveOrbitals[i], aCoreList[u], aCoreList[u], ActiveOrbitals[j]);
+            }
+            aOEIPlusCore[i * N + j] = aOEI[i * N + j] + Vcudu2MinusVcuud;
         }
     }
 
     bOEI = aOEI;
     bbTEI = aaTEI;
     abTEI = aaTEI;
+    bOEIPlusCore = aOEIPlusCore;
 
     ENuc = ERIMap["0 0 0 0"];
 }
@@ -273,6 +298,8 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
     int aN = aActiveList.size();
     aOEI = new double[aN * aN];
     aaTEI = new double[aN * aN * aN * aN];
+    aOEIPlusCore = new double[aN * aN];
+    double Vcudu2MinusVcuud = 0.0;
     for (int i = 0; i < aN; i++)
     {
         for (int j = 0; j < aN; j++)
@@ -285,12 +312,19 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
                     aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
                 }
             }
+            Vcudu2MinusVcuud = 0.0;
+            for (int u = 0; u < aCoreList.size(); u++)
+            {
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+            }
+            aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
         }
     }
 
     int bN = bActiveList.size();
     bOEI = new double[bN * bN];
     bbTEI = new double[bN * bN * bN * bN];
+    bOEIPlusCore = new double[bN * bN];
     for (int i = 0; i < bN; i++)
     {
         for (int j = 0; j < bN; j++)
@@ -303,6 +337,12 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
                     bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bActiveList[k], bActiveList[j], bActiveList[l]);
                 }
             }
+            Vcudu2MinusVcuud = 0.0;
+            for (int u = 0; u < aCoreList.size(); u++)
+            {
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+            }
+            bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
         }
     }
 
@@ -380,44 +420,69 @@ void FCI::GetOrbitalString(int Index, int NumElectrons, int NumOrbitals, std::ve
 }
 
 // This converts the vector storing the 2RDM into a tensor.
-Eigen::Tensor<double, 4> FCI::Make2RDMTensor(std::vector<double> GVector, int Dim)
-{
-    int N = Dim;
-    __s1 = N;
-	__s2 = N * N;
-	__s3 = N * N * N;
-    Eigen::Tensor<double, 4> TwoRDM(Dim, Dim, Dim, Dim);
-    for (int i = 0; i < Dim; i++)
-    {
-        for (int j = 0; j < Dim; j++)
-        {
-            for (int k = 0; k < Dim; k++)
-            {
-                for (int l = 0; l < Dim; l++)
-                {
-                    TwoRDM(i, j, k, l) = GVector[ind4(i, j, k, l)];
-                }
-            }
-        }
-    }
-    return TwoRDM;
-}
+// Eigen::Tensor<double, 4> FCI::Make2RDMTensor(std::vector<double> GVector, int Dim)
+// {
+//     int N = Dim;
+//     __s1 = N;
+// 	__s2 = N * N;
+// 	__s3 = N * N * N;
+//     Eigen::Tensor<double, 4> TwoRDM(Dim, Dim, Dim, Dim);
+//     for (int i = 0; i < Dim; i++)
+//     {
+//         for (int j = 0; j < Dim; j++)
+//         {
+//             for (int k = 0; k < Dim; k++)
+//             {
+//                 for (int l = 0; l < Dim; l++)
+//                 {
+//                     TwoRDM(i, j, k, l) = GVector[ind4(i, j, k, l)];
+//                 }
+//             }
+//         }
+//     }
+//     return TwoRDM;
+// }
 
 void FCI::getSpecificRDM(int State, bool calc2RDM)
 {
     Eigen::MatrixXd OneRDM;
-    std::vector<double> TwoRDMVector;
-    Eigen::Tensor<double, 4> TwoRDM;
+    std::vector<double> TwoRDM;
+    // Eigen::Tensor<double, 4> TwoRDM;
 
     Dim = nchoosek(aActive, aElectronsActive);
-    RDM12(aActive, aElectronsActive, Dim, Eigenvectors[State], OneRDM, TwoRDMVector, calc2RDM);
-    if (calc2RDM)
-    {
-        TwoRDM = Make2RDMTensor(TwoRDMVector, Dim);
-    }
+    RDM12(aActive, aElectronsActive, Dim, Eigenvectors[State], OneRDM, TwoRDM, calc2RDM);
+    // if (calc2RDM)
+    // {
+    //     TwoRDM = Make2RDMTensor(TwoRDMVector, Dim);
+    // }
 
     OneRDMs[State] = OneRDM;
     TwoRDMs[State] = TwoRDM;
+}
+
+double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
+{
+    double ImpEnergy = 0.0;
+
+    int N = aActive;
+    __s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+    for (int i = 0; i < FragPos.size(); i++)
+    {
+        int iIdx = FragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    ImpEnergy += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                }
+            }
+            ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+        }
+    }
 }
 
 // The following code is from troyfci.cpp
@@ -1311,7 +1376,6 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 //  Build Diagonal part of H
     Hd.setZero(Nstr, Nstr);
     GetHd(N, No, Nstr, Zindex, h, V, Iocc, Isubst, Hd, 0);
-    std::cout << Hd << std::endl;
 
 //  Get N0 lowest strings
     GetIstr(N, No, Nstr, N0, Hd, Istr);
@@ -1320,7 +1384,6 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 //  Build + Diagonalize H0
     H0.setZero(N0 * N0, N0 * N0);
     GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr, h, V, H0);
-    std::cout << H0 << std::endl;
     eigh(H0, U0, E0);
 
 //  Big loop over states

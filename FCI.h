@@ -29,12 +29,14 @@ typedef vector<MatrixXd> vMatrixXd;
 class FCI
 {
     public:
+        InputObj Inp;
+
         int aElectrons, bElectrons, aElectronsActive, bElectronsActive, aActive, bActive, aOrbitals, bOrbitals, aCore, bCore, aVirtual, bVirtual,
             NumberOfEV, L, aDim, bDim, Dim;
 
         std::string Method; // "FCI", "CIS"
 
-        // std::vector<int> aCoreList, bCoreList, aActiveList, bActiveList, aVirtualList, bVirtualList;
+        std::vector<int> aCoreList, bCoreList, aActiveList, bActiveList, aVirtualList, bVirtualList;
 
         std::vector< std::vector<bool> > aStrings;
         std::vector< std::vector<bool> > bStrings;
@@ -44,6 +46,8 @@ class FCI
         double *aaTEI;
         double *bbTEI;
         double *abTEI;
+        double *aOEIPlusCore;
+        double *bOEIPlusCore;
         double ENuc;
 
         std::vector<double> Energies;
@@ -52,7 +56,8 @@ class FCI
         std::vector<double> FCIErrors;
 
         std::vector< Eigen::MatrixXd > OneRDMs;
-        std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
+        std::vector< std::vector<double> > TwoRDMs;
+        // std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
 
         FCI(InputObj&);
         FCI(InputObj&, int, int, std::vector<int>, std::vector<int>, std::vector<int>);
@@ -63,6 +68,8 @@ class FCI
         void ERIMapToArray(std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList);
         void runFCI();
         void getSpecificRDM(int, bool);
+        void getRDM(bool);
+        double calcImpurityEnergy(int, std::vector<int>);
 
     private:
         void InitFromInput(InputObj&);
