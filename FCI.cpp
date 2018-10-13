@@ -374,6 +374,19 @@ void FCI::runFCI()
     int it;
 
     FCIman(aActive, aElectronsActive, NumStrings, 10, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, 10000, 1E-12, false);
+
+    // Now we sort the eigenpairs based on eigenenergies.
+    std::vector< std::pair<double, Eigen::MatrixXd> > EigenPairs;
+    for (int i = 0; i < Energies.size(); i++)
+    {
+        EigenPairs.push_back(std::make_pair(Energies[i], Eigenvectors[i]));
+    }
+    std::sort(EigenPairs.begin(), EigenPairs.end());
+    for (int i = 0; i < Energies.size(); i++)
+    {
+        Energies[i] = EigenPairs[i].first;
+        Eigenvectors[i] = EigenPairs[i].second;
+    }
 }
 
 /* This imposes an order onto the binary strings. The function takes an index and returns the corresponding binary string.
@@ -483,6 +496,8 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
             ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
         }
     }
+
+    return ImpEnergy;
 }
 
 // The following code is from troyfci.cpp
