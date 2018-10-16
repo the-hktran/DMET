@@ -38,8 +38,8 @@ class FCI
 
         std::vector<int> aCoreList, bCoreList, aActiveList, bActiveList, aVirtualList, bVirtualList;
 
-        std::vector< std::vector<bool> > aStrings;
-        std::vector< std::vector<bool> > bStrings;
+        // std::vector< std::vector<bool> > aStrings;
+        // std::vector< std::vector<bool> > bStrings;
 
         double *aOEI;
         double *bOEI;
@@ -49,6 +49,11 @@ class FCI
         double *aOEIPlusCore;
         double *bOEIPlusCore;
         double ENuc;
+
+        int Conditioner = 10;
+        int MaxIteration = 10000;
+
+        double ChemicalPotential = 0.0;
 
         std::vector<double> Energies;
         std::vector<Eigen::MatrixXd> Eigenvectors;
@@ -66,6 +71,7 @@ class FCI
         void ERIMapToArray(std::map<std::string, double>&);
         void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd RotationMatrix, std::vector<int> ActiveOrbitals);
         void ERIMapToArray(std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList);
+        void AddChemicalPotentialGKLC(std::vector<int>, double);
         void runFCI();
         void getSpecificRDM(int, bool);
         void getRDM(bool);

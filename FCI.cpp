@@ -60,35 +60,35 @@ FCI::FCI(InputObj &Input)
     OneRDMs.resize(NumberOfEV);
     TwoRDMs.resize(NumberOfEV);
 
-    for (int i = 0; i < aDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, aElectrons, aActive, DetString);
-        for (int j = 0; j < aVirtual; j++)
-        {
-            DetString.push_back(false);
-        }
-        for (int j = 0; j < aCore; j++)
-        {
-            DetString.insert(DetString.begin(), true);
-        }
-        aStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < aDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, aElectrons, aActive, DetString);
+    //     for (int j = 0; j < aVirtual; j++)
+    //     {
+    //         DetString.push_back(false);
+    //     }
+    //     for (int j = 0; j < aCore; j++)
+    //     {
+    //         DetString.insert(DetString.begin(), true);
+    //     }
+    //     aStrings.push_back(DetString);
+    // }
 
-    for (int i = 0; i < bDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, bElectrons, bActive, DetString);
-        for (int j = 0; j < bVirtual; j++)
-        {
-            DetString.push_back(false);
-        }
-        for (int j = 0; j < bCore; j++)
-        {
-            DetString.insert(DetString.begin(), true);
-        }
-        bStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < bDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, bElectrons, bActive, DetString);
+    //     for (int j = 0; j < bVirtual; j++)
+    //     {
+    //         DetString.push_back(false);
+    //     }
+    //     for (int j = 0; j < bCore; j++)
+    //     {
+    //         DetString.insert(DetString.begin(), true);
+    //     }
+    //     bStrings.push_back(DetString);
+    // }
 }
 
 FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int> CoreList, std::vector<int> ActiveList, std::vector<int> VirtualList)
@@ -129,27 +129,27 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
     CoreAndVirtualList.insert(CoreAndVirtualList.end(), VirtualList.begin(), VirtualList.end());
     std::sort(CoreAndVirtualList.begin(), CoreAndVirtualList.end());
 
-    for (int i = 0; i < aDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, aElectronsActive, aActive, DetString);
-        for (int j = 0; j < CoreAndVirtualList.size(); j++)
-        {
-            DetString.insert(DetString.begin() + CoreAndVirtualList[j], std::find(CoreList.begin(), CoreList.end(), CoreAndVirtualList[j]) != CoreList.end());
-        }
-        aStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < aDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, aElectronsActive, aActive, DetString);
+    //     for (int j = 0; j < CoreAndVirtualList.size(); j++)
+    //     {
+    //         DetString.insert(DetString.begin() + CoreAndVirtualList[j], std::find(CoreList.begin(), CoreList.end(), CoreAndVirtualList[j]) != CoreList.end());
+    //     }
+    //     aStrings.push_back(DetString);
+    // }
 
-    for (int i = 0; i < bDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, bElectronsActive, bActive, DetString);
-        for (int j = 0; j < CoreAndVirtualList.size(); j++)
-        {
-            DetString.insert(DetString.begin() + CoreAndVirtualList[j], std::find(CoreList.begin(), CoreList.end(), CoreAndVirtualList[j]) != CoreList.end());
-        }
-        bStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < bDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, bElectronsActive, bActive, DetString);
+    //     for (int j = 0; j < CoreAndVirtualList.size(); j++)
+    //     {
+    //         DetString.insert(DetString.begin() + CoreAndVirtualList[j], std::find(CoreList.begin(), CoreList.end(), CoreAndVirtualList[j]) != CoreList.end());
+    //     }
+    //     bStrings.push_back(DetString);
+    // }
 }
 
 FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vector<int> aCorList, std::vector<int> aActList, std::vector<int> aVirList, std::vector<int> bCorList, std::vector<int> bActList, std::vector<int> bVirList)
@@ -191,27 +191,27 @@ FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vecto
     aCoreAndVirtualList.insert(bCoreAndVirtualList.end(), bVirtualList.begin(), bVirtualList.end());
     std::sort(bCoreAndVirtualList.begin(), bCoreAndVirtualList.end());
 
-    for (int i = 0; i < aDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, aElectronsActive, aActive, DetString);
-        for (int j = 0; j < aCoreAndVirtualList.size(); j++)
-        {
-            DetString.insert(DetString.begin() + aCoreAndVirtualList[j], std::find(aCoreList.begin(), aCoreList.end(), aCoreAndVirtualList[j]) != aCoreList.end());
-        }
-        aStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < aDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, aElectronsActive, aActive, DetString);
+    //     for (int j = 0; j < aCoreAndVirtualList.size(); j++)
+    //     {
+    //         DetString.insert(DetString.begin() + aCoreAndVirtualList[j], std::find(aCoreList.begin(), aCoreList.end(), aCoreAndVirtualList[j]) != aCoreList.end());
+    //     }
+    //     aStrings.push_back(DetString);
+    // }
 
-    for (int i = 0; i < bDim; i++)
-    {
-        std::vector<bool> DetString;
-        GetOrbitalString(i, bElectronsActive, bActive, DetString);
-        for (int j = 0; j < bCoreAndVirtualList.size(); j++)
-        {
-            DetString.insert(DetString.begin() + bCoreAndVirtualList[j], std::find(bCoreList.begin(), bCoreList.end(), bCoreAndVirtualList[j]) != bCoreList.end());
-        }
-        bStrings.push_back(DetString);
-    }
+    // for (int i = 0; i < bDim; i++)
+    // {
+    //     std::vector<bool> DetString;
+    //     GetOrbitalString(i, bElectronsActive, bActive, DetString);
+    //     for (int j = 0; j < bCoreAndVirtualList.size(); j++)
+    //     {
+    //         DetString.insert(DetString.begin() + bCoreAndVirtualList[j], std::find(bCoreList.begin(), bCoreList.end(), bCoreAndVirtualList[j]) != bCoreList.end());
+    //     }
+    //     bStrings.push_back(DetString);
+    // }
 }
 
 void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap)
@@ -347,6 +347,23 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
     ENuc = aERIMap["0 0 0 0"];
 }
 
+void FCI::AddChemicalPotentialGKLC(std::vector<int> FragPos, double Mu)
+{
+    int aN = aActiveList.size();
+    int bN = bActiveList.size();
+    for (int i = 0; i < FragPos.size(); i++)
+    {
+        int iIdx = FragPos[i];
+        aOEI[iIdx * aN + iIdx] -= Mu;
+        bOEI[iIdx * bN + iIdx] -= Mu;
+    }
+}
+
+bool SortEigenpairs(std::tuple<double, Eigen::MatrixXd, double> &Tuple1 , std::tuple<double, Eigen::MatrixXd, double> &Tuple2)
+{
+    return std::get<0>(Tuple1) < std::get<0>(Tuple2);
+}
+
 void FCI::runFCI()
 {
     Eigenvectors.resize(NumberOfEV);
@@ -356,7 +373,7 @@ void FCI::runFCI()
     int NumStrings = nchoosek(aActive, aElectronsActive);
     int it;
 
-    FCIman(aActive, aElectronsActive, NumStrings, 10, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, 10000, 1E-12, false);
+    FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
 
     // Now we sort the eigenpairs based on eigenenergies.
     std::vector< std::tuple<double, Eigen::MatrixXd, double> > EigenPairs;
@@ -364,13 +381,13 @@ void FCI::runFCI()
     {
         EigenPairs.push_back(std::make_tuple(Energies[i], Eigenvectors[i], Symmetries[i]));
     }
-    // std::sort(EigenPairs.begin(), EigenPairs.end());
-    // for (int i = 0; i < Energies.size(); i++)
-    // {
-    //     Energies[i] = std::get<0>(EigenPairs[i]);
-    //     Eigenvectors[i] = std::get<1>(EigenPairs[i]);
-    //     Symmetries[i] = std::get<2>(EigenPairs[i]);
-    // }
+    std::sort(EigenPairs.begin(), EigenPairs.end(), SortEigenpairs);
+    for (int i = 0; i < Energies.size(); i++)
+    {
+        Energies[i] = std::get<0>(EigenPairs[i]);
+        Eigenvectors[i] = std::get<1>(EigenPairs[i]);
+        Symmetries[i] = std::get<2>(EigenPairs[i]);
+    }
 }
 
 /* This imposes an order onto the binary strings. The function takes an index and returns the corresponding binary string.

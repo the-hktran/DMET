@@ -1202,6 +1202,7 @@ int main(int argc, char* argv[])
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 
