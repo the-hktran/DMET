@@ -17,6 +17,7 @@
 #include "Bootstrap.h"
 #include "Functions.h"
 #include "RealTime.h"
+#include "FCI.h"
 
 
 
@@ -30,7 +31,26 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< std::vector< int > > OccupiedOrbitals, std::vector< std::vector< int > > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
 double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
 
+void GetCASList(InputObj Input, int FragmentIndex, std::vector<int> &ActiveList, std::vector<int> &CoreList, std::vector<int> &VirtualList)
+{
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
 
+    for (int i = 0; i < NumVirt; i++)
+    {
+        VirtualList.push_back(Input.EnvironmentOrbitals[FragmentIndex][i]);
+    }
+    for (int i = 0; i < Input.FragmentOrbitals[FragmentIndex].size(); i++)
+    {
+        ActiveList.push_back(Input.EnvironmentOrbitals[FragmentIndex][NumVirt + i]);
+        ActiveList.push_back(Input.FragmentOrbitals[FragmentIndex][i]);
+    }
+    std::sort(ActiveList.begin(), ActiveList.end());
+    for (int i = 0; i < NumCore; i++)
+    {
+        CoreList.push_back(Input.EnvironmentOrbitals[FragmentIndex][NumVirt + Input.FragmentOrbitals[FragmentIndex].size() + i]);
+    }
+}
 /* 
    The purpose of this function is to distinguish between fragment or bath orbital in the active space basis.
    The vectors FragmentPos and BathPos hold the index for the impurity and bath orbitals, respectively, in the active space basis
@@ -637,6 +657,10 @@ int main(int argc, char* argv[])
 
     int NumSCFStates = *max_element(BathStates.begin(), BathStates.end());
     NumSCFStates++;
+
+    int NumFCIStates = *max_element(ImpurityStates.begin(), ImpurityStates.end());
+    NumFCIStates++;
+    Input.NumberOfEV = NumFCIStates;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -1166,11 +1190,29 @@ int main(int argc, char* argv[])
                 // Eigen::MatrixXd FragmentCoeff;
                 // -----
 
-                // Now, solve the impurity.
-                std::vector< double > FCIEnergies;
-                Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
-                FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x], FragmentEigenstates[x]);
-                FragmentEnergies[x] = FCIEnergies;
+                // Now, solve the impurity. - This is using HenryFCI
+                // std::vector< double > FCIEnergies;
+                // Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
+                // FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x], FragmentEigenstates[x]);
+                // FragmentEnergies[x] = FCIEnergies;
+
+                // Now, solve the impurity. - This is using TroyFCI
+                std::vector<int> ActiveList, VirtualList, CoreList;
+                GetCASList(Input, x, ActiveList, CoreList, VirtualList);
+
+                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                myFCI.runFCI();
+                myFCI.getSpecificRDM(ImpurityStates[x], true);
+                
+                Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
+                std::vector<double> tmpDVec;
+                for (int ii = 0; ii < Input.NumberOfEV; ii++)
+                {
+                    std::cout << myFCI.Energies[ii] << std::endl;
+                }
+                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                FragmentEnergies[x] = tmpDVec;
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.

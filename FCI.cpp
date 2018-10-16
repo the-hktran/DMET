@@ -32,23 +32,6 @@ int __s1, __s2, __s3;
 #define ind2(i,j) i*__s1+j
 #define ind4(i,j,k,l) i*__s3+j*__s2+k*__s1+l
 
-int BinomialCoeff(int n, int k) // n choose k
-{
-    int nCk = 1;
-    int denom = 1;
-    if (k <= 0 || k >= n)
-    {
-        return 1;
-    }
-    for(int i = 0; i < k; i++)
-    {
-        nCk *= (n - i);
-        denom *= (i + 1);
-    }
-    nCk /= denom;
-    return nCk;
-}
-
 /* 
    This is the initalization function when only the input object is given. In this case, we assume that the active space
    is the complete space 
@@ -67,8 +50,8 @@ FCI::FCI(InputObj &Input)
     aVirtual = 0;
     bVirtual = 0;
 
-    aDim = BinomialCoeff(aElectrons, aActive);
-    bDim = BinomialCoeff(bElectrons, bActive);
+    aDim = nchoosek(aElectrons, aActive);
+    bDim = nchoosek(bElectrons, bActive);
     Dim = aDim * bDim;
 
     NumberOfEV = Input.NumberOfEV;
@@ -131,8 +114,8 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
     aOrbitals = Input.NumAO;
     bOrbitals = Input.NumAO;
 
-    aDim = BinomialCoeff(aElectronsActive, aActive);
-    bDim = BinomialCoeff(bElectronsActive, bActive);
+    aDim = nchoosek(aElectronsActive, aActive);
+    bDim = nchoosek(bElectronsActive, bActive);
     Dim = aDim * bDim;
 
     NumberOfEV = Input.NumberOfEV;
@@ -189,8 +172,8 @@ FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vecto
     aOrbitals = Input.NumAO;
     bOrbitals = Input.NumAO;
 
-    aDim = BinomialCoeff(aElectronsActive, aActive);
-    bDim = BinomialCoeff(bElectronsActive, bActive);
+    aDim = nchoosek(aElectronsActive, aActive);
+    bDim = nchoosek(bElectronsActive, bActive);
     Dim = aDim * bDim;
 
     NumberOfEV = Input.NumberOfEV;
@@ -376,17 +359,18 @@ void FCI::runFCI()
     FCIman(aActive, aElectronsActive, NumStrings, 10, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, 10000, 1E-12, false);
 
     // Now we sort the eigenpairs based on eigenenergies.
-    std::vector< std::pair<double, Eigen::MatrixXd> > EigenPairs;
+    std::vector< std::tuple<double, Eigen::MatrixXd, double> > EigenPairs;
     for (int i = 0; i < Energies.size(); i++)
     {
-        EigenPairs.push_back(std::make_pair(Energies[i], Eigenvectors[i]));
+        EigenPairs.push_back(std::make_tuple(Energies[i], Eigenvectors[i], Symmetries[i]));
     }
-    std::sort(EigenPairs.begin(), EigenPairs.end());
-    for (int i = 0; i < Energies.size(); i++)
-    {
-        Energies[i] = EigenPairs[i].first;
-        Eigenvectors[i] = EigenPairs[i].second;
-    }
+    // std::sort(EigenPairs.begin(), EigenPairs.end());
+    // for (int i = 0; i < Energies.size(); i++)
+    // {
+    //     Energies[i] = std::get<0>(EigenPairs[i]);
+    //     Eigenvectors[i] = std::get<1>(EigenPairs[i]);
+    //     Symmetries[i] = std::get<2>(EigenPairs[i]);
+    // }
 }
 
 /* This imposes an order onto the binary strings. The function takes an index and returns the corresponding binary string.
@@ -412,7 +396,7 @@ void FCI::GetOrbitalString(int Index, int NumElectrons, int NumOrbitals, std::ve
 {
     if(NumOrbitals > 0) // Stop when we have chosen a digit for all orbitals. We take off an orbital each time we fill it.
     {
-        int PreviousComb = BinomialCoeff(NumOrbitals - 1, NumElectrons - 1); // Number of ways for the higher electrons to permute in the higher orbitals.
+        int PreviousComb = nchoosek(NumOrbitals - 1, NumElectrons - 1); // Number of ways for the higher electrons to permute in the higher orbitals.
         if (NumElectrons < 1) // If we don't have any electrons left, then all the remaining orbitals have to be empty.
         {
             OrbitalString.push_back(false);
@@ -469,7 +453,11 @@ void FCI::getSpecificRDM(int State, bool calc2RDM)
     //     TwoRDM = Make2RDMTensor(TwoRDMVector, Dim);
     // }
 
-    OneRDMs[State] = OneRDM;
+    OneRDMs[State] = 2.0 * OneRDM;
+    for (int i = 0; i < TwoRDM.size(); i++)
+    {
+        TwoRDM[i] = 2.0 * TwoRDM[i];
+    }
     TwoRDMs[State] = TwoRDM;
 }
 
