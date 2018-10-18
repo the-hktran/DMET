@@ -505,6 +505,1000 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
     return ImpEnergy;
 }
 
+Eigen::MatrixXd FCI::GenerateHamiltonian(int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State)
+{
+    int NumAOImp = Inp.FragmentOrbitals[FragmentIndex].size();
+    int NumVirt = Inp.NumAO - NumAOImp - Inp.NumOcc;
+    int NumCore = Inp.NumOcc - NumAOImp;
+    int NumEnv = Inp.EnvironmentOrbitals[FragmentIndex].size();
+
+    /* There doesn't seem to be any method that chooses number of electrons */
+    int aElectrons = Inp.NumOcc; // 2 * NumAOImp + NumCore;
+    int bElectrons = Inp.NumOcc; // 2 * NumAOImp + NumCore;
+    int aElectronsCAS = NumAOImp; // N_occ - N_core?????????????
+    int bElectronsCAS = NumAOImp;
+    int aOrbitals = Inp.NumAO;
+    int bOrbitals = Inp.NumAO;
+    int aCAS = 2 * NumAOImp;// + NumVirt;
+    int bCAS = 2 * NumAOImp;// + NumVirt;
+    int NumberOfEV = 1; // Input.NumberOfEV; // Number of eigenvalues desired from Davidson Diagonalization
+    // int aDim = BinomialCoeff(aOrbitals, aElectrons);
+    // int bDim = BinomialCoeff(bOrbitals, bElectrons);
+    int aDim = BinomialCoeff(aCAS, aElectronsCAS);
+    int bDim = BinomialCoeff(bCAS, aElectronsCAS);
+    int Dim = aDim * bDim;
+    int L = NumberOfEV + 50; // Dimension of starting subspace in Davidson Diagonalization
+    while(L > Dim)
+    {
+        L /= 10;
+    }
+
+    double MatTol = 1E-12; // Zeros elements below this threshold, significiantly reduces storage requirements.
+
+    // std::vector< std::vector<bool> > aStrings;
+    // std::vector< std::vector<bool> > bStrings;
+
+    // std::ofstream Output(Input.OutputName);
+    // Output << "FCI Calculation\n\nInput File: " << Input.InputName << "\n\nNumber of Alpha Electrons: " << aElectrons << 
+    // "\nNumber of Alpha Orbitals: " << aOrbitals << "\nNumber of Beta Electrons: " << bElectrons << "\nNumber of Beta Orbitals: "
+    // << bOrbitals << "\nDimension of Space: " << aDim << " x " << bDim << " = " << Dim << "\n\nLooking for " << NumberOfEV << 
+    // " solutions.\n" << std::endl;
+
+    // clock_t Start = clock();
+    double Start = omp_get_wtime();
+
+    std::cout << "FCI: Generating all determinant binary representations and enumerating determinants with differences... ";
+    for(int i = 0; i < aDim; i++)
+    {
+        std::vector<bool> tmpVec;
+        GetOrbitalString(i, aElectronsCAS, aCAS, tmpVec); // Get binary string for active space orbitals.
+        for(int a = 0; a < NumVirt; a++) // Insert frozen virtual orbitals into string
+        {
+            tmpVec.insert(tmpVec.begin() + Inp.EnvironmentOrbitals[FragmentIndex][a], false);
+        }
+        for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
+        {
+            tmpVec.insert(tmpVec.begin() + Inp.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
+        }
+        aStrings.push_back(tmpVec);
+    }
+    for(int i = 0; i < bDim; i++)
+    {
+        std::vector<bool> tmpVec;
+        GetOrbitalString(i, bElectronsCAS, bCAS, tmpVec); // Get binary string for active space orbitals.
+        for(int a = 0; a < NumVirt; a++) // Insert frozen virtual orbitals into string
+        {
+            tmpVec.insert(tmpVec.begin() + Inp.EnvironmentOrbitals[FragmentIndex][a], false);
+        }
+        for(int c = 0; c < NumCore; c++) // Insert the core orbitals into the string.
+        {
+            tmpVec.insert(tmpVec.begin() + Inp.EnvironmentOrbitals[FragmentIndex][NumVirt + NumAOImp + c], true);
+        }
+        bStrings.push_back(tmpVec);
+    }
+
+    std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > aSingleDifference; // i index, j index, sign, list of different orbitals.
+    std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > aDoubleDifference;
+    unsigned short int tmpInt;
+    std::tuple<unsigned short int, unsigned short int, short int, std::vector<unsigned short int>> tmpTuple;
+
+    for(unsigned int i = 0; i < aDim; i++)
+    {
+        for(unsigned int j = i + 1; j < aDim; j++)
+        {
+            tmpInt = CountDifferences(aStrings[i], aStrings[j]);
+            if(tmpInt == 1)
+            {
+                short int tmpInt2 = FindSign(aStrings[i], aStrings[j]);
+                std::vector<unsigned short int> tmpVec = ListDifference(aStrings[i], aStrings[j]);
+                tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
+                aSingleDifference.push_back(tmpTuple);
+            }
+            if(tmpInt == 2)
+            {
+                short int tmpInt2 = FindSign(aStrings[i], aStrings[j]);
+                std::vector<unsigned short int> tmpVec = ListDifference(aStrings[i], aStrings[j]);
+                tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
+                aDoubleDifference.push_back(tmpTuple);
+            }
+        }
+    }
+
+    std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > bSingleDifference;
+    std::vector< std::tuple<unsigned int, unsigned int, short int, std::vector<unsigned short int>> > bDoubleDifference;
+    for(unsigned int i = 0; i < bDim; i++)
+    {
+        for(unsigned int j = i + 1; j < bDim; j++)
+        {
+            tmpInt = CountDifferences(bStrings[i], bStrings[j]);
+            if(tmpInt == 1)
+            {
+                short int tmpInt2 = FindSign(bStrings[i], bStrings[j]);
+                std::vector<unsigned short int> tmpVec = ListDifference(bStrings[i], bStrings[j]);
+                tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
+                bSingleDifference.push_back(tmpTuple);
+            }
+            if(tmpInt == 2)
+            {
+                short int tmpInt2 = FindSign(bStrings[i], bStrings[j]);
+                std::vector<unsigned short int> tmpVec = ListDifference(bStrings[i], bStrings[j]);
+                tmpTuple = std::make_tuple(i, j, tmpInt2, tmpVec);
+                bDoubleDifference.push_back(tmpTuple);
+            }
+        }
+    }
+
+    unsigned int NonzeroElements = Dim + aSingleDifference.size() * bDim * 2 + bSingleDifference.size() * aDim * 2 + aDoubleDifference.size() * bDim * 2
+    + bDoubleDifference.size() * aDim * 2 + aSingleDifference.size() * bSingleDifference.size() * 4;
+    //Output << "Number of alpha singles: " << aSingleDifference.size() << "\nNumber of beta singles: " << bSingleDifference.size() 
+    //<< "\nNumber of alpha doubles: " << aDoubleDifference.size() << "\nNumber of beta doubles: " << bDoubleDifference.size() 
+    //<< "\nChecking " << NonzeroElements << " elements.\n" << std::endl;
+
+    std::cout << "done.\nFCI: Commencing with matrix initialization... " << std::endl;
+    Eigen::SparseMatrix<float, Eigen::RowMajor> Ham(Dim, Dim);
+    // Ham.reserve(Eigen::VectorXi::Constant(Dim,NonzeroElements));
+    // clock_t Timer = clock();
+    double Timer = omp_get_wtime();
+
+    typedef Eigen::Triplet<float> T;
+    std::vector<T> tripletList;
+    // std::vector< std::vector<T> > tripletList_Private(NumThreads);
+
+    tripletList.reserve(NonzeroElements);
+
+    /* The basis of the matrix is ordered by reverse lexicographic ordering (A,B) where A is the A'th  alpha orbital
+       and B is the B'th beta orbital. Essentially, this means we have beta blocks and inside each block is a matrix for
+       the alpha elements. */
+
+    /* Diagonal Elements */
+    /* Since I order the orbitals the same way in the bra and ket, there should be no sign change. There is a one electron
+       component (single particle Hamiltonian), two electron component (coulombic repulsion), and zero electron component
+       (nuclear repulsion). The nuclear repulsion term only appears in the diagonal. */
+    double NuclearEnergy = Inp.Integrals["0 0 0 0"]; // Nuclear repulsion, will shift total energy and needs to be added to diagonal.
+
+    // Isolated Core-Core interaction. This is excluded in the DMET impurity solver.
+    double CoreInteraction = 0;
+    for(int c = 0; c < 2 * NumCore; c++)
+    {
+        int cc = c % NumCore; // Loops back to handle both spins.
+        int CoreOrbital1 = Inp.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - cc] + 1; // Count from 1
+		bool c_isAlpha = true;
+		if (c > NumCore - 1)
+		{
+			c_isAlpha = false;
+		}
+        for(int d = c + 1; d < 2 * NumCore; d++)
+        {
+            int dd = d % NumCore;
+            int CoreOrbital2 = Inp.EnvironmentOrbitals[FragmentIndex][NumEnv - 1 - dd] + 1;
+			bool d_isAlpha = true;
+			if (d > NumCore - 1)
+			{
+				d_isAlpha = false;
+			}
+			CoreInteraction += TwoElectronIntegral(CoreOrbital1, CoreOrbital2, CoreOrbital1, CoreOrbital2, c_isAlpha, d_isAlpha, c_isAlpha, d_isAlpha, Inp.Integrals, RotationMatrix);
+        }
+        CoreInteraction += OneElectronEmbedding(Inp.Integrals, RotationMatrix, CoreOrbital1 - 1, CoreOrbital1 - 1);
+    }
+
+    std::vector< std::vector<unsigned short int> > aOrbitalList; // [Determinant Number][Occupied Orbital]
+    std::vector< std::vector<unsigned short int> > bOrbitalList;
+    for(unsigned short int i = 0; i < aDim; i++)
+    {
+        aOrbitalList.push_back(ListOrbitals(aStrings[i]));
+    }
+    for(unsigned short int j = 0; j < bDim; j++)
+    {
+        bOrbitalList.push_back(ListOrbitals(bStrings[j]));
+    }
+    #pragma omp parallel for
+    for(int i = 0; i < aDim; i++) // Loop through every matrix element
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        for(unsigned int j = 0; j < bDim; j++) // See above comment.
+        {
+            double tmpDoubleD = 0;
+            /* Zero electron operator */
+            // tmpDoubleD += NuclearEnergy; // Nuclear potential.
+            /* One electron operator */
+            for(int ii = 0; ii < aOrbitalList[i].size(); ii++)
+            {
+                tmpDoubleD += OneElectronEmbedding(Inp.Integrals, RotationMatrix, aOrbitalList[i][ii] - 1, aOrbitalList[i][ii] - 1);
+            }
+            for(int jj = 0; jj < bOrbitalList[j].size(); jj++)
+            {
+                tmpDoubleD += OneElectronEmbedding(Inp.Integrals, RotationMatrix, bOrbitalList[j][jj] - 1, bOrbitalList[j][jj] - 1);
+            }
+
+            /* Two electron operator in the notation <mn||mn> */
+            std::vector<unsigned short int> abOrbitalList = aOrbitalList[i]; // List of all orbitals, starting with alpha.
+            abOrbitalList.insert(abOrbitalList.end(), bOrbitalList[j].begin(), bOrbitalList[j].end());
+            for(unsigned short int n = 0; n < aElectrons + bElectrons; n++) // Sum over occupied orbitals n
+            {
+                for(unsigned short int m = n + 1; m < aElectrons + bElectrons; m++) // Sum over m > n
+                {
+                    bool n_isAlpha = true;
+                    bool m_isAlpha = true;
+                    if(n > aElectrons - 1) n_isAlpha = false; // Means we have looped through the alpha orbitals and are now looking at a beta orbital
+                    if(m > aElectrons - 1) m_isAlpha = false;
+                    tmpDoubleD += TwoElectronIntegral(abOrbitalList[m], abOrbitalList[n], abOrbitalList[m], abOrbitalList[n], m_isAlpha, n_isAlpha, m_isAlpha, n_isAlpha, Inp.Integrals, RotationMatrix);
+                }
+            }
+
+            tmpDoubleD -= CoreInteraction; // Removes the core-core interaction.
+
+			int NumSameImp = CountSameImpurity(aStrings[i], aStrings[i], Inp.FragmentOrbitals[FragmentIndex]) + CountSameImpurity(bStrings[j], bStrings[j], Inp.FragmentOrbitals[FragmentIndex]); // This totals the number of impurity orbitals in the alpha and beta lists.
+            tmpDoubleD -= ChemicalPotential * (double)NumSameImp; // Form of chemical potential matrix element.
+
+            // tripletList_Private[Thread].push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
+            tripletList_Private.push_back(T(i + j * aDim, i + j * aDim, tmpDoubleD));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+    std::cout << "FCI: ...diagonal elements completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+    // Output << "Diagonal elements generated in " << (omp_get_wtime() - Timer)  << " seconds." << std::endl;
+    // Timer = clock();
+    Timer = omp_get_wtime();
+
+    /* 
+       Now we begin setting the nonzero off-diagonal elements. We separate this into three groups.
+          1) Elements differing by one spin-orbital (one orbital in alpha and beta electrons)
+             This is achieved by looping through single differences of alpha (beta) and choosing
+             to keep beta (alpha) diagonal so that there is only one difference.
+          2) Elements differing by two spin-orbitals of the same spin.
+             This is achieved by looping through double differences of alpha (beta) and choosing
+             to keep beta (alpha) diagonal so that there is only two differences.
+          3) Elements differing by two spin-orbitals of different spin.
+             This is achieved by looping through single differences of both alpha and beta spaces
+             and gives us two differences composed of a one different alpha and one different beta
+             orbital.
+    */
+
+    /* 
+       We start with Group 1. The matrix of single differences in alpha is block diagonal in beta states,
+       but off diagonal in alpha states within that block.
+               |      *   * |            |            |
+               |        *   |            |            |
+               |          * |            |            |
+               |            |            |            |
+               |____________|____________|____________|
+               |            |      *   * |            |
+               |            |        *   |            |
+               |            |          * |            |
+               |            |            |            |
+               |____________|____________|____________|
+               |            |            |     *   *  |
+               |            |            |       *    |
+               |            |            |         *  |
+               |            |            |            |
+               |____________|____________|____________|
+      We denote the bra <...mn...|
+            and the ket |...pn...>
+
+      To find these elements, we are going to calculation <m|h|p> using the list of differences. Then we construct
+      an orbital list for this basis function and loop through all shared orbitals, meaning without m and p, and 
+      calculate the two electron operator contribution.
+
+      Matrix Elements: <m|h|p> + sum_n <mn||pn>
+    */
+    #pragma omp parallel for
+    for(int i = 0; i < aSingleDifference.size(); i++)
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        unsigned int Index1, Index2;
+        double tmpDouble1 = 0;
+        // First, add the one electron contribution.
+        tmpDouble1 += OneElectronEmbedding(Inp.Integrals, RotationMatrix, std::get<3>(aSingleDifference[i])[0] - 1, std::get<3>(aSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(aSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(aSingleDifference[i])[1]) + " 0 0"];
+
+        // Now, two electron contribution
+        for(unsigned int j = 0; j < bDim; j++)
+        {
+            double tmpDouble2 = 0;
+            std::vector<unsigned short int> KetOrbitalList = aOrbitalList[std::get<1>(aSingleDifference[i])]; // To make the orbital list of the bra, we take the list of the current alpha determinant...
+            KetOrbitalList.insert(KetOrbitalList.end(), bOrbitalList[j].begin(), bOrbitalList[j].end()); // ...and append the beta determinant, which is the same for bra and ket.
+            int pos_m = CountOrbitalPosition(std::get<3>(aSingleDifference[i])[1], true, KetOrbitalList, aElectrons); // Position in ket of orbital missing in bra.
+            for(unsigned short int n = 0; n < KetOrbitalList.size(); n++) // Sum over electrons in the Ket.
+            {
+                bool n_isAlpha = true; // Checks if we are looking at an alpha electron.
+                if(n > aElectrons - 1) n_isAlpha = false; // There are aElectrons alpha orbitals at the front of the list. After this, we are done looping over alpha orbitals.
+                if(n + 1 == pos_m) continue; // n shouldn't loop over different orbitals. We're looping over ket orbitals, so ignore the m.
+                tmpDouble2 += TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(aSingleDifference[i])[1], KetOrbitalList[n], true, n_isAlpha, true, n_isAlpha, Inp.Integrals, RotationMatrix);
+                // For this case, we know that m and p orbitals are alpha. n may or may not be alpha depending on the index of the sum.
+            }
+
+            if(fabs(tmpDouble1 + tmpDouble2) < MatTol) continue;
+
+            Index1 = std::get<0>(aSingleDifference[i]) + j * aDim; // Diagonal in beta states. Hop to other beta blocks.
+            Index2 = std::get<1>(aSingleDifference[i]) + j * aDim;
+
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
+            tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
+            tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i])*(tmpDouble1 + tmpDouble2)));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+
+    /* 
+       The matrix of single differences in beta is not block diagonal, but is diagonal within the
+       beta blocks that are off diagonal.
+               |            |            |            |
+               |            |  *         |            |
+               |            |     *      |            |
+               |            |        *   |            |
+               |____________|____________|____________|
+               |            |            |            |
+               |            |            |  *         |
+               |            |            |     *      |
+               |            |            |        *   |
+               |____________|____________|____________|
+               |            |            |            |
+               |            |            |            |
+               |            |            |            |
+               |            |            |            |
+               |____________|____________|____________|
+       
+       The matrix elements for bra and ket 
+       <...mn...|
+       |...pn...>
+       are: <m|h|p> + sum_n <mn||pn>
+    */
+    #pragma omp parallel for
+    for(int i = 0; i < bSingleDifference.size(); i++)
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        unsigned int Index1, Index2;
+        double tmpDouble1 = 0;
+        // First, add the one electron contribution.
+        tmpDouble1 += OneElectronEmbedding(Inp.Integrals, RotationMatrix, std::get<3>(bSingleDifference[i])[0] - 1, std::get<3>(bSingleDifference[i])[1] - 1); // Input.Integrals[std::to_string(std::get<3>(bSingleDifference[i])[0]) + " " + std::to_string(std::get<3>(bSingleDifference[i])[1]) + " 0 0"];
+
+        // Now, two electron contribution
+        for(unsigned int j = 0; j < aDim; j++)
+        {
+            double tmpDouble2 = 0;
+            std::vector<unsigned short int> KetOrbitalList = aOrbitalList[j]; // Same as before, but now we set the alpha orbital in front and then append the beta orbitals.
+            KetOrbitalList.insert(KetOrbitalList.end(), bOrbitalList[std::get<1>(bSingleDifference[i])].begin(), bOrbitalList[std::get<1>(bSingleDifference[i])].end());
+            int pos_m = CountOrbitalPosition(std::get<3>(bSingleDifference[i])[1], false, KetOrbitalList, aElectrons); // Position in ket of orbital missing in bra.
+            for(unsigned short int n = 0; n < KetOrbitalList.size(); n++) // Sum over orbitals in Ket.
+            {
+                bool n_isAlpha = true; // Checks if we are looking at an alpha electron.
+                if(n > aElectrons - 1) n_isAlpha = false; // Finished looping over all alpha electrons.
+                if(n + 1 == pos_m) continue; // n shouldn't loop over different orbitals. We're looping over ket orbitals, so ignore the m.
+                tmpDouble2 += TwoElectronIntegral(std::get<3>(bSingleDifference[i])[0], KetOrbitalList[n], std::get<3>(bSingleDifference[i])[1], KetOrbitalList[n], false, n_isAlpha, false, n_isAlpha, Inp.Integrals, RotationMatrix);
+                // In this case, both the unique orbitals are beta orbitals.
+            }
+
+            if(fabs(tmpDouble1 + tmpDouble2) < MatTol) continue;
+
+            Index1 = std::get<0>(bSingleDifference[i]) * aDim + j; // Loop through each same alpha state in each beta block.
+            Index2 = std::get<1>(bSingleDifference[i]) * aDim + j;
+
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
+            tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
+            tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(bSingleDifference[i]) * (tmpDouble1 + tmpDouble2)));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+
+    std::cout << "FCI: ...elements differing by one spin-orbital completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+    // Output << "Elements differing by one spin-orbital generated in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+
+    // Timer = clock();
+    Timer = omp_get_wtime();
+
+    /* Now Group 2. The elements of the matrix for two differences, exclusively alpha or beta spin-orbitals, has the same
+       matrix form as before. We have to loop through the other spins having no differences. 
+       The notation used to denote the bra and ket is
+       <...mn...|
+       |...pq...>
+       and the matrix element is <mn||pq> */
+    #pragma omp parallel for
+    for(int i = 0; i < aDoubleDifference.size(); i++)
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        unsigned int Index1, Index2;
+        for(unsigned int j = 0; j < bDim; j++)
+        {
+            /* This case is easier than the previous cases in that we do not need to obtain the list of similar orbitals,
+               we only need to calculate the two electron integral involving the two differing orbitals and we know that
+               both of these orbitals hold alpha electrons. */
+            double tmpDouble;
+            tmpDouble = TwoElectronIntegral(std::get<3>(aDoubleDifference[i])[0], std::get<3>(aDoubleDifference[i])[1], std::get<3>(aDoubleDifference[i])[2], std::get<3>(aDoubleDifference[i])[3], true, true, true, true, Inp.Integrals, RotationMatrix);
+            // The four electron differences, all of them alpha electrons.
+
+            if(fabs(tmpDouble) < MatTol) continue;
+            
+            Index1 = std::get<0>(aDoubleDifference[i]) + j * aDim;
+            Index2 = std::get<1>(aDoubleDifference[i]) + j * aDim;
+
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aDoubleDifference[i]) * tmpDouble));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aDoubleDifference[i]) * tmpDouble));
+            tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(aDoubleDifference[i]) * tmpDouble));
+            tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(aDoubleDifference[i]) * tmpDouble));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+
+    #pragma omp parallel for
+    for(int i = 0; i < bDoubleDifference.size(); i++)
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        unsigned int Index1, Index2;
+
+        for(unsigned int j = 0; j < aDim; j++)
+        {
+            double tmpDouble;
+            tmpDouble = TwoElectronIntegral(std::get<3>(bDoubleDifference[i])[0], std::get<3>(bDoubleDifference[i])[1], std::get<3>(bDoubleDifference[i])[2], std::get<3>(bDoubleDifference[i])[3], false, false, false, false, Inp.Integrals, RotationMatrix);
+            // The four electron differences, all of them beta electrons.
+
+            if(fabs(tmpDouble) < MatTol) continue;
+
+            Index1 = std::get<0>(bDoubleDifference[i]) * aDim + j; // Loop through each same alpha state in each beta block.
+            Index2 = std::get<1>(bDoubleDifference[i]) * aDim + j;
+
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(bDoubleDifference[i]) * tmpDouble));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(bDoubleDifference[i]) * tmpDouble));
+            tripletList_Private.push_back(T(Index1, Index2 , (double)std::get<2>(bDoubleDifference[i]) * tmpDouble));
+            tripletList_Private.push_back(T(Index2, Index1 , (double)std::get<2>(bDoubleDifference[i]) * tmpDouble));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+
+    /* Now Group 3. Unlike before, we don't have to loop over alpha or beta having no differences. We simply loop
+       over both alpha and beta having one difference. */
+    int H2OMemoryWorkAround = 0;
+    if(aSingleDifference.size() > 45000) // This is a workaround for the case of H2O. Cut down memory costs
+    {
+        // MatTol = 1E-12;
+        H2OMemoryWorkAround = 17000; // This is how many differences I exclude from each alpha and beta string.
+        // For H2O, the memory requirements are just too large. My work around is to increase the tolerance,
+        // and remove the highest excitations, which shouldn't contribute a great deal to the ground state.
+        // This is not systematic and I am not considering specific excitaitons.
+    }
+    #pragma omp parallel for
+    for(int i = 0; i < aSingleDifference.size() - H2OMemoryWorkAround; i++)
+    {
+        // int Thread = omp_get_thread_num();
+        std::vector<T> tripletList_Private;
+        unsigned int Index1, Index2;
+        for(unsigned int j = 0; j < bSingleDifference.size() - H2OMemoryWorkAround; j++)
+        {
+            double tmpDouble;
+            tmpDouble = TwoElectronIntegral(std::get<3>(aSingleDifference[i])[0], std::get<3>(bSingleDifference[j])[0], std::get<3>(aSingleDifference[i])[1], std::get<3>(bSingleDifference[j])[1], true, false, true, false, Inp.Integrals, RotationMatrix);
+            /* There is one alpha and one beta orbital mismatched between the bra and ket. According to the formula, we put the bra unique orbitals in first,
+               which are the first two arguments, the first one alpha and the second one beta. Then the next two arguments are the unique orbitals
+               of the ket. We know whether these electrons are alpha or beta. */
+
+            if(fabs(tmpDouble) < MatTol) continue;
+            Index1 = std::get<0>(aSingleDifference[i]) + aDim * std::get<0>(bSingleDifference[j]);
+            Index2 = std::get<1>(aSingleDifference[i]) + aDim * std::get<1>(bSingleDifference[j]);
+            // Note that the sign is the product of the signs of the alpha and beta strings. This is because we can permute them independently.
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            tripletList_Private.push_back(T(Index1, Index2 , (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            tripletList_Private.push_back(T(Index2, Index1 , (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
+			
+            /* We have to be a little more careful in this case. We want the upper triangle, but this only gives us half 
+               of the upper triangle. In particular, the upper half of each beta block in upper triangle of the full matrix
+               are the only nonzero elements. We want the whole beta block in the upper triangle of the full matrix to be
+               nonzero where needed.
+               |            |      *   * |      *   * |
+               |            |        *   |        *   |
+               |            |          * |          * |
+               |            |            |            |
+               |____________|____________|____________|
+               |            |            |      *   * |
+               |            |            |        *   |
+               |            |            |          * |
+               |            |            |            |
+               |____________|____________|____________|
+               |            |            |            |
+               |            |            |            |
+               |            |            |            |
+               |            |            |            |
+               |____________|____________|____________|
+               So we have to include some transposed elements too. It is enough to transpose the alpha indices. this
+               transposes each block above, and we end up with a fully upper triangular matrix. */
+            Index1 = std::get<1>(aSingleDifference[i]) + aDim * std::get<0>(bSingleDifference[j]);
+            Index2 = std::get<0>(aSingleDifference[i]) + aDim * std::get<1>(bSingleDifference[j]); // Note that first and second are switched for alpha here.
+
+            // tripletList_Private[Thread].push_back(T(Index1, Index2 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            // tripletList_Private[Thread].push_back(T(Index2, Index1 , (double)std::get<2>(aSingleDifference[i]) * (double)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            /* IDK why but this is the culprit to the memory issue */
+		    tripletList_Private.push_back(T(Index1, Index2 , (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
+            tripletList_Private.push_back(T(Index2, Index1 , (float)std::get<2>(aSingleDifference[i]) * (float)std::get<2>(bSingleDifference[j]) * tmpDouble));
+        }
+        #pragma omp critical
+        tripletList.insert(tripletList.end(), tripletList_Private.begin(), tripletList_Private.end());
+    }
+
+    std::cout << "FCI: ...elements differing by two spin-orbitals completed in " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+
+    Ham.setFromTriplets(tripletList.begin(), tripletList.end());
+    std::vector<T>().swap(tripletList); // This clears the memory, but I'm unsure if it does or doesn't increase the memory usage to do so
+
+    std::cout << "FCI: Hamiltonian initialization took " << (omp_get_wtime() - Start) << " seconds." << std::endl;
+
+    /* This section is for direct diagonalization. Uncomment if desired. */
+    Timer = omp_get_wtime();
+
+    Hamiltonian = Ham;
+    return Hamiltonian;
+//     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXf > HamEV;
+//     HamEV.compute(HamDense);
+
+//     std::cout << " done" << std::endl;
+//     std::cout << "FCI: Direct Diagonalization took " << (omp_get_wtime() - Timer) << " seconds." << std::endl;
+//  //   Output << "\nDirect Diagonalization took " << (omp_get_wtime() - Timer) << " seconds.\nThe eigenvalues are" << std::endl;
+//     // std::cout << "FCI: The eigenvaues are";
+//     std::vector< double > FCIEnergies;
+//     for(int k = 0; k < State + 1; k++)
+//     {
+//         FCIEnergies.push_back(HamEV.eigenvalues()[k]);
+//         // std::cout << "\n" << HamEV.eigenvalues()[k];
+// //        Output << "\n" << HamEV.eigenvalues()[k];
+//     }
+// 	Eigenstate = HamEV.eigenvectors().col(State).cast<double>();
+
+//     DensityMatrix = Form1RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings);
+// 	TwoRDM = Form2RDM(Input, FragmentIndex, HamEV.eigenvectors().col(State), aStrings, bStrings, DensityMatrix);
+
+// 	/* Now we calculate the fragment energy */
+// 	double Energy = 0;
+// 	std::vector<int> FragPos;
+// 	std::vector<int> BathPos;
+// 	GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+
+// 	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
+// 	{
+// 		int iOrbital = ReducedIndexToOrbital(FragPos[i], Input, FragmentIndex);
+// 		for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
+// 		{
+// 			int jOrbital = ReducedIndexToOrbital(j, Input, FragmentIndex);
+// 			for (int k = 0; k < DensityMatrix.rows(); k++)
+// 			{
+// 				int kOrbital = ReducedIndexToOrbital(k, Input, FragmentIndex);
+// 				for (int l = 0; l < DensityMatrix.rows(); l++)
+// 				{
+// 					int lOrbital = ReducedIndexToOrbital(l, Input, FragmentIndex);
+// 					Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+// 				}
+// 			}
+// 			Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Input.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+// 		}
+// 	}
+
+//     FCIEnergies[0] = Energy; // I don't see a need to save all lower states, so let's just put it in the bottom of the vector.
+    
+//     std::cout << "\nFCI: Total running time: " << (omp_get_wtime() - Start) << " seconds." << std::endl;
+}
+
+void FCI::doSigmaFCI(double w)
+{
+    Eigen::MatrixXd dSigma = Hamiltonian * Hamiltonian - 2.0 * w * Hamiltonian;
+    // Diagonalize once.
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> HamEV;
+    HamEV.compute(dSigma);
+    Eigen::VectorXd EVecOld = Eigen::VectorXd::Zero(HamEV.eigenvectors().rows());
+    while ((EVecOld - HamEV.eigenvectors().col(0)).squaredNorm() > 1E-3 && (EVecOld + HamEV.eigenvectors().col(0)).squaredNorm() > 1E-3)
+    {
+        EVecOld = HamEV.eigenvectors().col(0);
+        // Calculate the new Energy Expectation.
+        double ExpE = HamEV.eigenvectors().col(0).transpose() * Hamiltonian * HamEV.eigenvectors().col(0);
+        dSigma = Hamiltonian * Hamiltonian - 2.0 * ExpE * Hamiltonian;
+        HamEV.compute(dSigma);
+    }
+}
+
+double FCI::RDMFromHenryFCI(Eigen::VectorXd Eigenstate, int FragmentIndex, Eigen::MatrixXd RotationMatrix)
+{
+    Eigen::MatrixXd DensityMatrix = Form1RDM(Inp, FragmentIndex, Eigenstate, aStrings, bStrings);
+	Eigen::Tensor<double, 4> TwoRDM = Form2RDM(Inp, FragmentIndex, Eigenstate, aStrings, bStrings, DensityMatrix);
+
+	/* Now we calculate the fragment energy */
+	double Energy = 0;
+	std::vector<int> FragPos;
+	std::vector<int> BathPos;
+	GetCASPos(Inp, FragmentIndex, FragPos, BathPos);
+
+	for (int i = 0; i < FragPos.size(); i++) // sum over impurity orbitals only
+	{
+		int iOrbital = ReducedIndexToOrbital(FragPos[i], Inp, FragmentIndex);
+		for (int j = 0; j < DensityMatrix.rows(); j++) // sum over all imp and bath orbitals
+		{
+			int jOrbital = ReducedIndexToOrbital(j, Inp, FragmentIndex);
+			for (int k = 0; k < DensityMatrix.rows(); k++)
+			{
+				int kOrbital = ReducedIndexToOrbital(k, Inp, FragmentIndex);
+				for (int l = 0; l < DensityMatrix.rows(); l++)
+				{
+					int lOrbital = ReducedIndexToOrbital(l, Inp, FragmentIndex);
+					Energy += 0.5 * TwoRDM(FragPos[i], k, l, j) * TwoElectronEmbedding(Inp.Integrals, RotationMatrix, iOrbital, kOrbital, jOrbital, lOrbital);
+				}
+			}
+			Energy += 0.5 * DensityMatrix(FragPos[i], j) * (OneElectronEmbedding(Inp.Integrals, RotationMatrix, iOrbital, jOrbital) + OneElectronPlusCore(Input, RotationMatrix, FragmentIndex, iOrbital, jOrbital));
+		}
+	}
+
+    return Energy; // I don't see a need to save all lower states, so let's just put it in the bottom of the vector.
+}
+
+// Sigma-FCI functions
+
+bool FCI::sigmaFCI(const int N, const int No, const int Nstr,
+	const int N0, const int NS,
+    //const double *ha, const double *hb, const double *Vaa, const double *Vbb, const double *Vab,
+    const double *h, const double *V, const double w,
+    vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+	const int MAXITER, const double THRESH, const bool iprint)
+{
+    int i,j,k,l,m,a,b,ij,kl,ab,ii,jj,kk,ll,ierr,Info;
+    int iX,iS,iSpin,iSym;
+    iv1 Iocc(No), Isubst(No), Istr(N0);
+    double Energy, DE, fac, norm, eps, offset;
+    MatrixXd Hd, H0, U0, X, X1, XH, X1H, Xtmp;
+    VectorXd E0;    Matrix2d Hm, U; Vector2d Eig;
+    const double zero = 0., one = 1., two = 2., three = 3., four = 4.;
+
+	__s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+
+	const int N2 = nchoosek(N, 2),
+		  Max1 = nchoosek(N - 1, No - 1),
+		  Max2 = nchoosek(N - 2, No - 2);
+
+	iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(N, No, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    Energy = zero; fac = one;
+//  Build Diagonal part of H
+    Hd.setZero(Nstr, Nstr);
+    GetHd(N, No, Nstr, Zindex, h, V, Iocc, Isubst, Hd, 0);
+
+//  Get N0 lowest strings
+    GetIstr(N, No, Nstr, N0, Hd, Istr);
+    Isort(N0, Istr, &Info);
+
+//  Build + Diagonalize H0
+    H0.setZero(N0 * N0, N0 * N0);
+    GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr, h, V, H0);
+    eigh(H0, U0, E0);
+
+//  Big loop over states
+    iX = -1;
+    for (iS = 0; iS < NS; iS++)
+//  Initial vector for this state (ensure it is a singlet for now)
+//  This restarts from the input Xi vector if Xi is nonzero
+    {
+        X = Xi[iS]; iSpin = 1;  norm = X.squaredNorm ();
+        if (norm < 1.E-2)
+        {
+            iSpin = -1;
+            while (iSpin == -1)
+            {
+                iX++;
+                X.setZero (Nstr, Nstr); ij = -1;
+                for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
+                {
+//  Initialize X with eigenvectors of H0
+                    ij++;   X(Istr[j], Istr[i]) = U0(ij, iX);
+                }
+                X1 = X; X1 -= X.transpose ();
+                norm = X1.squaredNorm () / X.squaredNorm ();
+                if (norm < 1.E-2)   iSpin = 1;
+            }
+        }
+
+//  Check if the state has even (+1) or odd (-1) S
+//  Even is singlet, quintet...  | Odd is triplet, sestet...
+        X1 = X - X.transpose ();
+        norm = X1.squaredNorm ();
+        Sym[iS] = iSym = (norm<=0.1) ? (1) : (-1);
+
+//  Fix up broken spin symmetry (if it exists)
+        GS(X, Xi, iS);
+
+//  Compute Initial guess energy
+        XH.setZero (Nstr, Nstr);
+        HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, h, V, XH);
+        Eigen::MatrixXd XHtmp = XH;
+        HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, h, V, XH);
+        XH = XH - 2.0 * w * XHtmp;
+        Energy = MDOT(X, XH);
+
+		if (iprint)
+		{
+			cout << "\t----------------------------------------------" << endl;
+			cout << "\titer      total energy       error     rel var" << endl;
+			cout << "\t----------------------------------------------" << endl;
+		}
+//  Iteratively determine eigenvalue #iS of the Hamiltonian
+        fac = 1.;  iter = 0;
+        while (fabs (fac) > THRESH && iter < MAXITER)
+        {
+            iter++; DE = Energy; offset = (iter < 2) ? (1.E-10) : (0);
+            MatrixXd mat_offset = MatrixXd::Constant (Nstr, Nstr, offset);
+            MatrixXd mat_E = MatrixXd::Constant (Nstr, Nstr, Energy);
+//  Make the (orthogonal component of the) Davidson Update
+            X1 = -(XH - Energy * X).cwiseQuotient (Hd - mat_E - mat_offset);
+//  Build (H0-Energy)^-1 (excluding eigenvalues that might blow up)
+            H0.setZero ();
+            for (k = 0; k < N0 * N0; k++)
+            {
+                fac = E0(k) - Energy;
+                if (fabs (fac) > 1.E-2)  fac = 1. / fac;
+                else    fac = 0.;
+                for (i = 0; i < N0 * N0; i++) for (j = 0; j < N0 * N0; j++)
+                    H0(i, j) += U0(i, k) * U0(j, k) * fac;
+            }
+
+//  Build the Davidson Update using H0
+            ij = -1;
+            for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
+            {
+                ij++;   kl = -1;
+                X1(Istr[j], Istr[i]) = zero;
+                for (k = 0; k < N0; k++)    for (l = 0; l < N0; l++)
+                {
+                    kl++;
+                    X1(Istr[j], Istr[i]) -= H0(ij, kl) *
+                        (XH(Istr[l], Istr[k]) - Energy * X(Istr[l], Istr[k])
+                        + mat_offset(Istr[l], Istr[k]));
+                }
+            }
+
+//  Apply Spin Symmetry and Gramm-Schmidt to Update
+            Xtmp = iSym * X1.transpose ();  X1 = 0.5 * (X1 + Xtmp);
+            X1.normalize ();
+            norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+            norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+
+//  Correct if Davidson has given us a bad vector.
+//  X1 should not be orthogonal to (H-E)X
+//  If it is (nearly) orthogonal, add a bit of (H-E)X to X1
+//  If we don't do this, it occasionally gives false convergence
+//  This should happen rarely and eps controls how often
+//  this correction is invoked.
+//  A more elegant fix might be to just have a better
+//  preconditioner.
+            X1H = XH - Energy * X + mat_offset;
+            GS(X1H, Xi, iS); X1H.normalize ();
+            eps = 1.E-1;    fac = fabs (MDOT(X1, X1H));
+            if (fac < eps)
+            {
+                X1 += 2. * eps * X1H;
+                norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+                norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+            }
+
+//  Make X1 orthogonal to lower eigenvectors
+            GS(X1, Xi, iS);
+
+//  Act H on Davidson Vector
+            HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X1, h, V, X1H);
+            Eigen::MatrixXd X1Htmp = X1H;
+            HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X1, h, V, X1H);
+            X1H = X1H - 2.0 * w * X1Htmp;
+
+//  Build Hm
+            Hm(0, 0) = MDOT(X, XH);
+            Hm(1, 1) = MDOT(X1, X1H);
+            Hm(0, 1) = Hm(1, 0) = MDOT(X, X1H);
+
+//  Diagonalize Hm
+            eigh2(Hm, U, Eig);
+
+//  Keep Lowest Eigenvector
+            if (iter < 50 || iter % 10)
+            {
+                fac = U(1, 0);
+                X = U(0, 0) * X + U(1, 0) * X1;
+                XH = U(0, 0) * XH + U(1, 0) * X1H;
+            }
+            else
+//  If convergence is slow, sometimes it is because we are
+//  Swiching back and forth between two near-solutions. To
+//  fix that, every once in a while, we take half the step.
+//  A more elegant fix might be to use more than one Davidson
+//  vectors in the space.
+            {
+                fac = fabs(0.5 * U(1, 0));
+                norm = one / sqrt (one + fac * fac);
+                X = norm * (X + fac * X1);
+                XH = norm * (XH + fac * X1H);
+            }
+//  Normalize X and XH
+            norm = X.norm ();   X /= norm;  XH /= norm;
+
+//  Avoid accumulating roundoff error
+            if (iter % 4 == 0)
+                HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, h, V, XH);
+
+            Energy = MDOT(X, XH) / X.squaredNorm ();
+			Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
+
+			//  Standard output
+			if (iprint)
+				printf("\t%4d   % 15.11F   % .2E   % .2E\n", iter, Energy,
+					fac, Uncertainty[iS]);
+
+//  End of the Loop for FCI iteration
+        }
+          //printf ("Done after %4d iterations.\n", iter);
+//  Energy, Uncertainty for THIS State
+        HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, h, V, XH);
+        Energy = MDOT(X,XH) / X.squaredNorm ();
+        Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
+        Xi[iS] = X; Ei[iS] = Energy;
+//  Check if the state has even (+1) or odd (-1) S
+//  Even is singlet, quintet...  | Odd is triplet, sestet...
+        X1 = X - X.transpose ();
+        norm = X1.squaredNorm ();
+        Sym[iS] = (norm<=0.1) ? (1) : (-1);
+//  End of the BIG Loop over States
+    }
+	if (iprint)
+		cout << "\t----------------------------------------------" << endl;
+    return fabs(fac) < THRESH;
+}
+
+void HHXmin2wH(const int N, const int No, const int N2,
+    const int Max1, const int Max2, const int Nstr,
+    const iv3& Ex1, const iv3& Ex2, const MatrixXd& X, const double *h,
+    const double *V, const double w, MatrixXd& Y)
+{
+    int i,j,k,l,ij,kl,ii,jj,I1,I2,iiMax,J1,J2,jjMax,ik,jl;
+    iv2 ifzero(N, iv1(N));  iv3 AEx1(Max1, iv2(N, iv1(N)));
+    int IfSym;
+    double Vtmp,VS,VSS,htmp,hS,Tmp,Spin;
+    MatrixXd Xtmp, Ytmp;
+    bool flag;
+    const double zero = 0., one = 1., two = 2., three = 3., four = 4.;
+
+    Y.setZero (Nstr, Nstr);
+    for (i = 0;i < Max1;i++)  for (j = 0;j < N;j++) for (k = 0;k < N;k++)
+        AEx1[i][j][k] = abs (Ex1[i][j][k]);
+
+//  Check Spin Symmetry of X
+    Spin = one; Y = X;  Y -= X.transpose ();    Tmp = Y.squaredNorm ();
+    if (Tmp > 1.E-1)    Spin = -one;
+    Y.setZero ();
+
+//  Check for Zero Blocks in V
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+		flag = true;
+        for (j = 0; j < N && flag; j++) for (l = 0; l < N && flag; l++)
+            if (fabs (V[ind4(i,k,j,l)]) > 1.E-10)    flag = false;
+        if (flag)   ifzero[i][k] = 1;
+    }
+
+//  Check Symmetry of V
+// Don't need this in current version, as we always assume
+//      <ij|kl> == <ji|lk>, i.e. e1 and e2 are exchangeable
+/*    IfSym = 1;  flag = true;
+    for (i = 0; i < N && flag; i++) for (k = 0; k < N && flag; k++)
+    {
+        ik = cpind(i,k);
+        for (j = 0; j < N && flag; j++) for (l = 0; l < N && flag; l++)
+        {
+            jl = cpind(j,l);
+            if (fabs (V[cpind(ik,jl)] - V[cpind(jl,ik)]) > 1.E-10)
+            {   flag = false;   IfSym = 0;  }
+        }
+    }
+*/
+
+// One Electron Part
+    for (i = 0; i < N; i++) for (j = 0; j < N; j++)
+    {
+        htmp = h[ind2(i,j)];
+        if (fabs (htmp) < 1.E-10)   continue;
+        if (i == j) iiMax = nchoosek(N - 1, No - 1);
+        else    iiMax = nchoosek(N - 2, No - 1);
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][j];    I2 = AEx1[ii][j][i];
+            hS = (I1 == Ex1[ii][i][j]) ? (htmp) : (-htmp);
+            Y.col (I2 - 1) += X.col (I1 - 1) * hS;
+        }
+    }
+
+//  Same Spin Two-Electron Part
+    int IK, IL, JK, JL;
+    ij = -1;
+    for (i = 0; i < N; i++) for (j = i + 1; j < N; j++)
+    {
+        ij++;   kl = -1;
+        for (k = 0; k < N; k++) for (l = k + 1; l < N; l++)
+        {
+            kl++;
+            Vtmp = (V[ind4(i,k,j,l)] - V[ind4(i,l,j,k)] -
+                V[ind4(j,k,i,l)] + V[ind4(j,l,i,k)]) / two;
+            if (fabs (Vtmp) > 1.E-10)
+            {
+                if (i == k && j == l)   iiMax = nchoosek(N - 2, No - 2);
+                else if (i == k)    iiMax = nchoosek(N - 3, No - 2);
+                else if (i == l)    iiMax = nchoosek(N - 3, No - 2);
+                else if (j == k)    iiMax = nchoosek(N - 3, No - 2);
+                else if (j == l)    iiMax = nchoosek(N - 3, No - 2);
+                else    iiMax = nchoosek(N - 4, No - 2);
+                for (ii = 0; ii < iiMax; ii++)
+                {
+                    I1 = abs (Ex2[ii][ij][kl]);  I2 = abs (Ex2[ii][kl][ij]);
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vtmp) : (-Vtmp);
+                    Y.col (I2 - 1) += VS * X.col (I1 - 1);
+                }
+            }
+        }
+    }
+
+//  Opposite Spin Two-Electron Part
+    ik = -1;
+    Xtmp.setZero (Max1, Nstr);
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+        ik++;   jl = -1;
+        if (ifzero[i][k])   continue;
+        if (i == k) iiMax = nchoosek(N - 1, No - 1);
+        else    iiMax = nchoosek(N - 2, No - 1);
+
+//  Gather together phases in Xtmp
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][k];
+            VS = (I1 == Ex1[ii][i][k]) ? (one) : (-one);
+            for (jj = 0; jj < Nstr; jj++)
+                Xtmp(ii, jj) = X(I1 - 1, jj) * VS;
+        }
+
+//  Collect Elements of Ytmp
+        Ytmp.setZero (Max1, Nstr);
+        for (j = 0; j < N; j++) for (l = 0; l < N; l++)
+        {
+            jl++;
+            //if (IfSym)    // As mentioned above, sym is not needed
+            if (ik < jl)    continue;
+            if (ik == jl)   Vtmp = V[ind4(i,k,j,l)] / two;
+            if (ik > jl)    Vtmp = V[ind4(i,k,j,l)];
+            if (fabs (Vtmp) < 1.E-10)   continue;
+
+            if (j == l) jjMax = nchoosek(N - 1, No - 1);
+            else    jjMax = nchoosek(N - 2, No - 1);
+
+            for (jj = 0; jj < jjMax; jj++)
+            {
+                J1 = AEx1[jj][j][l];    J2 = AEx1[jj][l][j];
+                VS = (J1 == Ex1[jj][j][l]) ? (Vtmp) : (-Vtmp);
+                Ytmp.col (J2 - 1) += Xtmp.col (J1 - 1) * VS;
+            }
+        }
+
+//  Scatter Elements of Y
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][k][i];
+            for (jj = 0; jj < Nstr; jj++)
+                Y(I1 - 1, jj) += Ytmp(ii, jj);
+        }
+    }
+//  Enforce MS = 0
+    MatrixXd Ytemp = Spin * Y.transpose ();
+    Y += Ytemp;
+}
+
 // The following code is from troyfci.cpp
 
 void eigh(const MatrixXd& A, MatrixXd& U, VectorXd& D)

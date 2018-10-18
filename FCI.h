@@ -38,8 +38,8 @@ class FCI
 
         std::vector<int> aCoreList, bCoreList, aActiveList, bActiveList, aVirtualList, bVirtualList;
 
-        // std::vector< std::vector<bool> > aStrings;
-        // std::vector< std::vector<bool> > bStrings;
+        std::vector< std::vector<bool> > aStrings;
+        std::vector< std::vector<bool> > bStrings;
 
         double *aOEI;
         double *bOEI;
@@ -60,6 +60,12 @@ class FCI
         std::vector<double> Symmetries;
         std::vector<double> FCIErrors;
 
+        // Some things I put in for sigmaFCI
+        Eigen::MatrixXd Hamiltonian;
+        Eigen::VectorXd SigmaFCIVector;
+        Eigen::MatrixXd Henry1RDM;
+        Eigen::Tensor<double, 4> Henry2RDM;
+
         std::vector< Eigen::MatrixXd > OneRDMs;
         std::vector< std::vector<double> > TwoRDMs;
         // std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
@@ -76,6 +82,9 @@ class FCI
         void getSpecificRDM(int, bool);
         void getRDM(bool);
         double calcImpurityEnergy(int, std::vector<int>);
+        Eigen::MatrixXd GenerateHamiltonian(int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
+        void doSigmaFCI(double);
+        double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd);
 
     private:
         void InitFromInput(InputObj&);
@@ -96,4 +105,10 @@ class FCI
                   MatrixXd& X, const double *ha, const double *hb,
                   const double *Vaa, const double *Vab, const double *Vbb,
                   MatrixXd& XH);
+
+        bool sigmaFCI(const int N, const int No, const int Nstr,
+                    const int N0, const int NS,
+                    const double *h, const double *V, const double w, vMatrixXd& Xi,
+                    dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+                    const int MAXITER, const double THRESH, const bool iprint);
 };
