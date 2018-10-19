@@ -84,7 +84,7 @@ class FCI
         double calcImpurityEnergy(int, std::vector<int>);
         Eigen::MatrixXd GenerateHamiltonian(int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
         void doSigmaFCI(double);
-        double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd);
+        double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);
 
     private:
         void InitFromInput(InputObj&);

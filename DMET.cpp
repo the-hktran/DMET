@@ -1196,24 +1196,35 @@ int main(int argc, char* argv[])
                 // FCIEnergies = ImpurityFCI(Fragment1RDM, Input, x, RotationMatrix, ChemicalPotential, ImpurityStates[x], Fragment2RDM[x], FragmentEigenstates[x]);
                 // FragmentEnergies[x] = FCIEnergies;
 
-                // Now, solve the impurity. - This is using TroyFCI
+                // ***** The following solves the impurity using code from TroyFCI
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
-                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
-                myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
-                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                myFCI.runFCI();
-                myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                // myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                // myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
+                // myFCI.runFCI();
+                // myFCI.getSpecificRDM(ImpurityStates[x], true);
                 
-                Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
+                // Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
+                // std::vector<double> tmpDVec;
+                // for (int ii = 0; ii < Input.NumberOfEV; ii++)
+                // {
+                //     std::cout << myFCI.Energies[ii] << std::endl;
+                // }
+                // tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                // FragmentEnergies[x] = tmpDVec;
+                // ***** END IMPURITY CALCULATION WITH TROYFCI
+
+                // ***** An impurity solver using HenryFCI for sigma FCI
+                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                myFCI.GenerateHamiltonian(x, RotationMatrix, ChemicalPotential, 0);
+                myFCI.doSigmaFCI(-3.0);
                 std::vector<double> tmpDVec;
-                for (int ii = 0; ii < Input.NumberOfEV; ii++)
-                {
-                    std::cout << myFCI.Energies[ii] << std::endl;
-                }
-                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
+                tmpDVec.push_back(myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, Fragment1RDM));
                 FragmentEnergies[x] = tmpDVec;
+                // ***** END
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.
