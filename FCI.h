@@ -76,7 +76,8 @@ class FCI
 
         void ERIMapToArray(std::map<std::string, double>&);
         void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd RotationMatrix, std::vector<int> ActiveOrbitals);
-        void ERIMapToArray(std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList);
+        void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList);
+        void RotateERI(double*, double*, Eigen::MatrixXd, Eigen::MatrixXd, double*, double*, double*, double*, double*)
         void AddChemicalPotentialGKLC(std::vector<int>, double);
         void runFCI();
         void getSpecificRDM(int, bool);
@@ -97,6 +98,11 @@ class FCI
                     const double *h, const double *V, vMatrixXd& Xi,
                     dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
                     const int MAXITER, const double THRESH, const bool iprint);
+        bool FCIman(const int N, const int No, const int Nstr,
+                    const int N0, const int NS,
+                    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
+                    vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+                    const int MAXITER, const double THRESH, const bool iprint) // This is the unrestricted version of Troy's FCI code.
         void RDM12(const int N, const int No, const int Nstr,
                    const MatrixXd& X, MatrixXd& D, dv1& G, const bool compute_rdm2);
         void HX_(const int N, const int No, const int Nstr,

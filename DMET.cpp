@@ -422,11 +422,12 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
             {
                 for(int s = 0; s < bRotationMatrix.rows(); s++)
                 {
-                    Vcdef += aRotationMatrix(p, c) * bRotationMatrix(q, d) * Integrals[std::to_string(p + 1) + " " + std::to_string(r + 1) + " " + std::to_string(q + 1) + " " + std::to_string(s + 1)] * aRotationMatrix(r, e) * bRotationMatrix(s, f);
+                    Vcdef += bRotationMatrix(p, c) * aRotationMatrix(q, d) * Integrals[std::to_string(p + 1) + " " + std::to_string(r + 1) + " " + std::to_string(q + 1) + " " + std::to_string(s + 1)] * bRotationMatrix(r, e) * aRotationMatrix(s, f);
                 }
             }
         }
     }
+    // The way I have it defined here, it returns (ij|kl) where ij are beta orbitals and kl are alpha orbitals. This works with HongZhou's implementation of U-FCI.
     return Vcdef;
 }
 
@@ -1219,7 +1220,19 @@ int main(int argc, char* argv[])
                 // ***** An impurity solver using HenryFCI for sigma FCI
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 myFCI.GenerateHamiltonian(x, RotationMatrix, ChemicalPotential, 0);
-                myFCI.doSigmaFCI(-3.0);
+                if (x == 0 && MuIteration == 0)
+                {
+                    std::ofstream w_scan("w_scan8_4site.out");
+                    for (double w = -4.50; w < 6.00; w += 0.01)
+                    {
+                        myFCI.doSigmaFCI(w);
+                        std::vector<double> dbgDVec;
+                        Eigen::MatrixXd dbgFragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                        double Ex = myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, dbgFragment1RDM);
+                        w_scan << w << "\t" << Ex * 2.0 << std::endl;
+                    }
+                }
+                myFCI.doSigmaFCI(-6.00);
                 std::vector<double> tmpDVec;
                 Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
                 tmpDVec.push_back(myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, Fragment1RDM));

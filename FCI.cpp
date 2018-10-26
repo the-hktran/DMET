@@ -276,7 +276,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
     ENuc = ERIMap["0 0 0 0"];
 }
 
-void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::string, double> &bERIMap, std::map<std::string, double> &abERIMap, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList)
+void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList)
 {
     int aN = aActiveList.size();
     aOEI = new double[aN * aN];
@@ -287,18 +287,18 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
     {
         for (int j = 0; j < aN; j++)
         {
-            aOEI[i * aN + j] = OneElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aActiveList[j]);
+            aOEI[i * aN + j] = OneElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[j]);
             for (int k = 0; k < aN; k++)
             {
                 for (int l = 0; l < aN; l++)
                 {
-                    aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
+                    aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
                 }
             }
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
             }
             aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
         }
@@ -312,18 +312,18 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
     {
         for (int j = 0; j < bN; j++)
         {
-            bOEI[i * bN + j] = OneElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bActiveList[j]);
+            bOEI[i * bN + j] = OneElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[j]);
             for (int k = 0; k < bN; k++)
             {
                 for (int l = 0; l < bN; l++)
                 {
-                    bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bActiveList[k], bActiveList[j], bActiveList[l]);
+                    bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[k], bActiveList[j], bActiveList[l]);
                 }
             }
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
             }
             bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
         }
@@ -338,13 +338,66 @@ void FCI::ERIMapToArray(std::map<std::string, double> &aERIMap, std::map<std::st
             {
                 for (int l = 0; l < bN; l++)
                 {
-                    abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(abERIMap, aRotationMatrix, bRotationMatrix, bActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
+                    abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, bActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
                 }
             }
         }
     }
 
-    ENuc = aERIMap["0 0 0 0"];
+    ENuc = ERIMap["0 0 0 0"];
+}
+
+void FCI::RotateERI(double *h, double *V, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb, double *ha, double *hb, double *Vaa, double *Vab, double *Vbb)
+{
+    int N = Ra.rows();
+    __s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            double hija = 0.0;
+            double hijb = 0.0;
+            for (int ii = 0; ii < N; ii++)
+            {
+                for (int jj = 0; jj < N; jj++)
+                {
+                    hija += Ra.coeffRef(ii, i) * h[ind2(ii, jj)] * Ra.coeffRef(jj, j);
+                    hijb += Rb.coeffRef(ii, i) * h[ind2(ii, jj)] * Rb.coeffRef(jj, j);
+                }
+            }
+            ha[ind2(i, j)] = hija;
+            hb[ind2(i, j)] = hijb;
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    double Vijklaa = 0.0;
+                    double Vijklab = 0.0;
+                    double Vijklbb = 0.0;
+                    for (int ii = 0; ii < N; ii++)
+                    {
+                        for (int jj = 0; jj < N; jj++)
+                        {
+                            for (int kk = 0; kk < N; kk++)
+                            {
+                                for (int ll = 0; ll < N; ll++)
+                                {
+                                    Vijklaa += Ra.coeffRef(ii, i) * Ra.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Ra.coeffRef(jj, j) * Ra.coeffRef(ll, l);
+                                    Vijklab += Rb.coeffRef(ii, i) * Ra.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Rb.coeffRef(jj, j) * Ra.coeffRef(ll, l);
+                                    Vijklbb += Rb.coeffRef(ii, i) * Rb.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Rb.coeffRef(jj, j) * Rb.coeffRef(ll, l);
+                                }
+                            }
+                        }
+                    }
+                    Vaa[ind4(i, j, k, l)] = Vijklaa;
+                    Vab[ind4(i, j, k, l)] = Vijklab;
+                    Vbb[ind4(i, j, k, l)] = Vijklbb;
+                }
+            }
+        }
+    }
 }
 
 void FCI::AddChemicalPotentialGKLC(std::vector<int> FragPos, double Mu)
@@ -1089,9 +1142,11 @@ void FCI::doSigmaFCI(double w)
     Eigen::MatrixXd dSigma = Hamiltonian * Hamiltonian - 2.0 * w * Hamiltonian;
     // Diagonalize once.
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> HamEV;
+    HamEV.compute(Hamiltonian);
+    std::cout << "Energies\n" << HamEV.eigenvalues() << std::endl;
     HamEV.compute(dSigma);
     Eigen::VectorXd EVecOld = Eigen::VectorXd::Zero(HamEV.eigenvectors().rows());
-    while ((EVecOld - HamEV.eigenvectors().col(0)).squaredNorm() > 1E-3 && (EVecOld + HamEV.eigenvectors().col(0)).squaredNorm() > 1E-3)
+    while ((EVecOld - HamEV.eigenvectors().col(0)).squaredNorm() > 1E-6 && (EVecOld + HamEV.eigenvectors().col(0)).squaredNorm() > 1E-6)
     {
         EVecOld = HamEV.eigenvectors().col(0);
         // Calculate the new Energy Expectation.
@@ -1803,6 +1858,55 @@ void GetHd(const int N, const int No, const int Nstr, const iv2& Zindex,
     return;
 }
 
+void GetHd(const int N, const int No, const int Nstr, const iv2& Zindex,
+    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
+    iv1& Iocca, iv1& Ioccb, MatrixXd& Hd, const int IRecur)
+{
+    int i,j,imin,jmin,k,ka,kb,l,la,lb,Isigna,Isignb;
+    int kka, kkb, lla, llb, kla, klb;
+    double tmp;
+
+    if (IRecur == 0)    imin = jmin = 0;
+    else
+    {
+        imin = Iocca[IRecur - 1] + 1;
+        jmin = Ioccb[IRecur - 1] + 1;
+    }
+
+    for (i = imin; i < N; i++)
+    {
+        Iocca[IRecur] = i;
+        for (j = jmin; j < N; j++)
+        {
+            Ioccb[IRecur] = j;
+            if (IRecur == No - 1)
+            {
+                tmp = 0.;
+                for (k = 0; k < No; k++)
+                {
+                    ka = Iocca[k];  kb = Ioccb[k];
+					kka = ind2(ka,ka);	kkb = ind2(kb,kb);
+//  Spin Contaminated Elements
+                    tmp += ha[kka] + hb[kkb];
+                    for (l = 0; l < No; l++)
+                    {
+                        la = Iocca[l];  lb = Ioccb[l];
+                        tmp += 0.5 * (
+                            Vaa[ind4(ka,ka,la,la)] - Vaa[ind4(ka,la,ka,la)] +
+                            Vab[ind4(ka,ka,lb,lb)] + Vab[ind4(kb,kb,la,la)] +
+                            Vbb[ind4(kb,kb,lb,lb)] - Vbb[ind4(kb,lb,kb,lb)]);
+                    }
+                }
+                Hd(Index_(No, Iocca, Zindex), Index_(No, Ioccb, Zindex))
+					= tmp;
+            }
+            else
+                GetHd(N, No, Nstr, Zindex, ha, hb, Vaa, Vab, Vbb, Iocca, Ioccb, Hd, IRecur + 1);
+        }
+    }
+    return;
+}
+
 
 void GetH0(const int N, const int No, const int N0, const int N2,
     const int Max1, const int Max2, const int Nstr,
@@ -1944,6 +2048,186 @@ void GetH0(const int N, const int No, const int N0, const int N2,
             if (ik < jl)    continue;
             if (ik == jl)   Vtmp = V[ind4(i,k,j,l)] / two;
             if (ik > jl)    Vtmp = V[ind4(i,k,j,l)];
+            if (fabs (Vtmp) < 1.E-10)   continue;
+
+            if (j == l) jjMax = nchoosek(N - 1, No - 1);
+            else    jjMax = nchoosek(N - 2, No - 1);
+
+            for (jj = 0; jj < jjMax; jj++)
+            {
+                J1 = AEx1[jj][j][l];    J2 = AEx1[jj][l][j];
+                if (J1 == 0 || J2 == 0) continue;
+                VS = Vtmp;
+                if (J1 != Ex1[jj][j][l])    VS = -VS;
+                for (m = 0; m <= mmax; m++)
+                {
+                    H0(IY[m] + RIstr[J2 - 1] * N0, m + RIstr[J1 - 1] * N0)
+                        += VS * stmp[m];
+                }
+            }
+        }
+    }
+
+    H0tmp.setZero (N0 * N0, N0 * N0);
+    for (i = 0; i < N0; i++) for (j = 0; j < N0; j++)
+        for (k = 0; k < N0; k++) for (l = 0; l < N0; l++)
+        {
+            H0tmp(i + j * N0, k + l * N0)
+                = H0(i + j * N0, k + l * N0) +
+                H0(j + i * N0, l + k * N0);
+        }
+    H0 = H0tmp;
+}
+
+void GetH0(const int N, const int No, const int N0, const int N2,
+    const int Max1, const int Max2, const int Nstr,
+    const iv3& Ex1, const iv3& Ex2, const iv1& Istr,
+    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb, MatrixXd& H0)
+{
+    iv1 RIstr(Nstr), IY;   IY.assign (N0, -1);
+    iv2 ifzero(N, iv1(N));
+    iv3 AEx1(Max1, iv2(N, iv1(N))), AEx2(Max2, iv2(N2, iv1(N2)));
+    int i,j,k,l,ij,kl,ii,jj,I1,I2,iiMax,J1,J2,jjMax,ik,jl,m,If0,mmax;
+    double Vtmp,Vaatmp,Vbbtmp,VS,VSS,hatmp,hbtmp,hS;
+    dv1 stmp(N0);
+    MatrixXd H0tmp;
+    bool flag;
+    const double zero = 0., one = 1., two = 2., three = 3., four = 4.;
+
+    for (i = 0;i < Max1;i++)  for (j = 0;j < N;j++) for (k = 0;k < N;k++)
+        AEx1[i][j][k] = abs (Ex1[i][j][k]);
+    for (i = 0;i < Max2;i++)  for (j = 0;j < N2;j++) for (k = 0;k < N2;k++)
+        AEx2[i][j][k] = abs (Ex2[i][j][k]);
+//  Reverse String Ordering
+    for (m = 0; m < N0; m++)    RIstr[Istr[m]] = m;
+
+//  Remove terms that are not in H0
+    for (i = 0; i < N; i++)
+        for (j = 0; j < N; j++)
+            for (ii = 0; ii < Max1; ii++)
+            {
+                If0 = false;
+                for (m = 0; m < N0; m++)
+                    if (Istr[m] + 1 == AEx1[ii][i][j])   If0 = true;
+                if (!If0)   AEx1[ii][i][j] = 0;
+            }
+
+    for (i = 0; i < N2; i++)
+        for (j = 0; j < N2; j++)
+            for (ii = 0; ii < Max2; ii++)
+            {
+                If0 = false;
+                for (m = 0; m < N0; m++)
+                    if (Istr[m] + 1 == AEx2[ii][i][j])   If0 = true;
+                if (!If0)   AEx2[ii][i][j] = 0;
+            }
+
+//  Check for Zero blocks in V
+    for (i = 0; i < N; i++)
+        for (k = 0; k < N; k++)
+        {
+			flag = true;
+            for (j = 0; j < N && flag; j++)
+                for (l = 0; l < N && flag; l++)
+                    if (fabs(Vaa[ind4(i,k,j,l)]) + fabs(Vab[ind4(i,k,j,l)]) + fabs(Vbb[ind4(i,k,j,l)]) > 1.E-10) flag = false;
+            if (flag)   ifzero[i][k] = 1;
+        }
+
+//  One Electron Part
+    for (i = 0; i < N; i++) for (j = 0; j < N; j++)
+    {
+        hatmp = ha[ind2(i,j)]; hbtmp = hb[ind2(i,j)];
+        if (fabs (hatmp) + fabs (hbtmp) < 1.E-10)   continue;
+        if (i == j) iiMax = nchoosek(N - 1, No - 1);
+        else    iiMax = nchoosek(N - 2, No - 1);
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][j];    I2 = AEx1[ii][j][i];
+            if (I1 == 0 || I2 == 0) continue;
+            hS = (I1 == Ex1[ii][i][j]) ? (hatmp) : (-hatmp);
+            for (m = 0; m < N0; m++)
+                H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0) += hS;
+            hS = (I1 == Ex1[ii][i][j]) ? (hbtmp) : (-hbtmp);
+            for (m = 0; m < N0; m++)
+                H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0) += hS;
+        }
+    }
+/*  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+*   In Fortran, M(N*N, N*N) can also be viewd as Ms(N,N,N,N).
+*   When viewd in this way, the conversion follows rule
+*       Ms(a,b,c,d) --> M(a+b*N, c+d*N)
+*   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! */
+
+//  Same Spin Two-Electron Part
+    int IK, IL, JK, JL;
+    ij = -1;
+    for (i = 0; i < N; i++) for (j = i + 1; j < N; j++)
+    {
+        ij++;   kl = -1;
+        for (k = 0; k < N; k++) for (l = k + 1; l < N; l++)
+        {
+            kl++;
+            Vaatmp = (Vaa[ind4(i,k,j,l)] - Vaa[ind4(i,l,j,k)] -
+                Vaa[ind4(j,k,i,l)] + Vaa[ind4(j,l,i,k)]) / two;
+            Vbbtmp = (Vbb[ind4(i,k,j,l)] - Vbb[ind4(i,l,j,k)] -
+                Vbb[ind4(j,k,i,l)] + Vbb[ind4(j,l,i,k)]) / two;
+            if (fabs (Vaatmp) + fabs (Vbbtmp) > 1.E-10)
+            {
+                if (i == k && j == l)   iiMax = nchoosek(N - 2, No - 2);
+                else if (i == k)    iiMax = nchoosek(N - 3, No - 2);
+                else if (i == l)    iiMax = nchoosek(N - 3, No - 2);
+                else if (j == k)    iiMax = nchoosek(N - 3, No - 2);
+                else if (j == l)    iiMax = nchoosek(N - 3, No - 2);
+                else    iiMax = nchoosek(N - 4, No - 2);
+                for (ii = 0; ii < iiMax; ii++)
+                {
+                    I1 = AEx2[ii][ij][kl];  I2 = AEx2[ii][kl][ij];
+                    if (I1 == 0 || I2 == 0) continue;
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vaatmp) : (-Vaatmp);
+                    for (m = 0; m < N0; m++)
+                        H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0)
+                            += VS;
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vbbtmp) : (-Vbbtmp);
+                    for (m = 0; m < N0; m++)
+                        H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0)
+                            += VS;
+                }
+            }
+        }
+    }
+
+//  Opposite Spin Two-Electron Part
+    ik = -1;
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+        ik++;   jl = -1;
+        if (ifzero[i][k])   continue;
+        if (i == k) iiMax = nchoosek(N - 1, No - 1);
+        else    iiMax = nchoosek(N - 2, No - 1);
+
+//  Gather together phases in Stmp
+        stmp.assign (N0, 0);    IY.assign (N0, -1);
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][k];   I2 = AEx1[ii][k][i];
+            if (I1 == 0 || I2 == 0) continue;
+            VS = one;
+            if (I1 != Ex1[ii][i][k])    VS = -VS;
+            IY[RIstr[I1 - 1]] = RIstr[I2 - 1];
+            stmp[RIstr[I1 - 1]] = VS;
+        }
+        mmax = 0;
+        for (m = 0; m < N0; m++)
+            if (IY[m] < 0) IY[m] = 0;
+            else    mmax = m;
+
+//  Collect Elements of H0
+        for (j = 0; j < N; j++) for (l = 0; l < N; l++)
+        {
+            jl++;
+            if (ik < jl)    continue;
+            if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
             if (fabs (Vtmp) < 1.E-10)   continue;
 
             if (j == l) jjMax = nchoosek(N - 1, No - 1);
@@ -2555,6 +2839,245 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
           //printf ("Done after %4d iterations.\n", iter);
 //  Energy, Uncertainty for THIS State
         HX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, h, V, XH);
+        Energy = MDOT(X,XH) / X.squaredNorm ();
+        Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
+        Xi[iS] = X; Ei[iS] = Energy;
+//  Check if the state has even (+1) or odd (-1) S
+//  Even is singlet, quintet...  | Odd is triplet, sestet...
+        X1 = X - X.transpose ();
+        norm = X1.squaredNorm ();
+        Sym[iS] = (norm<=0.1) ? (1) : (-1);
+//  End of the BIG Loop over States
+    }
+	if (iprint)
+		cout << "\t----------------------------------------------" << endl;
+    return fabs(fac) < THRESH;
+}
+
+bool FCI::FCIman(const int N, const int No, const int Nstr,
+	const int N0, const int NS,
+    //const double *ha, const double *hb, const double *Vaa, const double *Vbb, const double *Vab,
+    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
+    vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+	const int MAXITER, const double THRESH, const bool iprint)
+{
+    int i,j,k,l,m,a,b,ij,kl,ab,ii,jj,kk,ll,ierr,Info;
+    int iX,iS,iSpin,iSym;
+    iv1 Iocc(No), Isubst(No), Istr(N0);
+    double Energy, DE, fac, norm, eps, offset;
+    MatrixXd Hd, H0, U0, X, X1, XH, X1H, Xtmp;
+    VectorXd E0;    Matrix2d Hm, U; Vector2d Eig;
+    const double zero = 0., one = 1., two = 2., three = 3., four = 4.;
+
+	__s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+
+	const int N2 = nchoosek(N, 2),
+		  Max1 = nchoosek(N - 1, No - 1),
+		  Max2 = nchoosek(N - 2, No - 2);
+
+	iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(N, No, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    Energy = zero; fac = one;
+//  Build Diagonal part of H
+    Hd.setZero(Nstr, Nstr);
+    GetHd(N, No, Nstr, Zindex, ha, hb, Vaa, Vab, Vbb, Iocc, Isubst, Hd, 0); // Maybe I need to U this function too...
+
+//  Get N0 lowest strings
+    GetIstr(N, No, Nstr, N0, Hd, Istr);
+    Isort(N0, Istr, &Info);
+
+//  Build + Diagonalize H0
+    H0.setZero(N0 * N0, N0 * N0);
+    GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr, ha, hb, Vaa, Vab, Vbb, H0); // Maybe I need to U this function too...
+    eigh(H0, U0, E0);
+
+//  Big loop over states
+    iX = -1;
+    for (iS = 0; iS < NS; iS++)
+//  Initial vector for this state (ensure it is a singlet for now)
+//  This restarts from the input Xi vector if Xi is nonzero
+    {
+        X = Xi[iS]; iSpin = 1;  norm = X.squaredNorm ();
+        if (norm < 1.E-2)
+        {
+            iSpin = -1;
+            while (iSpin == -1)
+            {
+                iX++;
+                X.setZero (Nstr, Nstr); ij = -1;
+                for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
+                {
+//  Initialize X with eigenvectors of H0
+                    ij++;   X(Istr[j], Istr[i]) = U0(ij, iX);
+                }
+                X1 = X; X1 -= X.transpose ();
+                norm = X1.squaredNorm () / X.squaredNorm ();
+                if (norm < 1.E-2)   iSpin = 1;
+            }
+        }
+
+//  Check if the state has even (+1) or odd (-1) S
+//  Even is singlet, quintet...  | Odd is triplet, sestet...
+        X1 = X - X.transpose ();
+        norm = X1.squaredNorm ();
+        Sym[iS] = iSym = (norm<=0.1) ? (1) : (-1);
+
+//  Fix up broken spin symmetry (if it exists)
+        GS(X, Xi, iS);
+
+// HKT - make and print the Hamiltonian matrix.
+// Eigen::MatrixXd Y;
+// Eigen::MatrixXd HY(Nstr, Nstr);
+// Eigen::MatrixXd Bra;
+// Eigen::MatrixXd Ham(Nstr * Nstr, Nstr * Nstr);
+// for (int i = 0; i < Nstr; i++)
+// {
+//     for (int j = 0; j < Nstr; j++)
+//     {
+//         Y.setZero(Nstr, Nstr);
+//         Y(i, j) = 1.0;
+//         UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, Y, ha, hb, Vaa, Vab, Vbb, HY);
+//         for (int k = 0; k < Nstr; k++)
+//         {
+//             for (int l = 0; l < Nstr; l++)
+//             {
+//                 Ham(ind2(k, l), ind2(i, j)) = HY(k, l);
+//             }
+//         }
+//     }
+// }
+// std::cout << "Ham Matrix:\n" << Ham << std::endl;
+// Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> HamEV;
+// HamEV.compute(Ham);
+// std::cout << HamEV.eigenvalues() << std::endl;
+
+
+//  Compute Initial guess energy
+        XH.setZero (Nstr, Nstr);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
+        Energy = MDOT(X, XH);
+
+		if (iprint)
+		{
+			cout << "\t----------------------------------------------" << endl;
+			cout << "\titer      total energy       error     rel var" << endl;
+			cout << "\t----------------------------------------------" << endl;
+		}
+//  Iteratively determine eigenvalue #iS of the Hamiltonian
+        fac = 1.;  iter = 0;
+        while (fabs (fac) > THRESH && iter < MAXITER)
+        {
+            iter++; DE = Energy; offset = (iter < 2) ? (1.E-10) : (0);
+            MatrixXd mat_offset = MatrixXd::Constant (Nstr, Nstr, offset);
+            MatrixXd mat_E = MatrixXd::Constant (Nstr, Nstr, Energy);
+//  Make the (orthogonal component of the) Davidson Update
+            X1 = -(XH - Energy * X).cwiseQuotient (Hd - mat_E - mat_offset);
+//  Build (H0-Energy)^-1 (excluding eigenvalues that might blow up)
+            H0.setZero ();
+            for (k = 0; k < N0 * N0; k++)
+            {
+                fac = E0(k) - Energy;
+                if (fabs (fac) > 1.E-2)  fac = 1. / fac;
+                else    fac = 0.;
+                for (i = 0; i < N0 * N0; i++) for (j = 0; j < N0 * N0; j++)
+                    H0(i, j) += U0(i, k) * U0(j, k) * fac;
+            }
+
+//  Build the Davidson Update using H0
+            ij = -1;
+            for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
+            {
+                ij++;   kl = -1;
+                X1(Istr[j], Istr[i]) = zero;
+                for (k = 0; k < N0; k++)    for (l = 0; l < N0; l++)
+                {
+                    kl++;
+                    X1(Istr[j], Istr[i]) -= H0(ij, kl) *
+                        (XH(Istr[l], Istr[k]) - Energy * X(Istr[l], Istr[k])
+                        + mat_offset(Istr[l], Istr[k]));
+                }
+            }
+
+//  Apply Spin Symmetry and Gramm-Schmidt to Update
+            Xtmp = iSym * X1.transpose ();  X1 = 0.5 * (X1 + Xtmp);
+            X1.normalize ();
+            norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+            norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+
+//  Correct if Davidson has given us a bad vector.
+//  X1 should not be orthogonal to (H-E)X
+//  If it is (nearly) orthogonal, add a bit of (H-E)X to X1
+//  If we don't do this, it occasionally gives false convergence
+//  This should happen rarely and eps controls how often
+//  this correction is invoked.
+//  A more elegant fix might be to just have a better
+//  preconditioner.
+            X1H = XH - Energy * X + mat_offset;
+            GS(X1H, Xi, iS); X1H.normalize ();
+            eps = 1.E-1;    fac = fabs (MDOT(X1, X1H));
+            if (fac < eps)
+            {
+                X1 += 2. * eps * X1H;
+                norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+                norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
+            }
+
+//  Make X1 orthogonal to lower eigenvectors
+            GS(X1, Xi, iS);
+
+//  Act H on Davidson Vector
+            UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X1, ha, hb, Vaa, Vab, Vbb, X1H);
+
+//  Build Hm
+            Hm(0, 0) = MDOT(X, XH);
+            Hm(1, 1) = MDOT(X1, X1H);
+            Hm(0, 1) = Hm(1, 0) = MDOT(X, X1H);
+
+//  Diagonalize Hm
+            eigh2(Hm, U, Eig);
+
+//  Keep Lowest Eigenvector
+            if (iter < 50 || iter % 10)
+            {
+                fac = U(1, 0);
+                X = U(0, 0) * X + U(1, 0) * X1;
+                XH = U(0, 0) * XH + U(1, 0) * X1H;
+            }
+            else
+//  If convergence is slow, sometimes it is because we are
+//  Swiching back and forth between two near-solutions. To
+//  fix that, every once in a while, we take half the step.
+//  A more elegant fix might be to use more than one Davidson
+//  vectors in the space.
+            {
+                fac = fabs(0.5 * U(1, 0));
+                norm = one / sqrt (one + fac * fac);
+                X = norm * (X + fac * X1);
+                XH = norm * (XH + fac * X1H);
+            }
+//  Normalize X and XH
+            norm = X.norm ();   X /= norm;  XH /= norm;
+
+//  Avoid accumulating roundoff error
+            if (iter % 4 == 0)
+                UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
+
+            Energy = MDOT(X, XH) / X.squaredNorm ();
+			Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
+
+			//  Standard output
+			if (iprint)
+				printf("\t%4d   % 15.11F   % .2E   % .2E\n", iter, Energy,
+					fac, Uncertainty[iS]);
+
+//  End of the Loop for FCI iteration
+        }
+          //printf ("Done after %4d iterations.\n", iter);
+//  Energy, Uncertainty for THIS State
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
         Energy = MDOT(X,XH) / X.squaredNorm ();
         Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
         Xi[iS] = X; Ei[iS] = Energy;
