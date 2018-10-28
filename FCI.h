@@ -100,7 +100,7 @@ class FCI
                     const int MAXITER, const double THRESH, const bool iprint);
         bool FCIman(const int N, const int No, const int Nstr,
                     const int N0, const int NS,
-                    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
+                    const double *ha, const double *hb, const double *Vbb, const double *Vab, const double *Vaa, // I think HongZhou swapped Vaa and Vbb somewhere in the code. I'll just reverse their order in the function.
                     vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
                     const int MAXITER, const double THRESH, const bool iprint) // This is the unrestricted version of Troy's FCI code.
         void RDM12(const int N, const int No, const int Nstr,
