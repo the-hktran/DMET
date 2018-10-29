@@ -298,7 +298,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(aERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
             }
             aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
         }
@@ -323,7 +323,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(bERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
             }
             bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
         }
