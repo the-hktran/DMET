@@ -37,6 +37,21 @@ double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::
     return XTerm;
 }
 
+double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals)
+{
+    double XTerm = 0; // 
+    for(int i = 0; i < DensityMatrix.rows(); i++)
+    {
+        for(int j = 0; j < DensityMatrix.cols(); j++)
+        {
+            XTerm += DensityMatrix(i, j) * (Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1)]
+                                          - Integrals[std::to_string(m + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(n + 1)]);
+            XTerm += OppositeSpinDensity(i, j) * Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1)]; // Coulomb term with opposite spin.
+        }
+    }
+    return XTerm;
+}
+
 /// <summary>
 /// Takes a density matrix and calculates the corresponding Fock matrix.
 /// </summary>
@@ -63,6 +78,20 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
         {
             FockMatrix(m, n) = Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " 0 0"] // This is HCore
                              + ExchangeTerm(m, n, DensityMatrix, Integrals)
+                             + BiasMatrixElement(m, n, Bias, DensityMatrix, NumElectrons); // Metadynamics bias.
+            FockMatrix(n, m) = FockMatrix(m, n);
+        }
+    }
+}
+
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons)
+{
+    for(int m = 0; m < FockMatrix.rows(); m++)
+    {
+        for(int n = m; n < FockMatrix.cols(); n++)
+        {
+            FockMatrix(m, n) = Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " 0 0"] // This is HCore
+                             + ExchangeTerm(m, n, DensityMatrix, OppositeSpinDensity, Integrals)
                              + BiasMatrixElement(m, n, Bias, DensityMatrix, NumElectrons); // Metadynamics bias.
             FockMatrix(n, m) = FockMatrix(m, n);
         }
