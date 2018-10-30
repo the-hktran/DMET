@@ -23,7 +23,7 @@ double BiasMatrixElement(int Row, int Col, std::vector< std::tuple< Eigen::Matri
 /// <param name="Integrals">
 /// Map to value of two electron integrals.
 /// </param>
-double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals)
+double CoulombExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals)
 {
     double XTerm = 0; // 
     for(int i = 0; i < DensityMatrix.rows(); i++)
@@ -37,16 +37,27 @@ double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::
     return XTerm;
 }
 
-double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals)
+double CoulombTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals)
 {
-    double XTerm = 0; // 
-    for(int i = 0; i < DensityMatrix.rows(); i++)
+    double CTerm = 0; // 
+    for (int i = 0; i < DensityMatrix.rows(); i++)
     {
         for(int j = 0; j < DensityMatrix.cols(); j++)
         {
-            XTerm += DensityMatrix(i, j) * (Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1)]
-                                          - Integrals[std::to_string(m + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(n + 1)]);
-            XTerm += OppositeSpinDensity(i, j) * Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1)]; // Coulomb term with opposite spin.
+            CTerm += DensityMatrix(i, j) * Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1)];
+        }
+    }
+    return CTerm;
+}
+
+double ExchangeTerm(int m, int n, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals)
+{
+    double XTerm = 0; // 
+    for (int i = 0; i < DensityMatrix.rows(); i++)
+    {
+        for(int j = 0; j < DensityMatrix.cols(); j++)
+        {
+            XTerm += DensityMatrix(i, j) * Integrals[std::to_string(m + 1) + " " + std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(n + 1)];
         }
     }
     return XTerm;
@@ -77,7 +88,7 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
         for(int n = m; n < FockMatrix.cols(); n++)
         {
             FockMatrix(m, n) = Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " 0 0"] // This is HCore
-                             + ExchangeTerm(m, n, DensityMatrix, Integrals)
+                             + CoulombExchangeTerm(m, n, DensityMatrix, Integrals)
                              + BiasMatrixElement(m, n, Bias, DensityMatrix, NumElectrons); // Metadynamics bias.
             FockMatrix(n, m) = FockMatrix(m, n);
         }
@@ -91,9 +102,15 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
         for(int n = m; n < FockMatrix.cols(); n++)
         {
             FockMatrix(m, n) = Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " 0 0"] // This is HCore
-                             + ExchangeTerm(m, n, DensityMatrix, OppositeSpinDensity, Integrals)
+                             + CoulombTerm(m, n, DensityMatrix, Integrals)
+                             + CoulombTerm(m, n, OppositeSpinDensity, Integrals)
+                             - ExchangeTerm(m, n, DensityMatrix, Integrals)
                              + BiasMatrixElement(m, n, Bias, DensityMatrix, NumElectrons); // Metadynamics bias.
             FockMatrix(n, m) = FockMatrix(m, n);
+            // CoulombMatrix(m, n) = CoulombTerm(m, n, DensityMatrix, Integrals);
+            // CoulombMatrix(n, m) = CoulombMatrix(m, n);
+            // ExchangeMatrix(m, n) = ExchangeTerm(m, n, DensityMatrix, Integrals);
+            // ExchangeMatrix(n, m) = ExchangeMatrix(m, n);
         }
     }
 }

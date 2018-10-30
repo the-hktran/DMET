@@ -46,3 +46,8 @@ std::complex<double> OneElectronEmbedding(std::map<std::string, double>&, Eigen:
 Eigen::MatrixXcd TDHamiltonian(Eigen::MatrixXcd &DensityMatrix, InputObj&, int, Eigen::MatrixXcd&, double, int, Eigen::Tensor<std::complex<double>, 4>&, std::vector< std::vector< bool > >&, std::vector< std::vector< bool > >&);
 Eigen::MatrixXcd Form1RDMComplex(InputObj&, int, Eigen::VectorXcd, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >);
 Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj&, int, Eigen::VectorXcd, std::vector< std::vector< bool > >, std::vector< std::vector< bool > >, Eigen::MatrixXcd);
+
+// SCF.cpp
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &bBias, int SolnNum, Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, 
+           Eigen::MatrixXd &aCoeffMatrix, Eigen::MatrixXd &bCoeffMatrix, std::vector<int> &aOccupiedOrbitals, std::vector<int> &bOccupiedOrbitals, std::vector<int> &aVirtualOrbitals, std::vector<int> &bVirtualOrbitals, 
+           int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &aOrbitalEV, Eigen::VectorXd &bOrbitalEV);

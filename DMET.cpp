@@ -674,6 +674,9 @@ int main(int argc, char* argv[])
     //     DensityMatrix(i, i) = 1;
     // }
 
+    Eigen::MatrixXd aDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd bDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
 
     /* Form S^-1/2, the orthogonalization transformation */
@@ -781,6 +784,8 @@ int main(int argc, char* argv[])
 
         // STEP 1: Solve the full system at the RHF level of theory.
         Eigen::VectorXd OrbitalEV; // Holds the orbital EVs from the proceeding SCF calculation. Needed to take derivatives.
+        Eigen::VectorXd aOrbitalEV;
+        Eigen::VectorXd bOrbitalEV;
         
         std::vector< std::vector< double > > FragmentEnergies(Input.NumFragments); // Vector of double incase multiple solutions are desired from one impurity.
 
@@ -801,7 +806,24 @@ int main(int argc, char* argv[])
         Input.OccupiedOrbitals = OccupiedOrbitals;
         Input.VirtualOrbitals = VirtualOrbitals;
 
+        std::vector< int > aOccupiedOrbitals;
+        std::vector< int > aVirtualOrbitals;
+        std::vector< int > bOccupiedOrbitals;
+        std::vector< int > bVirtualOrbitals;
+        for(int i = 0; i < NumOcc; i++)
+        {
+            aOccupiedOrbitals.push_back(i);
+            bOccupiedOrbitals.push_back(i);
+        }
+        for(int i = NumOcc; i < NumAO; i++)
+        {
+            aVirtualOrbitals.push_back(i);
+            bVirtualOrbitals.push_back(i);
+        }
+
         Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
+        Eigen::MatrixXd aCoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+        Eigen::MatrixXd bCoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
         int SCFCount = 0; // Counts how many SCF iterations have been done in total.
 
         // These are values we need to calculate the derivative of the 1RDM later in the optimization. They are separated by state.
@@ -872,6 +894,9 @@ int main(int argc, char* argv[])
         std::vector< Eigen::MatrixXd > SCFMDCoeff;
         std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
 
+        std::vector< std::tuple< Eigen::MatrixXd, double, double > > aBias;
+        std::vector< std::tuple< Eigen::MatrixXd, double, double > > bBias;
+
         std::ofstream BlankOutput;
 
         // First, run SCF some number of times to find a few solutions.
@@ -900,12 +925,17 @@ int main(int argc, char* argv[])
              }
              #endif
              // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
-             std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-             std::cout.rdbuf(NULL); // sets to null
-             SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             std::cout.rdbuf(orig_buf); // restore buffer
+             //std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+             //std::cout.rdbuf(NULL); // sets to null
+             SCFEnergy = SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
+             // SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
+             // SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+             //std::cout.rdbuf(orig_buf); // restore buffer
              std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
              Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+             std::cout << aDensityMatrix << std::endl;
+             std::cout << bDensityMatrix << std::endl;
+             return 0;
              std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
              Bias.push_back(tmpTuple);
              SCFEnergy *= -1;
@@ -1201,43 +1231,43 @@ int main(int argc, char* argv[])
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
-                // FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
-                // myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
-                // myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                // myFCI.runFCI();
-                // myFCI.getSpecificRDM(ImpurityStates[x], true);
+                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
+                myFCI.runFCI();
+                myFCI.getSpecificRDM(ImpurityStates[x], true);
                 
-                // Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
-                // std::vector<double> tmpDVec;
-                // for (int ii = 0; ii < Input.NumberOfEV; ii++)
-                // {
-                //     std::cout << myFCI.Energies[ii] << std::endl;
-                // }
-                // tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
+                std::vector<double> tmpDVec;
+                for (int ii = 0; ii < Input.NumberOfEV; ii++)
+                {
+                    std::cout << myFCI.Energies[ii] << std::endl;
+                }
+                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
                 // FragmentEnergies[x] = tmpDVec;
                 // ***** END IMPURITY CALCULATION WITH TROYFCI
 
-                // ***** An impurity solver using HenryFCI for sigma FCI
-                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
-                myFCI.GenerateHamiltonian(x, RotationMatrix, ChemicalPotential, 0);
-                if (x == 0 && MuIteration == 0)
-                {
-                    std::ofstream w_scan("w_scan8_4site.out");
-                    for (double w = -4.50; w < 6.00; w += 0.01)
-                    {
-                        myFCI.doSigmaFCI(w);
-                        std::vector<double> dbgDVec;
-                        Eigen::MatrixXd dbgFragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
-                        double Ex = myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, dbgFragment1RDM);
-                        w_scan << w << "\t" << Ex * 2.0 << std::endl;
-                    }
-                }
-                myFCI.doSigmaFCI(-6.00);
-                std::vector<double> tmpDVec;
-                Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
-                tmpDVec.push_back(myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, Fragment1RDM));
-                FragmentEnergies[x] = tmpDVec;
-                // ***** END
+                // // ***** An impurity solver using HenryFCI for sigma FCI
+                // FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                // myFCI.GenerateHamiltonian(x, RotationMatrix, ChemicalPotential, 0);
+                // if (x == 0 && MuIteration == 0)
+                // {
+                //     std::ofstream w_scan("w_scan8_4site.out");
+                //     for (double w = -4.50; w < 6.00; w += 0.01)
+                //     {
+                //         myFCI.doSigmaFCI(w);
+                //         std::vector<double> dbgDVec;
+                //         Eigen::MatrixXd dbgFragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                //         double Ex = myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, dbgFragment1RDM);
+                //         w_scan << w << "\t" << Ex * 2.0 << std::endl;
+                //     }
+                // }
+                // myFCI.doSigmaFCI(-6.00);
+                // std::vector<double> tmpDVec;
+                // Eigen::MatrixXd Fragment1RDM = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size()); // Will hold OneRDM
+                // tmpDVec.push_back(myFCI.RDMFromHenryFCI(myFCI.SigmaFCIVector, x, RotationMatrix, Fragment1RDM));
+                // FragmentEnergies[x] = tmpDVec;
+                // // ***** END
 
                 // SCF(EmptyBias, 1, CASDensity, Input, Output, CASOverlap, CASSOrtho, FragmentEnergies[x], FragmentCoeff, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, RotationMatrix, FragmentOcc, NumAOImp, ChemicalPotential, x);
                 FragmentDensities[x] = Fragment1RDM; // Save the density matrix after SCF calculation has converged.

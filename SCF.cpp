@@ -955,6 +955,10 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
 {
     Eigen::MatrixXd aFockMatrix(aDensityMatrix.rows(), aDensityMatrix.cols()); // This will hold the FockMatrix.
     Eigen::MatrixXd bFockMatrix(bDensityMatrix.rows(), bDensityMatrix.cols());
+    // Eigen::MatrixXd aCoulombMatrix(aDensityMatrix.rows(), aDensityMatrix.cols());
+    // Eigen::MatrixXd bCoulombMatrix(bDensityMatrix.rows(), bDensityMatrix.cols());
+    // Eigen::MatrixXd aExchangeMatrix(aDensityMatrix.rows(), aDensityMatrix.cols());
+    // Eigen::MatrixXd bExchangeMatrix(bDensityMatrix.rows(), bDensityMatrix.cols());
     BuildFockMatrix(aFockMatrix, aDensityMatrix, bDensityMatrix, Input.Integrals, aBias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
     BuildFockMatrix(bFockMatrix, bDensityMatrix, aDensityMatrix, Input.Integrals, bBias, Input.NumElectrons);
     aFockMatrix += DMETPotential; // If before DIIS, results in improper Fock matrix. If after DIIS, gradient is wrong.
@@ -1049,7 +1053,8 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     // std::getline(std::cin, tmpstring);
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
-    double Energy = (aDensityMatrix.cwiseProduct(0.5 * aFockMatrix) + bDensityMatrix.cwiseProduct(0.5 * bFockMatrix)).sum(); // I don't know what this should be.
+    double Energy = 0.5 * (aDensityMatrix.cwiseProduct(HCore + aFockMatrix)).sum()
+                  + 0.5 * (bDensityMatrix.cwiseProduct(HCore + bFockMatrix)).sum(); // I don't know what this should be.
     return Energy;
 }
 
