@@ -278,6 +278,8 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
 
 void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList)
 {
+    doUnrestricted = true;
+
     int aN = aActiveList.size();
     aOEI = new double[aN * aN];
     aaTEI = new double[aN * aN * aN * aN];
@@ -426,7 +428,8 @@ void FCI::runFCI()
     int NumStrings = nchoosek(aActive, aElectronsActive);
     int it;
 
-    FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
+    if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, bOEI, bbTEI, abTEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
+    else FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
 
     // Now we sort the eigenpairs based on eigenenergies.
     std::vector< std::tuple<double, Eigen::MatrixXd, double> > EigenPairs;

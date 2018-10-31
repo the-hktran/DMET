@@ -49,6 +49,7 @@ class FCI
         double *aOEIPlusCore;
         double *bOEIPlusCore;
         double ENuc;
+        bool doUnrestricted = false;
 
         int Conditioner = 10;
         int MaxIteration = 10000;
@@ -95,8 +96,8 @@ class FCI
         // From troyfci.cpp
         bool FCIman(const int N, const int No, const int Nstr,
                     const int N0, const int NS,
-                    const double *h, const double *V, vMatrixXd& Xi,
-                    dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+                    const double *h, const double *V, 
+                    vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
                     const int MAXITER, const double THRESH, const bool iprint);
         bool FCIman(const int N, const int No, const int Nstr,
                     const int N0, const int NS,

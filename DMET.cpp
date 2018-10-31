@@ -626,32 +626,7 @@ int main(int argc, char* argv[])
     int NumFragments = Input.NumFragments;
 
     std::vector< int > ImpurityStates(NumFragments); // Which FCI state is desired from the fragment FCI.
-    for (int i = 0; i < ImpurityStates.size(); i++)
-    {
-        ImpurityStates[i] = 0;
-    }
     std::vector< int > BathStates(NumFragments);
-    for (int i = 0; i < BathStates.size(); i++)
-    {
-        BathStates[i] = 0;
-    }
-
-    // #ifdef H2H2H2
-    //     ImpurityStates[0] = 1;
-    //     ImpurityStates[1] = 2;
-    //     ImpurityStates[2] = 1;
-    //     // BathStates[0] = 1;
-    //     // BathStates[2] = 4;
-    //     // BathStates[3] = 1;
-    // #endif // H2H2H2
-    // #ifdef H10
-    //     ImpurityStates[0] = 3;
-    //     BathStates[0] = 1;
-    //     // BathStates[1] = 1;
-    //     // BathStates[2] = 1;
-    //     // BathStates[3] = 1;
-    //     // BathStates[4] = 1;
-    // #endif
 
     ImpurityStates = Input.ImpurityStates;
     BathStates = Input.BathStates;
@@ -662,6 +637,8 @@ int main(int argc, char* argv[])
     int NumFCIStates = *max_element(ImpurityStates.begin(), ImpurityStates.end());
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
+
+    bool Unrestricted = true;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -678,6 +655,8 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd bDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
 
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
+    std::vector< Eigen::MatrixXd > aFullDensities(NumSCFStates);
+    std::vector< Eigen::MatrixXd > bFullDensities(NumSCFStates);
 
     /* Form S^-1/2, the orthogonalization transformation */
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > EigensystemS(Input.OverlapMatrix);
@@ -771,6 +750,8 @@ int main(int argc, char* argv[])
     std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
     std::vector< Eigen::Tensor<double, 4> > Fragment2RDM(Input.NumFragments);
     std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
+    std::vector< Eigen::MatrixXd > aFragmentRotations(Input.NumFragments); 
+    std::vector< Eigen::MatrixXd > bFragmentRotations(Input.NumFragments); 
 	std::vector< Eigen::VectorXd > FragmentEigenstates(Input.NumFragments);
 
 	double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
@@ -815,11 +796,13 @@ int main(int argc, char* argv[])
             aOccupiedOrbitals.push_back(i);
             bOccupiedOrbitals.push_back(i);
         }
+        bOccupiedOrbitals[NumOcc - 1] = NumOcc;
         for(int i = NumOcc; i < NumAO; i++)
         {
             aVirtualOrbitals.push_back(i);
             bVirtualOrbitals.push_back(i);
         }
+        bVirtualOrbitals[0] = NumOcc - 1;
 
         Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
         Eigen::MatrixXd aCoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
@@ -887,12 +870,22 @@ int main(int argc, char* argv[])
         double SCFEnergy = 0.0;
         std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
         std::vector< Eigen::MatrixXd > SCFMD1RDM;
+        std::vector< Eigen::MatrixXd > SCFMDa1RDM;
+        std::vector< Eigen::MatrixXd > SCFMDb1RDM;
         std::vector< double > AllEnergies;
         std::priority_queue< std::pair< double, int > > SCFMDEnergyQueue;
         std::vector< std::vector< int > > SCFMDOccupied;
         std::vector< std::vector< int > > SCFMDVirtual;
+        std::vector< std::vector< int > > SCFMDaOccupied;
+        std::vector< std::vector< int > > SCFMDaVirtual;
+        std::vector< std::vector< int > > SCFMDbOccupied;
+        std::vector< std::vector< int > > SCFMDbVirtual;
         std::vector< Eigen::MatrixXd > SCFMDCoeff;
+        std::vector< Eigen::MatrixXd > SCFMDaCoeff;
+        std::vector< Eigen::MatrixXd > SCFMDbCoeff;
         std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
+        std::vector< Eigen::VectorXd > SCFMDaOrbitalEV;
+        std::vector< Eigen::VectorXd > SCFMDbOrbitalEV;
 
         std::vector< std::tuple< Eigen::MatrixXd, double, double > > aBias;
         std::vector< std::tuple< Eigen::MatrixXd, double, double > > bBias;
@@ -901,15 +894,15 @@ int main(int argc, char* argv[])
 
         // First, run SCF some number of times to find a few solutions.
         bool useDIIS = Input.Options[0];
-         for (int i = 0; i < Input.NumSoln; i++)
-         {
-             if (i == 0) // For the ground state always use DIIS.
-             {
-                 Input.Options[0] = true;
-             }
-             #ifdef H2H2H2
-             if (i == 1)
-             {
+        for (int i = 0; i < Input.NumSoln; i++)
+        {
+            if (i == 0) // For the ground state always use DIIS.
+            {
+                Input.Options[0] = true;
+            }
+            #ifdef H2H2H2
+            if (i == 1)
+            {
                 //std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias;
                 //Bias = EmptyBias;
                 //  int MiddleH2 = Input.NumAO / 2;
@@ -922,122 +915,163 @@ int main(int argc, char* argv[])
                 //                     0.0128477 , -0.240511  , 0.604052, -0.0110383 ,   1.01285  , 0.759489,
                 //                     -0.240511 , 0.0128477, -0.0110383 ,  0.604052 ,  0.759489  ,  1.01285; // solution at d = 1.80
                 // DensityMatrix = 0.5 * DensityMatrix;
-             }
-             #endif
-             // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
-             //std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-             //std::cout.rdbuf(NULL); // sets to null
-             SCFEnergy = SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
-             // SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
-             // SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             //std::cout.rdbuf(orig_buf); // restore buffer
-             std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
-             Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
-             std::cout << aDensityMatrix << std::endl;
-             std::cout << bDensityMatrix << std::endl;
-             return 0;
-             std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
-             Bias.push_back(tmpTuple);
-             SCFEnergy *= -1;
-             SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
-             SCFMD1RDM.push_back(DensityMatrix);
-             SCFMDOccupied.push_back(OccupiedOrbitals);
-             SCFMDVirtual.push_back(VirtualOrbitals);
-             SCFMDCoeff.push_back(CoeffMatrix);
-             SCFMDOrbitalEV.push_back(OrbitalEV);
-             if (i == 0) // Reset to original DIIS vs no DIIS option.
-             {
-                 Input.Options[0] = useDIIS;
-             }
-         }
-        
-         for (int i = 0; i < NumSCFStates; i++)
-         {
-             if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
-             {
-                 // Run metadynamics again.
-                 //std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-                 //std::cout.rdbuf(NULL); // sets to null
-                 SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-                 //std::cout.rdbuf(orig_buf); // restore buffer
-                 std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
-                 Bias.push_back(tmpTuple);
-                 SCFEnergy *= -1;
-                 SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
-                 SCFMD1RDM.push_back(DensityMatrix);
-                 SCFMDOccupied.push_back(OccupiedOrbitals);
-                 SCFMDVirtual.push_back(VirtualOrbitals);
-                 SCFMDCoeff.push_back(CoeffMatrix);
-                 SCFMDOrbitalEV.push_back(OrbitalEV);
-             }
-             int NextIndex = SCFMDEnergyQueue.top().second;
-             // Run SCF again, because sometimes the minimum change slightly and this is what we do to take the derivative.
-             // The occupied and virtual orbitals will be locked in.
-             DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
-             std::vector< double > EmptyAllEnergies;
-             SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-             if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
-             {
-                 // Remove this solution from the list and go on to the next one.
-                 std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-                 Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
-                 SCFMDEnergyQueue.pop();
-                 i--;
-                 continue;
-             }
-             #ifdef H10
-             if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(1, 1)) > 1E-3 || fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(2, 2)) > 1E-3) && uOptIt == 1)
-             {
-                 std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
-                 Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
-                 SCFMDEnergyQueue.pop();
-                 i--;
-                 continue;
-             }
-             #endif
-             #ifdef H2H2H2
-             if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(DensityMatrix.rows() - 2, DensityMatrix.rows() - 2)) > 1E-3) && uOptIt == 1)
-             {
-                 std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
-                 Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
-                 SCFMDEnergyQueue.pop();
-                 i--;
-                 continue;
-             }
-             #endif
-             std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
-             std::cout << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
-             Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
-             Output << "DMET: and 1RDM of \n " << 2 * DensityMatrix << std::endl;
-             if (LocalToAOFile.good())
-             {
-                 // Rotate molecular orbitals into AO basis
-                 // First put MOs into a matrix
-                 Eigen::MatrixXd MO(Input.NumAO, SCFMDOccupied[NextIndex].size());
-                 for (int ao = 0; ao < MO.rows(); ao++)
-                 {
-                     for (int mo = 0; mo < MO.cols(); mo++)
-                     {
-                         MO(ao, mo) = CoeffMatrix(ao, SCFMDOccupied[NextIndex][mo]);
-                     }
-                 }
-                 // Then rotate
-                 Output << "DMET: and MOs in AO basis:\n" << LocalToAO * MO << std::endl;
-             }
-             // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
-             // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
-             // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
-             // Output << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
+            }
+            #endif
+            // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
+            std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+            std::cout.rdbuf(NULL); // sets to null
+            if (Unrestricted)
+            {
+                SCFEnergy = SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
+                DensityMatrix = aDensityMatrix + bDensityMatrix;
+                std::cout.rdbuf(orig_buf); // restore buffer
+                std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+                Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+                std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(aDensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                aBias.push_back(tmpTuple);
+                tmpTuple = std::make_tuple(bDensityMatrix, Input.StartNorm, Input.StartLambda);
+                bBias.push_back(tmpTuple);
+                SCFEnergy *= -1;
+                SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+                SCFMD1RDM.push_back(DensityMatrix);
+                SCFMDa1RDM.push_back(aDensityMatrix);
+                SCFMDb1RDM.push_back(bDensityMatrix);
+                SCFMDaOccupied.push_back(aOccupiedOrbitals);
+                SCFMDaVirtual.push_back(aVirtualOrbitals);
+                SCFMDbOccupied.push_back(bOccupiedOrbitals);
+                SCFMDbVirtual.push_back(bVirtualOrbitals);
+                SCFMDCoeff.push_back(aCoeffMatrix);
+                SCFMDCoeff.push_back(bCoeffMatrix);
+                SCFMDaOrbitalEV.push_back(aOrbitalEV);
+                SCFMDbOrbitalEV.push_back(bOrbitalEV);
+            }
+            else // Does RHF
+            {
+                SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+                std::cout.rdbuf(orig_buf); // restore buffer
+                std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+                Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
+                std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                Bias.push_back(tmpTuple);
+                SCFEnergy *= -1;
+                SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+                SCFMD1RDM.push_back(DensityMatrix);
+                SCFMDOccupied.push_back(OccupiedOrbitals);
+                SCFMDVirtual.push_back(VirtualOrbitals);
+                SCFMDCoeff.push_back(CoeffMatrix);
+                SCFMDOrbitalEV.push_back(OrbitalEV);
+            } 
+            
+            if (i == 0) // Reset to original DIIS vs no DIIS option.
+            {
+                Input.Options[0] = useDIIS;
+            }
+        }
+        for (int i = 0; i < NumSCFStates; i++)
+        {
+            if (SCFMDEnergyQueue.size() == 0) // If we removed everything and theres nothing to check against
+            {
+                // Run metadynamics again.
+                //std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
+                //std::cout.rdbuf(NULL); // sets to null
+                SCFEnergy = SCF(Bias, i + 1, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+                //std::cout.rdbuf(orig_buf); // restore buffer
+                std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(DensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
+                Bias.push_back(tmpTuple);
+                SCFEnergy *= -1;
+                SCFMDEnergyQueue.push(std::pair<double, int>(SCFEnergy, i));
+                SCFMD1RDM.push_back(DensityMatrix);
+                SCFMDOccupied.push_back(OccupiedOrbitals);
+                SCFMDVirtual.push_back(VirtualOrbitals);
+                SCFMDCoeff.push_back(CoeffMatrix);
+                SCFMDOrbitalEV.push_back(OrbitalEV);
+            }
+            int NextIndex = SCFMDEnergyQueue.top().second;
+            // Run SCF again, because sometimes the minimum change slightly and this is what we do to take the derivative.
+            // The occupied and virtual orbitals will be locked in.
+            DensityMatrix = SCFMD1RDM[NextIndex]; // Start from correct matrix.
+            std::vector< double > EmptyAllEnergies;
+            if (Unrestricted)
+            {
+                aDensityMatrix = SCFMDa1RDM[NextIndex];
+                bDensityMatrix = SCFMDb1RDM[NextIndex];
+                SCFEnergy = SCF(EmptyBias, EmptyBias, i + 1, aDensityMatrix, bDensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, aCoeffMatrix, bCoeffMatrix, SCFMDaOccupied[NextIndex], SCFMDbOccupied[NextIndex], SCFMDaVirtual[NextIndex], SCFMDbVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
+                DensityMatrix = aDensityMatrix + bDensityMatrix;
+            }
+            else
+            {
+                SCFEnergy = SCF(EmptyBias, i + 1, DensityMatrix, Input, Output, SOrtho, HCore, EmptyAllEnergies, CoeffMatrix, SCFMDOccupied[NextIndex], SCFMDVirtual[NextIndex], SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
+            }
+            if (fabs(fabs(SCFEnergy) - fabs(SCFMDEnergyQueue.top().first)) > 1E-2 || (DensityMatrix - SCFMD1RDM[NextIndex]).squaredNorm() > 1E-3) // Not the same solution, for some reason...
+            {
+                // Remove this solution from the list and go on to the next one.
+                std::cout << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                Output << "DMET: SCFMD solution was not a minimum. Trying different SCFMD solution." << std::endl;
+                SCFMDEnergyQueue.pop();
+                i--;
+                continue;
+            }
+            #ifdef H10
+            if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(1, 1)) > 1E-3 || fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(2, 2)) > 1E-3) && uOptIt == 1)
+            {
+                std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                SCFMDEnergyQueue.pop();
+                i--;
+                continue;
+            }
+            #endif
+            #ifdef H2H2H2
+            if ((fabs(DensityMatrix.coeffRef(0, 0) - DensityMatrix.coeffRef(DensityMatrix.rows() - 2, DensityMatrix.rows() - 2)) > 1E-3) && uOptIt == 1)
+            {
+                std::cout << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                Output << "DMET: SCFMD solution is not translationally symmetric. Trying different SCFMD solution." << std::endl;
+                SCFMDEnergyQueue.pop();
+                i--;
+                continue;
+            }
+            #endif
+            int PFactor = 2.0;
+            if (Unrestricted) PFactor = 1.0;
+            std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
+            std::cout << "DMET: and 1RDM of \n " << PFactor * DensityMatrix << std::endl;
+            Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
+            Output << "DMET: and 1RDM of \n " << PFactor * DensityMatrix << std::endl;
+            if (LocalToAOFile.good())
+            {
+                // Rotate molecular orbitals into AO basis
+                // First put MOs into a matrix
+                Eigen::MatrixXd MO(Input.NumAO, SCFMDOccupied[NextIndex].size());
+                for (int ao = 0; ao < MO.rows(); ao++)
+                {
+                    for (int mo = 0; mo < MO.cols(); mo++)
+                    {
+                        MO(ao, mo) = CoeffMatrix(ao, SCFMDOccupied[NextIndex][mo]);
+                    }
+                }
+                // Then rotate
+                Output << "DMET: and MOs in AO basis:\n" << LocalToAO * MO << std::endl;
+            }
+            // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
+            // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
+            // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
+            // Output << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
 
-             FullDensities[i] = 2 * DensityMatrix; // SCFMD1RDM[NextIndex];
-             // Collect information needed for derivative calculations later.
-             OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
-             VirtualByState.push_back(SCFMDVirtual[NextIndex]);
-             CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
-             OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+            FullDensities[i] = PFactor * DensityMatrix; // SCFMD1RDM[NextIndex];
+            if (Unrestricted) 
+            {
+                aFullDensities[i] = aDensityMatrix;
+                bFullDensities[i] = bDensityMatrix;
+            }
 
-             SCFMDEnergyQueue.pop();
-         }
+            // // Collect information needed for derivative calculations later.
+            // OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
+            // VirtualByState.push_back(SCFMDVirtual[NextIndex]);
+            // CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
+            // OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+
+            SCFMDEnergyQueue.pop();
+        }
         // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
@@ -1097,95 +1131,62 @@ int main(int argc, char* argv[])
             {
                 // Use the correct density matrix for this fragment.
                 DensityMatrix = FullDensities[BathStates[x]];
+                if (Unrestricted)
+                {
+                    aDensityMatrix = aFullDensities[BathStates[x]];
+                    bDensityMatrix = bFullDensities[BathStates[x]];
+                }
 
                 // The densityDensity matrix of the full system defines the orbitals for each impurity. We begin with some definitions. These numbers depend on which impurity we are looking at.
                 int NumAOImp = Input.FragmentOrbitals[x].size(); // Number of impurity states.
                 int NumAOEnv = NumAO - NumAOImp; // The rest of the states.
 
                 Eigen::MatrixXd RotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // The matrix of our orbital rotation.
+                Eigen::MatrixXd aRotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+                Eigen::MatrixXd bRotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
                 int NumEnvVirt = NumAO - NumAOImp - NumOcc; // Number of virtual (environment) orbitals in the bath.
+
+                Eigen::MatrixXd ActiveRotation(NumAO, 2 * NumAOImp);
+                Eigen::MatrixXd aActiveRotation(NumAO, 2 * NumAOImp);
+                Eigen::MatrixXd bActiveRotation(NumAO, 2 * NumAOImp);
+                std::vector<int> FragPos;
+                std::vector<int> BathPos;
+                GetCASPos(Input, x, FragPos, BathPos);
                 
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
-                SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
-                // #ifdef H2H2H2
-                // bool unEntangled = false;
-                // int ColToCheck = 2;
-                // if (x == 1)
-                // {
-                //     ColToCheck = 1;
-                // }
-                // for (int k = 0; k < RotationMatrix.rows(); k++)
-                // {
-                //     if (fabs(fabs(RotationMatrix.coeffRef(k, ColToCheck)) - 1 / sqrt(2)) < 1E-3)
-                //     {
-                //         unEntangled = true;
-                //         break;
-                //     }
-                // }
-                // if (unEntangled)
-                // {
-                //     if (x == 0)
-                //     {
-                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 3)) - 1 / sqrt(2)) < 1E-3) // > means make the middle dimer active.
-                //         {
-                //             Eigen::VectorXd R2 = RotationMatrix.col(2);
-                //             Eigen::VectorXd R3 = RotationMatrix.col(3);
-                //             RotationMatrix.col(2) = R3;
-                //             RotationMatrix.col(3) = R2;
-                //         }
-                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 4)) - 1 / sqrt(2)) < 1E-3)
-                //         {
-                //             Eigen::VectorXd R4 = RotationMatrix.col(4);
-                //             Eigen::VectorXd R5 = RotationMatrix.col(5);
-                //             RotationMatrix.col(4) = R5;
-                //             RotationMatrix.col(5) = R4;
-                //         }
-                //     }
-                //     if (x == 1)
-                //     {
-                //         if (fabs(fabs(RotationMatrix.coeffRef(0, 1)) - fabs(RotationMatrix.coeffRef(0, 4))) < 1E-3) // > means make same
-                //         {
-                //             Eigen::VectorXd R0 = RotationMatrix.col(0);
-                //             Eigen::VectorXd R1 = RotationMatrix.col(1);
-                //             RotationMatrix.col(0) = R1;
-                //             RotationMatrix.col(1) = R0;
-                //         }
-                //     }
-                //     if (x == 2)
-                //     {
-                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 3 - x)) - 1 / sqrt(2)) < 1E-3)
-                //         {
-                //             Eigen::VectorXd R2 = RotationMatrix.col(2 - x);
-                //             Eigen::VectorXd R3 = RotationMatrix.col(3 - x);
-                //             RotationMatrix.col(2 - x) = R3;
-                //             RotationMatrix.col(3 - x) = R2;
-                //         }
-                //         if (fabs(fabs(RotationMatrix.coeffRef(2, 4 - x)) - 1 / sqrt(2)) < 1E-3)
-                //         {
-                //             Eigen::VectorXd R4 = RotationMatrix.col(4 - x);
-                //             Eigen::VectorXd R5 = RotationMatrix.col(5 - x);
-                //             RotationMatrix.col(4 - x) = R5;
-                //             RotationMatrix.col(5 - x) = R4;
-                //         }
-                //     }
-                // }
-                // #endif
-                FragmentRotations[x] = RotationMatrix;
-                
-                Eigen::MatrixXd ActiveRotation(NumAO, 2 * NumAOImp);
-                std::vector<int> FragPos;
-                std::vector<int> BathPos;
-                GetCASPos(Input, x, FragPos, BathPos);
-                for (int i = 0; i < NumAOImp; i++)
+                if (Unrestricted)
                 {
-                    ActiveRotation.col(FragPos[i]) = RotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                    SchmidtDecomposition(aDensityMatrix, aRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
+                    SchmidtDecomposition(bDensityMatrix, bRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
+                    aFragmentRotations[x] = aRotationMatrix;
+                    bFragmentRotations[x] = bRotationMatrix;
+                    for (int i = 0; i < NumAOImp; i++)
+                    {
+                        aActiveRotation.col(FragPos[i]) = aRotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                        bActiveRotation.col(FragPos[i]) = bRotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                    }
+                    for (int i = 0; i < NumAOImp; i++)
+                    {
+                        int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
+                        aActiveRotation.col(BathPos[i]) = aRotationMatrix.col(ActBathOrb);
+                        bActiveRotation.col(BathPos[i]) = bRotationMatrix.col(ActBathOrb);
+                    }
                 }
-                for (int i = 0; i < NumAOImp; i++)
+                else
                 {
-                    int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
-                    ActiveRotation.col(BathPos[i]) = RotationMatrix.col(ActBathOrb);
+                    SchmidtDecomposition(DensityMatrix, RotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
+                    FragmentRotations[x] = RotationMatrix;
+                    for (int i = 0; i < NumAOImp; i++)
+                    {
+                        ActiveRotation.col(FragPos[i]) = RotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                    }
+                    for (int i = 0; i < NumAOImp; i++)
+                    {
+                        int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
+                        ActiveRotation.col(BathPos[i]) = RotationMatrix.col(ActBathOrb);
+                    }
                 }
 
                 // ----- I think this is all part of the SCF impurity solver, which is no longer used. 
@@ -1232,19 +1233,17 @@ int main(int argc, char* argv[])
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
-                myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                if (Unrestricted) myFCI.ERIMapToArray(Input.Integrals, aRotationMatrix, bRotationMatrix, ActiveList, ActiveList);
+                else myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 
                 Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
                 std::vector<double> tmpDVec;
-                for (int ii = 0; ii < Input.NumberOfEV; ii++)
-                {
-                    std::cout << myFCI.Energies[ii] << std::endl;
-                }
                 tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
-                // FragmentEnergies[x] = tmpDVec;
+                FragmentEnergies[x] = tmpDVec;
+
                 // ***** END IMPURITY CALCULATION WITH TROYFCI
 
                 // // ***** An impurity solver using HenryFCI for sigma FCI
