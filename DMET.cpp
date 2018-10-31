@@ -566,6 +566,37 @@ Eigen::MatrixXd ReadMatrixFromFile(std::string Filename, int Dim)
     return Mat;
 }
 
+Eigen::MatrixXd ProjectMatrix(Eigen::MatrixXd Mat, std::vector<int> ProjectionList)
+{
+    Eigen::MatrixXd MatP(ProjectionList.size(), ProjectionList.size());
+    for (int i = 0; i < ProjectionList.size(); i++)
+    {
+        for (int j = 0; j < ProjectionList.size(); j++)
+        {
+            MatP(i, j) = Mat(ProjectionList[i], ProjectionList[j]);
+        }
+    }
+    return MatP;
+}
+
+int BestRDM(Eigen::MatrixXd RefMat, std::vector<int> FragOrb, std::vector<Eigen::MatrixXd> TestMats, std::vector<int> FragPos)
+{
+    int Choice = 0;
+    Eigen::MatrixXd RefMatP = ProjectMatrix(RefMat, FragOrb);
+    double BestDiff = 10000.0;
+    for (int i = 0; i < TestMats.size(); i++)
+    {
+        Eigen::MatrixXd TestMatP = ProjectMatrix(TestMats[i], FragPos);
+        double CurrentDiff = (RefMatP - TestMatP).squaredNorm();
+        if (CurrentDiff < BestDiff)
+        {
+            BestDiff = CurrentDiff;
+            Choice = i;
+        }
+    }
+    return Choice;
+}
+
 // int main(int argc, char* argv[])
 // {
 //     InputObj Input;
@@ -639,6 +670,7 @@ int main(int argc, char* argv[])
     Input.NumberOfEV = NumFCIStates;
 
     bool Unrestricted = true;
+    bool HalfUnrestricted = true;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -1156,7 +1188,7 @@ int main(int argc, char* argv[])
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
-                if (Unrestricted)
+                if (Unrestricted && !HalfUnrestricted)
                 {
                     SchmidtDecomposition(aDensityMatrix, aRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
                     SchmidtDecomposition(bDensityMatrix, bRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
@@ -1232,12 +1264,23 @@ int main(int argc, char* argv[])
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
+                Input.NumberOfEV = 4;
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
-                if (Unrestricted) myFCI.ERIMapToArray(Input.Integrals, aRotationMatrix, bRotationMatrix, ActiveList, ActiveList);
-                else myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                if (Unrestricted && !HalfUnrestricted) 
+                {
+                    myFCI.ERIMapToArray(Input.Integrals, aRotationMatrix, bRotationMatrix, ActiveList, ActiveList);
+                }
+                else 
+                {
+                    myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                }
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
+                myFCI.getRDM(true);
+                // Determine the best density matrix:
+                int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
+                ImpurityStates[x] = ChosenImpState;
                 
                 Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
                 std::vector<double> tmpDVec;

@@ -534,6 +534,15 @@ void FCI::getSpecificRDM(int State, bool calc2RDM)
     TwoRDMs[State] = TwoRDM;
 }
 
+
+void FCI::getRDM(bool calc2RDM)
+{
+    for (int i = 0; i < NumberOfEV; i++)
+    {
+        getSpecificRDM(i, calc2RDM);
+    }
+}
+
 double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
 {
     double ImpEnergy = 0.0;
