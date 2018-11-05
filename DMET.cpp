@@ -1264,7 +1264,7 @@ int main(int argc, char* argv[])
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
-                Input.NumberOfEV = 4;
+                // Input.NumberOfEV = 4;
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
                 {
@@ -1279,8 +1279,8 @@ int main(int argc, char* argv[])
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 myFCI.getRDM(true);
                 // Determine the best density matrix:
-                int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
-                ImpurityStates[x] = ChosenImpState;
+                // int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
+                // ImpurityStates[x] = ChosenImpState;
                 
                 Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
                 std::vector<double> tmpDVec;

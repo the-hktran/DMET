@@ -68,7 +68,12 @@ class FCI
         Eigen::Tensor<double, 4> Henry2RDM;
 
         std::vector< Eigen::MatrixXd > OneRDMs;
+        std::vector< Eigen::MatrixXd > aOneRDMs;
+        std::vector< Eigen::MatrixXd > bOneRDMs;
         std::vector< std::vector<double> > TwoRDMs;
+        std::vector< std::vector<double> > aaTwoRDMs;
+        std::vector< std::vector<double> > abTwoRDMs;
+        std::vector< std::vector<double> > bbTwoRDMs;
         // std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
 
         FCI(InputObj&);
@@ -84,7 +89,7 @@ class FCI
         void getSpecificRDM(int, bool);
         void getRDM(bool);
         double calcImpurityEnergy(int, std::vector<int>);
-        Eigen::MatrixXd GenerateHamiltonian(int FragmentIndex, Eigen::MatrixXd &RotationMatrix, double ChemicalPotential, int State);
+        Eigen::MatrixXd GenerateHamiltonian();
         void doSigmaFCI(double);
         double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);
 
@@ -106,6 +111,8 @@ class FCI
                     const int MAXITER, const double THRESH, const bool iprint); // This is the unrestricted version of Troy's FCI code.
         void RDM12(const int N, const int No, const int Nstr,
                    const MatrixXd& X, MatrixXd& D, dv1& G, const bool compute_rdm2);
+        void URDM12(const int N, const int No, const int Nstr,
+	                MatrixXd& X, MatrixXd& aD, MatrixXd& bD, dv1& aaG, dv1& abG, dv1& bbG, const bool compute_rdm2);
         void HX_(const int N, const int No, const int Nstr,
                  const MatrixXd& X, const double *h, const double *V, MatrixXd& XH);
         void UHX_(const int N, const int No, const int Nstr,
