@@ -556,9 +556,15 @@ void FCI::getSpecificRDM(int State, bool calc2RDM)
     else
     {
         URDM12(aActive, aElectronsActive, Dim, Eigenvectors[State], aOneRDM, bOneRDM, aaTwoRDM, abTwoRDM, bbTwoRDM, calc2RDM);
-        aOneRDMs[State] = aOneRDM;
-        bOneRDMs[State] = bOneRDM;
-        OneRDMs[State] = aOneRDM + bOneRDM;
+        aOneRDMs[State] = 2.0 * aOneRDM;
+        bOneRDMs[State] = 2.0 * bOneRDM;
+        OneRDMs[State] = 2.0 * (aOneRDM + bOneRDM);
+        for (int i = 0; i < TwoRDM.size(); i++)
+        {
+            aaTwoRDM[i] *= 2.0;
+            abTwoRDM[i] *= 2.0;
+            bbTwoRDM[i] *= 2.0;
+        }
         aaTwoRDMs[State] = aaTwoRDM;
         abTwoRDMs[State] = abTwoRDM;
         bbTwoRDMs[State] = bbTwoRDM;
@@ -597,10 +603,27 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
             {
                 for (int l = 0; l < N; l++)
                 {
-                    ImpEnergy += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                    if (doUnrestricted)
+                    {
+                        ImpEnergy += 0.5 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                                   + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
+                                   + 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                    }
+                    else
+                    {
+                        ImpEnergy += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                    }
                 }
             }
-            ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+            if (doUnrestricted)
+            {
+                ImpEnergy += 0.5 * aOneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)])
+                           + 0.5 * bOneRDMs[ImpState](FragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+            }
+            else
+            {
+                ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+            }   
         }
     }
 

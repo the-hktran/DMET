@@ -670,7 +670,7 @@ int main(int argc, char* argv[])
     Input.NumberOfEV = NumFCIStates;
 
     bool Unrestricted = true;
-    bool HalfUnrestricted = true;
+    bool HalfUnrestricted = false;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -1277,7 +1277,7 @@ int main(int argc, char* argv[])
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
-                myFCI.getRDM(true);
+                // myFCI.getRDM(true);
                 // Determine the best density matrix:
                 // int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
                 // ImpurityStates[x] = ChosenImpState;
