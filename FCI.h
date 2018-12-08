@@ -93,6 +93,9 @@ class FCI
         void doSigmaFCI(double);
         double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);
 
+        void PrintERI();
+        void dbgMyShitUp();
+
     private:
         void InitFromInput(InputObj&);
         void GetOrbitalString(int, int, int, std::vector<bool>&);

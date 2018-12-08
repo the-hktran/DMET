@@ -1045,6 +1045,93 @@ double FCI::RDMFromHenryFCI(Eigen::VectorXd Eigenstate, int FragmentIndex, Eigen
     return Energy;
 }
 
+void FCI::PrintERI()
+{
+    std::cout << "-- Printing all ERI --\nha:" << std::endl;
+    int N = aActive;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            std::cout << i << "\t" << j << "\t" << aOEI[ind2(i, j)] << std::endl;
+        }
+    }
+    std::cout << "hb:" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            std::cout << i << "\t" << j << "\t" << bOEI[ind2(i, j)] << std::endl;
+        }
+    }
+    std::cout << "Vaa" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            for (int k = 0; k < aActive; k++)
+            {
+                for (int l = 0; l < aActive; l++)
+                {
+                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << aaTEI[ind4(i, j, k, l)] << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "Vab" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            for (int k = 0; k < aActive; k++)
+            {
+                for (int l = 0; l < aActive; l++)
+                {
+                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << abTEI[ind4(i, j, k, l)] << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "Vbb" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            for (int k = 0; k < aActive; k++)
+            {
+                for (int l = 0; l < aActive; l++)
+                {
+                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << bbTEI[ind4(i, j, k, l)] << std::endl;
+                }
+            }
+        }
+    }
+}
+
+// void FCI::dbgMyShitUp()
+// {
+//     int N = aActive;
+//     double* OEI1, OEI2, OEI3, OEI3, TEIZ;
+//     OEI1 = new double [N * N];
+//     OEI2 = new double [N * N];
+//     OEI3 = new double [N * N];
+//     OEI4 = new double [N * N];
+//     TEIZ = new double [N * N * N * N];
+//     TEIZ = {0};
+//     OEI1 = {0};
+//     OEI2 = {0};
+//     OEI3 = {0};
+//     OEI4 = {0};
+//     for (int i = 0; i < 4; i++)
+//     {
+//         int pos;
+//         if (i == 0)
+//         {
+//             pos = ind2(0, 0);
+//         }
+//     }
+// }
+
 // The following code is from troyfci.cpp
 
 void eigh(const MatrixXd& A, MatrixXd& U, VectorXd& D)
@@ -2787,5 +2874,6 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
             }
         }
     }
+    Hamiltonian = Ham;
     return Ham;
 }

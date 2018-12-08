@@ -670,6 +670,7 @@ int main(int argc, char* argv[])
     Input.NumberOfEV = NumFCIStates;
 
     bool Unrestricted = true;
+    bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     
     // Begin by defining some variables.
@@ -683,8 +684,8 @@ int main(int argc, char* argv[])
     //     DensityMatrix(i, i) = 1;
     // }
 
-    Eigen::MatrixXd aDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
-    Eigen::MatrixXd bDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd aDensityMatrix = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd bDensityMatrix = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
 
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
     std::vector< Eigen::MatrixXd > aFullDensities(NumSCFStates);
@@ -814,8 +815,11 @@ int main(int argc, char* argv[])
         {
             VirtualOrbitals.push_back(i);
         }
-        // OccupiedOrbitals[NumOcc - 1] = NumOcc;
-        // VirtualOrbitals[0] = NumOcc - 1;
+        if (Unrestricted && DeltaSCF)
+        {
+            OccupiedOrbitals[NumOcc - 1] = NumOcc;
+            VirtualOrbitals[0] = NumOcc - 1;
+        }
         Input.OccupiedOrbitals = OccupiedOrbitals;
         Input.VirtualOrbitals = VirtualOrbitals;
 
@@ -1064,7 +1068,12 @@ int main(int argc, char* argv[])
             }
             #endif
             int PFactor = 2.0;
-            if (Unrestricted) PFactor = 1.0;
+            if (Unrestricted) 
+            {
+                PFactor = 1.0;
+                std::cout << "DMET: aP\n" << aDensityMatrix << "\nbP\n" << bDensityMatrix << std::endl;
+                Output << "DMET: aP\n" << aDensityMatrix << "\nbP\n" << bDensityMatrix << std::endl;
+            }
             std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
             std::cout << "DMET: and 1RDM of \n " << PFactor * DensityMatrix << std::endl;
             Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << SCFEnergy << std::endl;
@@ -1264,7 +1273,6 @@ int main(int argc, char* argv[])
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
 
-                // Input.NumberOfEV = 4;
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
                 {
@@ -1277,6 +1285,7 @@ int main(int argc, char* argv[])
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
+
                 // myFCI.getRDM(true);
                 // Determine the best density matrix:
                 // int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
@@ -1316,6 +1325,10 @@ int main(int argc, char* argv[])
                 std::cout << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "DMET: -- Fragment " << x + 1 << " complete with energy " << FragmentEnergies[x][0] << std::endl;
                 Output << "R:\n" << RotationMatrix << "\nD:\n" << Fragment1RDM << std::endl;
+                if (Unrestricted)
+                {
+                    Output << "aP\n" << myFCI.aOneRDMs[ImpurityStates[x]] << "\nbP\n" << myFCI.bOneRDMs[ImpurityStates[x]] << std::endl;
+                }
                 Eigen::MatrixXd Unrotated1RDM = ActiveRotation * Fragment1RDM * ActiveRotation.transpose();
                 // Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
                 Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> OccAndNO(Unrotated1RDM);
