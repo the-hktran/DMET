@@ -973,6 +973,14 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     DIIS(aFockMatrix, aAllFockMatrices, aAllErrorMatrices); // Generates F' using DIIS and stores it in FockMatrix.
     DIIS(bFockMatrix, bAllFockMatrices, bAllErrorMatrices);
 
+    if (aAllFockMatrices.size() >= 5) // We only want about 5 Fock matrices for DIIS, so we'll throw away the earlier ones.
+	{
+		aAllFockMatrices.erase(aAllFockMatrices.begin(), aAllFockMatrices.begin() + 1);
+		aAllErrorMatrices.erase(aAllErrorMatrices.begin(), aAllErrorMatrices.begin() + 1);
+        bAllFockMatrices.erase(bAllFockMatrices.begin(), bAllFockMatrices.begin() + 1);
+		bAllErrorMatrices.erase(bAllErrorMatrices.begin(), bAllErrorMatrices.begin() + 1);
+	}
+
     Eigen::MatrixXd aFockOrtho = SOrtho.transpose() * aFockMatrix * SOrtho; // Fock matrix in orthonormal basis.
     Eigen::SelfAdjointEigenSolver< Eigen::MatrixXd > aEigensystemFockOrtho(aFockOrtho); // Eigenvectors and eigenvalues ordered from lowest to highest eigenvalues
     aCoeffMatrix = SOrtho * aEigensystemFockOrtho.eigenvectors(); // Multiply the matrix of coefficients by S^-1/2 to get coefficients for nonorthonormal basis.

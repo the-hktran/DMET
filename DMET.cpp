@@ -684,8 +684,10 @@ int main(int argc, char* argv[])
     //     DensityMatrix(i, i) = 1;
     // }
 
-    Eigen::MatrixXd aDensityMatrix = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
-    Eigen::MatrixXd bDensityMatrix = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd tmpMat = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd aDensityMatrix = tmpMat + tmpMat.transpose();
+    tmpMat = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd bDensityMatrix = tmpMat + tmpMat.transpose();
 
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
     std::vector< Eigen::MatrixXd > aFullDensities(NumSCFStates);
@@ -815,11 +817,6 @@ int main(int argc, char* argv[])
         {
             VirtualOrbitals.push_back(i);
         }
-        if (Unrestricted && DeltaSCF)
-        {
-            OccupiedOrbitals[NumOcc - 1] = NumOcc;
-            VirtualOrbitals[0] = NumOcc - 1;
-        }
         Input.OccupiedOrbitals = OccupiedOrbitals;
         Input.VirtualOrbitals = VirtualOrbitals;
 
@@ -832,13 +829,16 @@ int main(int argc, char* argv[])
             aOccupiedOrbitals.push_back(i);
             bOccupiedOrbitals.push_back(i);
         }
-        bOccupiedOrbitals[NumOcc - 1] = NumOcc;
         for(int i = NumOcc; i < NumAO; i++)
         {
             aVirtualOrbitals.push_back(i);
             bVirtualOrbitals.push_back(i);
         }
-        bVirtualOrbitals[0] = NumOcc - 1;
+        if (Unrestricted && DeltaSCF)
+        {
+            bOccupiedOrbitals[NumOcc - 1] = NumOcc;
+            bVirtualOrbitals[0] = NumOcc - 1;
+        }
 
         Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
         Eigen::MatrixXd aCoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
@@ -955,12 +955,12 @@ int main(int argc, char* argv[])
             #endif
             // This redirects the std::cout buffer, so we don't  have massive amounts of terminal output.
             std::streambuf* orig_buf = std::cout.rdbuf(); // holds original buffer
-            std::cout.rdbuf(NULL); // sets to null
+            //std::cout.rdbuf(NULL); // sets to null
             if (Unrestricted)
             {
                 SCFEnergy = SCF(aBias, bBias, i + 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
                 DensityMatrix = aDensityMatrix + bDensityMatrix;
-                std::cout.rdbuf(orig_buf); // restore buffer
+                // std::cout.rdbuf(orig_buf); // restore buffer
                 std::cout << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
                 Output << "DMET: Solution " << i + 1 << " found with energy " << SCFEnergy << "." << std::endl;
                 std::tuple< Eigen::MatrixXd, double, double > tmpTuple = std::make_tuple(aDensityMatrix, Input.StartNorm, Input.StartLambda); // Add a new bias for the new solution. Starting N_x and lambda_x are here.
