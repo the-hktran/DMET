@@ -606,7 +606,7 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
                     if (doUnrestricted)
                     {
                         ImpEnergy += 0.5 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
-                                   + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
+                                   + 1.0 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
                                    + 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
                     }
                     else
