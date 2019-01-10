@@ -422,7 +422,7 @@ double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
             {
                 for(int s = 0; s < bRotationMatrix.rows(); s++)
                 {
-                    Vcdef += bRotationMatrix(p, c) * aRotationMatrix(q, d) * Integrals[std::to_string(p + 1) + " " + std::to_string(r + 1) + " " + std::to_string(q + 1) + " " + std::to_string(s + 1)] * bRotationMatrix(r, e) * aRotationMatrix(s, f);
+                    Vcdef += aRotationMatrix(p, c) * bRotationMatrix(q, d) * Integrals[std::to_string(p + 1) + " " + std::to_string(r + 1) + " " + std::to_string(q + 1) + " " + std::to_string(s + 1)] * aRotationMatrix(r, e) * bRotationMatrix(s, f);
                 }
             }
         }
@@ -1285,6 +1285,7 @@ int main(int argc, char* argv[])
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
+                myFCI.dbgMyShitUp();
 
                 // myFCI.getRDM(true);
                 // Determine the best density matrix:

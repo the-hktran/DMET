@@ -315,7 +315,10 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+                // Add alpha part
+                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+                // Add beta part
+                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bCoreList[u], aActiveList[j], bCoreList[u]);
             }
             aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
         }
@@ -340,7 +343,10 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             Vcudu2MinusVcuud = 0.0;
             for (int u = 0; u < aCoreList.size(); u++)
             {
-                Vcudu2MinusVcuud += 2 * TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+                // Add beta part
+                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+                // Add alpha part
+                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, aRotationMatrix, bActiveList[i], aCoreList[u], bActiveList[j], aCoreList[u]);
             }
             bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
         }
@@ -2877,3 +2883,36 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
     Hamiltonian = Ham;
     return Ham;
 }
+
+void FCI::dbgMyShitUp()
+{
+    std::cout << "hs alpha" << std::endl;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << aOEI[i] << std::endl;
+    }
+    std::cout << "hs core alpha" << std::endl;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << aOEIPlusCore[i] << std::endl;
+    }
+    std::cout << "hs beta" << std::endl;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << bOEI[i] << std::endl;
+    }
+    std::cout << "hs core beta" << std::endl;
+    for (int i = 0; i < 4; i++)
+    {
+        std::cout << bOEIPlusCore[i] << std::endl;
+    }
+}
+// void FCI::dbgTwoByTwo()
+// {
+//     Eigen::MatrixXd Iden = Eigen::MatrixXd::Identity(4, 4);
+//     std::vector<Eigen::VectorXd> = Basis(4);
+//     for (int i = 0; i < 4; i++)
+//     {
+//         Basis[i] = Iden.col(i);
+//     }
+// }
