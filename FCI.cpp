@@ -408,7 +408,7 @@ void FCI::RotateERI(double *h, double *V, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb
                                 for (int ll = 0; ll < N; ll++)
                                 {
                                     Vijklaa += Ra.coeffRef(ii, i) * Ra.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Ra.coeffRef(jj, j) * Ra.coeffRef(ll, l);
-                                    Vijklab += Rb.coeffRef(ii, i) * Ra.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Rb.coeffRef(jj, j) * Ra.coeffRef(ll, l);
+                                    Vijklab += Ra.coeffRef(ii, i) * Rb.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Ra.coeffRef(jj, j) * Rb.coeffRef(ll, l);
                                     Vijklbb += Rb.coeffRef(ii, i) * Rb.coeffRef(kk, k) * V[ind4(ii, jj, kk, ll)] * Rb.coeffRef(jj, j) * Rb.coeffRef(ll, l);
                                 }
                             }
@@ -449,7 +449,7 @@ void FCI::runFCI()
     int NumStrings = nchoosek(aActive, aElectronsActive);
     int it;
 
-    if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, bOEI, bbTEI, abTEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
+    if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, bOEI, aaTEI, abTEI, bbTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
     else FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
 
     // Now we sort the eigenpairs based on eigenenergies.
@@ -1713,7 +1713,7 @@ void GetH0(const int N, const int No, const int N0, const int N2,
 			flag = true;
             for (j = 0; j < N && flag; j++)
                 for (l = 0; l < N && flag; l++)
-                    if (fabs(Vaa[ind4(i,k,j,l)]) + fabs(Vab[ind4(i,k,j,l)]) + fabs(Vbb[ind4(i,k,j,l)]) > 1.E-10) flag = false;
+                    if (fabs(Vab[ind4(i,k,j,l)]) > 1.E-10) flag = false;
             if (flag)   ifzero[i][k] = 1;
         }
 
@@ -1728,12 +1728,12 @@ void GetH0(const int N, const int No, const int N0, const int N2,
         {
             I1 = AEx1[ii][i][j];    I2 = AEx1[ii][j][i];
             if (I1 == 0 || I2 == 0) continue;
-            hS = (I1 == Ex1[ii][i][j]) ? (hatmp) : (-hatmp);
-            for (m = 0; m < N0; m++)
-                H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0) += hS;
             hS = (I1 == Ex1[ii][i][j]) ? (hbtmp) : (-hbtmp);
             for (m = 0; m < N0; m++)
                 H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0) += hS;
+            hS = (I1 == Ex1[ii][i][j]) ? (hatmp) : (-hatmp);
+            for (m = 0; m < N0; m++)
+                H0(RIstr[I2 - 1] + m * N0, RIstr[I1 - 1] + m * N0) += hS;
         }
     }
 /*  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1767,13 +1767,13 @@ void GetH0(const int N, const int No, const int N0, const int N2,
                 {
                     I1 = AEx2[ii][ij][kl];  I2 = AEx2[ii][kl][ij];
                     if (I1 == 0 || I2 == 0) continue;
-                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vaatmp) : (-Vaatmp);
-                    for (m = 0; m < N0; m++)
-                        H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0)
-                            += VS;
                     VS = (I1 == Ex2[ii][ij][kl]) ? (Vbbtmp) : (-Vbbtmp);
                     for (m = 0; m < N0; m++)
                         H0(m + RIstr[I2 - 1] * N0, m + RIstr[I1 - 1] * N0)
+                            += VS;
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vaatmp) : (-Vaatmp);
+                    for (m = 0; m < N0; m++)
+                        H0(RIstr[I2 - 1] + m * N0, RIstr[I1 - 1] + m * N0)
                             += VS;
                 }
             }
@@ -1810,8 +1810,8 @@ void GetH0(const int N, const int No, const int N0, const int N2,
         {
             jl++;
             if (ik < jl)    continue;
-            if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
-            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
+            if (ik == jl)   Vtmp = Vab[ind4(j,l,i,k)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(j,l,i,k)];
             if (fabs (Vtmp) < 1.E-10)   continue;
 
             if (j == l) jjMax = nchoosek(N - 1, No - 1);
@@ -1832,15 +1832,58 @@ void GetH0(const int N, const int No, const int N0, const int N2,
         }
     }
 
-    H0tmp.setZero (N0 * N0, N0 * N0);
-    for (i = 0; i < N0; i++) for (j = 0; j < N0; j++)
-        for (k = 0; k < N0; k++) for (l = 0; l < N0; l++)
+    //  Opposite Spin Two-Electron Part
+    ik = -1;    // X.transposeInPlace ();
+    // Xtmp.setZero (Max1, Nstr);
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+        ik++;   jl = -1;
+        if (ifzero[i][k])   continue;
+        if (i == k) iiMax = nchoosek (N - 1, No - 1);
+        else    iiMax = nchoosek (N - 2, No - 1);
+
+//  Gather together phases in Stmp
+        stmp.assign (N0, 0);    IY.assign (N0, -1);
+        for (ii = 0; ii < iiMax; ii++)
         {
-            H0tmp(i + j * N0, k + l * N0)
-                = H0(i + j * N0, k + l * N0) +
-                H0(j + i * N0, l + k * N0);
+            I1 = AEx1[ii][i][k];   I2 = AEx1[ii][k][i];
+            if (I1 == 0 || I2 == 0) continue;
+            VS = one;
+            if (I1 != Ex1[ii][i][k])    VS = -VS;
+            IY[RIstr[I1 - 1]] = RIstr[I2 - 1];
+            stmp[RIstr[I1 - 1]] = VS;
         }
-    H0 = H0tmp;
+        mmax = 0;
+        for (m = 0; m < N0; m++)
+            if (IY[m] < 0) IY[m] = 0;
+            else    mmax = m;
+
+//  Collect Elements of Ytmp
+        for (j = 0; j < N; j++) for (l = 0; l < N; l++)
+        {
+            jl++;
+            if (ik < jl)    continue;
+            if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
+            if (fabs (Vtmp) < 1.E-10)   continue;
+
+            if (j == l) jjMax = nchoosek(N - 1, No - 1);
+            else    jjMax = nchoosek(N - 2, No - 1);
+
+            for (jj = 0; jj < jjMax; jj++)
+            {
+                J1 = AEx1[jj][j][l];    J2 = AEx1[jj][l][j];
+                if (J1 == 0 || J2 == 0) continue;
+                VS = Vtmp;
+                if (J1 != Ex1[jj][j][l])    VS = -VS;
+                for (m = 0; m <= mmax; m++)
+                {
+                    H0(RIstr[J2 - 1] + IY[m] * N0, RIstr[J1 - 1] + m * N0)
+                        += VS * stmp[m];
+                }
+            }
+        }
+    }
 }
 
 
@@ -2080,9 +2123,9 @@ void UHX (const int N, const int No, const int N2,
                 for (ii = 0; ii < iiMax; ii++)
                 {
                     I1 = abs (Ex2[ii][ij][kl]); I2 = abs (Ex2[ii][kl][ij]);
-                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vatmp) : (-Vatmp);
-                    Y.col (I2 - 1) += VS * X.col (I1 - 1);
                     VS = (I1 == Ex2[ii][ij][kl]) ? (Vbtmp) : (-Vbtmp);
+                    Y.col (I2 - 1) += VS * X.col (I1 - 1);
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vatmp) : (-Vatmp);
                     Y.row (I2 - 1) += VS * X.row (I1 - 1);
                 }
             }
@@ -2116,8 +2159,8 @@ void UHX (const int N, const int No, const int N2,
             jl++;
             //if (IfSym)    // As mentioned above, sym is not needed
             if (ik < jl)    continue;
-			if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
-            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
+            if (ik == jl)   Vtmp = Vab[ind4(j,l,i,k)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(j,l,i,k)];
             if (fabs (Vtmp) < 1.E-10)   continue;
 
             if (j == l) jjMax = nchoosek (N - 1, No - 1);
@@ -2166,8 +2209,8 @@ void UHX (const int N, const int No, const int N2,
             jl++;
             //if (IfSym)    // As mentioned above, sym is not needed
             if (ik < jl)    continue;
-			if (ik == jl)   Vtmp = Vab[ind4(j,l,i,k)] / two;
-            if (ik > jl)    Vtmp = Vab[ind4(j,l,i,k)];
+            if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
             if (fabs (Vtmp) < 1.E-10)   continue;
 
             if (j == l) jjMax = nchoosek (N - 1, No - 1);
@@ -2440,9 +2483,9 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 
 bool FCI::FCIman(const int N, const int No, const int Nstr,
 	const int N0, const int NS,
-    //const double *ha, const double *hb, const double *Vaa, const double *Vbb, const double *Vab,
-    const double *ha, const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
-    vMatrixXd& Xi, dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
+    const double *ha, const double *hb, const double *Vaa,
+	const double *Vab, const double *Vbb, vMatrixXd& Xi,
+    dv1& Ei, dv1& Sym, dv1& Uncertainty, int& iter,
 	const int MAXITER, const double THRESH, const bool iprint)
 {
     int i,j,k,l,m,a,b,ij,kl,ab,ii,jj,kk,ll,ierr,Info;
@@ -2467,7 +2510,10 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
     Energy = zero; fac = one;
 //  Build Diagonal part of H
     Hd.setZero(Nstr, Nstr);
-    GetHd(N, No, Nstr, Zindex, ha, hb, Vaa, Vab, Vbb, Iocc, Isubst, Hd, 0); // Maybe I need to U this function too...
+    // GetHd_u_bf(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2,
+    //     ha, hb, Vaa, Vab, Vbb, Hd);
+    GetHd(N, No, Nstr, Zindex, ha, hb, Vaa, Vab, Vbb,
+        Iocc, Isubst, Hd, 0);
 
 //  Get N0 lowest strings
     GetIstr(N, No, Nstr, N0, Hd, Istr);
@@ -2475,7 +2521,10 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 
 //  Build + Diagonalize H0
     H0.setZero(N0 * N0, N0 * N0);
-    GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr, ha, hb, Vaa, Vab, Vbb, H0); // Maybe I need to U this function too...
+    // GetH0_u_bf(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr,
+    //     ha, hb, Vaa, Vab, Vbb, H0);
+    GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr,
+        ha, hb, Vaa, Vab, Vbb, H0);
     eigh(H0, U0, E0);
 
 //  Big loop over states
@@ -2487,20 +2536,21 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
         X = Xi[iS]; iSpin = 1;  norm = X.squaredNorm ();
         if (norm < 1.E-2)
         {
-            iSpin = -1;
-            while (iSpin == -1)
+            // @@HY: currently we only support ground state
+            // iSpin = -1;
+            // while (iSpin == -1)
+            // {
+            iX++;
+            X.setZero (Nstr, Nstr); ij = -1;
+            for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
             {
-                iX++;
-                X.setZero (Nstr, Nstr); ij = -1;
-                for (i = 0; i < N0; i++)    for (j = 0; j < N0; j++)
-                {
 //  Initialize X with eigenvectors of H0
-                    ij++;   X(Istr[j], Istr[i]) = U0(ij, iX);
-                }
-                X1 = X; X1 -= X.transpose ();
-                norm = X1.squaredNorm () / X.squaredNorm ();
-                if (norm < 1.E-2)   iSpin = 1;
+                ij++;   X(Istr[j], Istr[i]) = U0(ij, iX);
             }
+            X1 = X; X1 -= X.transpose ();
+            norm = X1.squaredNorm () / X.squaredNorm ();
+            if (norm < 1.E-2)   iSpin = 1;
+            // }
         }
 
 //  Check if the state has even (+1) or odd (-1) S
@@ -2512,36 +2562,10 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 //  Fix up broken spin symmetry (if it exists)
         GS(X, Xi, iS);
 
-// HKT - make and print the Hamiltonian matrix.
-// Eigen::MatrixXd Y;
-// Eigen::MatrixXd HY(Nstr, Nstr);
-// Eigen::MatrixXd Bra;
-// Eigen::MatrixXd Ham(Nstr * Nstr, Nstr * Nstr);
-// for (int i = 0; i < Nstr; i++)
-// {
-//     for (int j = 0; j < Nstr; j++)
-//     {
-//         Y.setZero(Nstr, Nstr);
-//         Y(i, j) = 1.0;
-//         UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, Y, ha, hb, Vaa, Vab, Vbb, HY);
-//         for (int k = 0; k < Nstr; k++)
-//         {
-//             for (int l = 0; l < Nstr; l++)
-//             {
-//                 Ham(ind2(k, l), ind2(i, j)) = HY(k, l);
-//             }
-//         }
-//     }
-// }
-// std::cout << "Ham Matrix:\n" << Ham << std::endl;
-// Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> HamEV;
-// HamEV.compute(Ham);
-// std::cout << HamEV.eigenvalues() << std::endl;
-
-
 //  Compute Initial guess energy
         XH.setZero (Nstr, Nstr);
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X,
+			ha, hb, Vaa, Vab, Vbb, XH);
         Energy = MDOT(X, XH);
 
 		if (iprint)
@@ -2586,7 +2610,8 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
             }
 
 //  Apply Spin Symmetry and Gramm-Schmidt to Update
-            Xtmp = iSym * X1.transpose ();  X1 = 0.5 * (X1 + Xtmp);
+            // @@HY: no need to do this for uFCI
+            // Xtmp = iSym * X1.transpose ();  X1 = 0.5 * (X1 + Xtmp);
             X1.normalize ();
             norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
             norm = MDOT(X1, X);  X1 -= norm * X; X1.normalize ();
@@ -2613,7 +2638,8 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
             GS(X1, Xi, iS);
 
 //  Act H on Davidson Vector
-            UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X1, ha, hb, Vaa, Vab, Vbb, X1H);
+			UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X1,
+				ha, hb, Vaa, Vab, Vbb, X1H);
 
 //  Build Hm
             Hm(0, 0) = MDOT(X, XH);
@@ -2647,7 +2673,8 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
 
 //  Avoid accumulating roundoff error
             if (iter % 4 == 0)
-                UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
+				UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X,
+					ha, hb, Vaa, Vab, Vbb, XH);
 
             Energy = MDOT(X, XH) / X.squaredNorm ();
 			Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
@@ -2661,7 +2688,8 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
         }
           //printf ("Done after %4d iterations.\n", iter);
 //  Energy, Uncertainty for THIS State
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, ha, hb, Vaa, Vab, Vbb, XH);
+		UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X,
+			ha, hb, Vaa, Vab, Vbb, XH);
         Energy = MDOT(X,XH) / X.squaredNorm ();
         Uncertainty[iS] = MDOT(XH, XH) / MDOT(XH, X) / MDOT(XH, X) - 1.;
         Xi[iS] = X; Ei[iS] = Energy;
@@ -2741,6 +2769,7 @@ void FCI::RDM12(const int N, const int No, const int Nstr,
 	}
 }
 
+// compute 1e and 2e density matrices
 void FCI::URDM12(const int N, const int No, const int Nstr,
 	MatrixXd& X, MatrixXd& aD, MatrixXd& bD, dv1& aaG, dv1& abG, dv1& bbG, const bool compute_rdm2)
 // compute 1e and 2e density matrices
@@ -2766,7 +2795,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
     for (i = 0; i < N; i++) for (j = i; j < N; j++)
     {
 		aT1[ind2(i, j)] = aT1[ind2(j, i)] = (i == j) ? (0.5) : (0.25);
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, bbT2, abT2, aaT2, XH);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
         aD(i, j) = MDOT(X, XH);	aD(j, i) = aD(i, j);
         aT1[ind2(i, j)] = aT1[ind2(j, i)] = 0.;
     }
@@ -2774,7 +2803,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
     for (i = 0; i < N; i++) for (j = i; j < N; j++)
     {
 		bT1[ind2(i, j)] = bT1[ind2(j, i)] = (i == j) ? (0.5) : (0.25);
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, bbT2, abT2, aaT2, XH);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
         bD(i, j) = MDOT(X, XH);	bD(j, i) = bD(i, j);
         bT1[ind2(i, j)] = bT1[ind2(j, i)] = 0.;
     }
@@ -2794,7 +2823,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 			aaT2[ind4(j,i,k,l)] = aaT2[ind4(j,i,l,k)] =
 			aaT2[ind4(k,l,i,j)] = aaT2[ind4(k,l,j,i)] =
 			aaT2[ind4(l,k,i,j)] = aaT2[ind4(l,k,j,i)] = temp;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, bbT2, abT2, aaT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
 	        aaG[i * s3 + j * s2 + k * s1 + l]			// ijkl
 				= aaG[j * s3 + i * s2 + k * s1 + l]	// jikl
 				= aaG[i * s3 + j * s2 + l * s1 + k]	// ijlk
@@ -2815,7 +2844,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 	    for (k = 0; k < N; k++) for (l = 0; l < N; l++)
 	    {
 	        abT2[ind4(i,j,k,l)] = 1.0;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, bbT2, abT2, aaT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
 	        abG[i * s3 + j * s2 + k * s1 + l] = MDOT(X, XH);
 			abT2[ind4(i,j,k,l)] = 0.;
 	    }
@@ -2833,7 +2862,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 			bbT2[ind4(j,i,k,l)] = bbT2[ind4(j,i,l,k)] =
 			bbT2[ind4(k,l,i,j)] = bbT2[ind4(k,l,j,i)] =
 			bbT2[ind4(l,k,i,j)] = bbT2[ind4(l,k,j,i)] = temp;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, bbT2, abT2, aaT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
 	        bbG[i * s3 + j * s2 + k * s1 + l]			// ijkl
 				= bbG[j * s3 + i * s2 + k * s1 + l]	// jikl
 				= bbG[i * s3 + j * s2 + l * s1 + k]	// ijlk
@@ -2875,7 +2904,7 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
             {
                 for (int l = 0; l < NumStrings; l++)
                 {
-                    Ham(ind2(k, l), ind2(i, j)) = HY(k, l);
+                    Ham(k * NumStrings + l, i * NumStrings + j) = HY(k, l);
                 }
             }
         }
@@ -2905,6 +2934,20 @@ void FCI::dbgMyShitUp()
     for (int i = 0; i < 4; i++)
     {
         std::cout << bOEIPlusCore[i] << std::endl;
+    }
+    std::cout << "Va" << std::endl;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            for (int k = 0; k < 2; k++)
+            {
+                for (int l = 0; l < 2; l++)
+                {
+                    std::cout << i + 1 << " " << j + 1 << " " << k + 1 << " " << l + 1 << "\t" << aaTEI[i * 8 + j * 4 + k * 2 + l] << std::endl;
+                }
+            }
+        }
     }
 }
 // void FCI::dbgTwoByTwo()

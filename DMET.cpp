@@ -1282,6 +1282,8 @@ int main(int argc, char* argv[])
                 {
                     myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
                 }
+                std::cout << "aR\n" << aRotationMatrix << std::endl;
+                std::cout << "bR\n" << bRotationMatrix << std::endl;
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
