@@ -1285,7 +1285,10 @@ int main(int argc, char* argv[])
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                myFCI.runFCI();
+                // myFCI.runFCI();
+                // myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // myFCI.dbgMyShitUp();
+                myFCI.DirectFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 myFCI.dbgMyShitUp();
 

@@ -1070,6 +1070,22 @@ void FCI::PrintERI()
             std::cout << i << "\t" << j << "\t" << bOEI[ind2(i, j)] << std::endl;
         }
     }
+    std::cout << "ha core:" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            std::cout << i << "\t" << j << "\t" << aOEIPlusCore[ind2(i, j)] - aOEI[ind2(i, j)] << std::endl;
+        }
+    }
+    std::cout << "hb core:" << std::endl;
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            std::cout << i << "\t" << j << "\t" << bOEIPlusCore[ind2(i, j)] - bOEI[ind2(i, j)] << std::endl;
+        }
+    }
     std::cout << "Vaa" << std::endl;
     for (int i = 0; i < aActive; i++)
     {
@@ -2913,42 +2929,87 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
     return Ham;
 }
 
-void FCI::dbgMyShitUp()
+void FCI::DirectFCI()
 {
-    std::cout << "hs alpha" << std::endl;
-    for (int i = 0; i < 4; i++)
+    GenerateHamiltonian();
+    Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> HamSolver(Hamiltonian);
+    std::vector<Eigen::VectorXd> EVAsEigenVec;
+    Energies.resize(NumberOfEV);
+    for (int i = 0; i < NumberOfEV; i++)
     {
-        std::cout << aOEI[i] << std::endl;
+        Energies[i] = HamSolver.eigenvalues()[i];
+        EVAsEigenVec.push_back(HamSolver.eigenvectors().col(i));
     }
-    std::cout << "hs core alpha" << std::endl;
-    for (int i = 0; i < 4; i++)
+    Eigenvectors = EigVecToMatrix(EVAsEigenVec);
+}
+
+std::vector<Eigen::MatrixXd> FCI::EigVecToMatrix(std::vector<Eigen::VectorXd> EigVec)
+{
+    int aNumStrings = nchoosek(aActive, aElectronsActive);
+    int bNumStrings = nchoosek(bActive, bElectronsActive);
+    std::vector<Eigen::MatrixXd> EigMat(EigVec.size());
+    for (int a = 0; a < EigVec.size(); a++)
     {
-        std::cout << aOEIPlusCore[i] << std::endl;
-    }
-    std::cout << "hs beta" << std::endl;
-    for (int i = 0; i < 4; i++)
-    {
-        std::cout << bOEI[i] << std::endl;
-    }
-    std::cout << "hs core beta" << std::endl;
-    for (int i = 0; i < 4; i++)
-    {
-        std::cout << bOEIPlusCore[i] << std::endl;
-    }
-    std::cout << "Va" << std::endl;
-    for (int i = 0; i < 2; i++)
-    {
-        for (int j = 0; j < 2; j++)
+        EigMat[a] = Eigen::MatrixXd::Zero(bNumStrings, aNumStrings);
+        for (int i = 0; i < bNumStrings; i++)
         {
-            for (int k = 0; k < 2; k++)
+            for (int j = 0; j < aNumStrings; j++)
             {
-                for (int l = 0; l < 2; l++)
-                {
-                    std::cout << i + 1 << " " << j + 1 << " " << k + 1 << " " << l + 1 << "\t" << aaTEI[i * 8 + j * 4 + k * 2 + l] << std::endl;
-                }
+                EigMat[a](i, j) = EigVec[a][i * aNumStrings + j];
             }
         }
     }
+    return EigMat;
+}
+
+void FCI::dbgMyShitUp()
+{
+    // std::cout << "hs alpha" << std::endl;
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     std::cout << aOEI[i] << std::endl;
+    // }
+    // std::cout << "hs core alpha" << std::endl;
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     std::cout << aOEIPlusCore[i] - aOEI[i] << std::endl;
+    // }
+    // std::cout << "hs beta" << std::endl;
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     std::cout << bOEI[i] << std::endl;
+    // }
+    // std::cout << "hs core beta" << std::endl;
+    // for (int i = 0; i < 4; i++)
+    // {
+    //     std::cout << bOEIPlusCore[i] - bOEI[i] << std::endl;
+    // }
+    // std::cout << "Va" << std::endl;
+    // for (int i = 0; i < 2; i++)
+    // {
+    //     for (int j = 0; j < 2; j++)
+    //     {
+    //         for (int k = 0; k < 2; k++)
+    //         {
+    //             for (int l = 0; l < 2; l++)
+    //             {
+    //                 std::cout << i + 1 << " " << j + 1 << " " << k + 1 << " " << l + 1 << "\t" << aaTEI[i * 8 + j * 4 + k * 2 + l] << std::endl;
+    //             }
+    //         }
+    //     }
+    // }
+    std::cout << "Energies:" << std::endl;
+    for (int i = 0; i < NumberOfEV; i++)
+    {
+        std::cout << Energies[i] << std::endl;
+    }
+    std::cout << "Eigenvectors:" << std::endl;
+    for (int i = 0; i < NumberOfEV; i++)
+    {
+        std::cout << "EV " << i << std::endl;
+        std::cout << Eigenvectors[i] << std::endl;
+    }
+
 }
 // void FCI::dbgTwoByTwo()
 // {

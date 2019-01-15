@@ -92,6 +92,7 @@ class FCI
         Eigen::MatrixXd GenerateHamiltonian();
         void doSigmaFCI(double);
         double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);
+        void DirectFCI();
 
         void PrintERI();
         void dbgMyShitUp();
@@ -100,6 +101,7 @@ class FCI
         void InitFromInput(InputObj&);
         void GetOrbitalString(int, int, int, std::vector<bool>&);
         Eigen::Tensor<double, 4> Make2RDMTensor(std::vector<double>, int);
+        std::vector<Eigen::MatrixXd> EigVecToMatrix(std::vector<Eigen::VectorXd>);
 
         // From troyfci.cpp
         bool FCIman(const int N, const int No, const int Nstr,
