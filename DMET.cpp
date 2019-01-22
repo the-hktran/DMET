@@ -1272,6 +1272,11 @@ int main(int argc, char* argv[])
                 // ***** The following solves the impurity using code from TroyFCI
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
+                std::cout << "active list" << std::endl;
+                for (int ii = 0; ii < ActiveList.size(); ii++)
+                {
+                    std::cout << ActiveList[ii] << std::endl;
+                }
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
@@ -1353,10 +1358,10 @@ int main(int argc, char* argv[])
 
             std::cout << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
             Output << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
-            // if (OneShot)
-            // {
-            //     break;
-            // }
+            if (OneShot)
+            {
+                break;
+            }
             /* Change mu somehow */
             if(MuIteration % 2 == 0 && MuIteration > 0)
             {

@@ -2785,8 +2785,210 @@ void FCI::RDM12(const int N, const int No, const int Nstr,
 	}
 }
 
+void UHX (const int N, const int No, const int N2,
+	const int Max1, const int Max2, const int Nstr,
+    const iv3& Ex1, const iv3& Ex2, MatrixXd& X, const double *ha,
+    const double *hb, const double *Vaa, const double *Vab, const double *Vbb,
+    MatrixXd& Y, bool OnlyVab)
+//  Do Not Enfore Spin Symmetry
+{
+    int i,j,k,l,ij,kl,ii,jj,I1,I2,iiMax,J1,J2,jjMax,ik,jl;
+    iv2 ifzero(N, iv1(N)), ifzero2(N, iv1(N));  iv3 AEx1(Max1, iv2(N, iv1(N)));
+    int IfSym;
+    double Vtmp,Vatmp,Vbtmp,VS,VSS,hatmp,hbtmp,hS,Tmp,Spin;
+    MatrixXd Xtmp, Ytmp;
+    bool flag;
+    const double zero = 0., one = 1., two = 2., three = 3., four = 4.;
+
+    Y.setZero (Nstr, Nstr);
+    for (i = 0;i < Max1;i++)  for (j = 0;j < N;j++) for (k = 0;k < N;k++)
+        AEx1[i][j][k] = abs (Ex1[i][j][k]);
+
+//  Check for Zero Blocks in V
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+		// for Vab
+		flag = true;
+        for (j = 0; j < N && flag; j++) for (l = 0; l < N && flag; l++)
+            if (fabs (Vab[ind4(i,k,j,l)]) > 1.E-10)    flag = false;
+        if (flag)   ifzero[i][k] = 1;
+		// for Vba
+		flag = true;
+        for (j = 0; j < N && flag; j++) for (l = 0; l < N && flag; l++)
+            if (fabs (Vab[ind4(j,l,i,k)]) > 1.E-10)    flag = false;
+        if (flag)   ifzero2[i][k] = 1;
+    }
+
+//  Check Symmetry of V
+// Don't need this in current version, as we always assume
+//      <ij|kl> == <ji|lk>, i.e. e1 and e2 are exchangeable
+/*    IfSym = 1;  flag = true;
+    for (i = 0; i < N && flag; i++) for (k = 0; k < N && flag; k++)
+    {
+        ik = cpind(i,k);
+        for (j = 0; j < N && flag; j++) for (l = 0; l < N && flag; l++)
+        {
+            jl = cpind(j,l);
+            if (fabs (Vab[cpind(ik,jl)] - Vab[cpind(jl,ik)]) > 1.E-10)
+            {   flag = false;   IfSym = 0;  }
+        }
+    }
+*/
+
+// One Electron Part
+    for (i = 0; i < N; i++) for (j = 0; j < N; j++)
+    {
+        hatmp = ha[ind2(i,j)];  hbtmp = hb[ind2(i,j)];
+        if (fabs (hatmp) + fabs (hbtmp) < 1.E-10)   continue;
+        if (i == j) iiMax = nchoosek (N - 1, No - 1);
+        else    iiMax = nchoosek (N - 2, No - 1);
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][j];    I2 = AEx1[ii][j][i];
+            hS = (I1 == Ex1[ii][i][j]) ? (hbtmp) : (-hbtmp);
+            Y.col (I2 - 1) += X.col (I1 - 1) * hS;
+            hS = (I1 == Ex1[ii][i][j]) ? (hatmp) : (-hatmp);
+            Y.row (I2 - 1) += X.row (I1 - 1) * hS;
+        }
+    }
+
+//  Same Spin Two-Electron Part
+    int IK, IL, JK, JL;
+    ij = -1;
+    for (i = 0; i < N; i++) for (j = i + 1; j < N; j++)
+    {
+        ij++;   kl = -1;
+        for (k = 0; k < N; k++) for (l = k + 1; l < N; l++)
+        {
+            kl++;
+            Vatmp = (Vaa[ind4(i,k,j,l)] - Vaa[ind4(i,l,j,k)] -
+                Vaa[ind4(j,k,i,l)] + Vaa[ind4(j,l,i,k)]) / two;
+            Vbtmp = (Vbb[ind4(i,k,j,l)] - Vbb[ind4(i,l,j,k)] -
+                Vbb[ind4(j,k,i,l)] + Vbb[ind4(j,l,i,k)]) / two;
+            if (fabs (Vatmp) + fabs (Vbtmp) > 1.E-10)
+            {
+                if (i == k && j == l)   iiMax = nchoosek (N - 2, No - 2);
+                else if (i == k)    iiMax = nchoosek (N - 3, No - 2);
+                else if (i == l)    iiMax = nchoosek (N - 3, No - 2);
+                else if (j == k)    iiMax = nchoosek (N - 3, No - 2);
+                else if (j == l)    iiMax = nchoosek (N - 3, No - 2);
+                else    iiMax = nchoosek (N - 4, No - 2);
+                for (ii = 0; ii < iiMax; ii++)
+                {
+                    I1 = abs (Ex2[ii][ij][kl]); I2 = abs (Ex2[ii][kl][ij]);
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vbtmp) : (-Vbtmp);
+                    Y.col (I2 - 1) += VS * X.col (I1 - 1);
+                    VS = (I1 == Ex2[ii][ij][kl]) ? (Vatmp) : (-Vatmp);
+                    Y.row (I2 - 1) += VS * X.row (I1 - 1);
+                }
+            }
+        }
+    }
+
+//  Opposite Spin Two-Electron Part
+    ik = -1;    // X.transposeInPlace ();
+    Xtmp.setZero (Max1, Nstr);
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+        ik++;   jl = -1;
+        // if (ifzero[i][k])   continue;
+        if (i == k) iiMax = nchoosek (N - 1, No - 1);
+        else    iiMax = nchoosek (N - 2, No - 1);
+
+//  Gather together phases in Xtmp
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][k];
+            VS = (I1 == Ex1[ii][i][k]) ? (one) : (-one);
+			for (jj = 0; jj < Nstr; jj++)
+				Xtmp(ii, jj) = X(jj, I1-1) * VS;
+			// Xtmp.row(ii) = X.row(I1-1) * VS;
+        }
+
+//  Collect Elements of Ytmp
+        Ytmp.setZero (Max1, Nstr);
+        for (j = 0; j < N; j++) for (l = 0; l < N; l++)
+        {
+            jl++;
+            //if (IfSym)    // As mentioned above, sym is not needed
+            if (ik < jl)    continue;
+            if (ik == jl)   Vtmp = Vab[ind4(j,l,i,k)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(j,l,i,k)];
+            if (fabs (Vtmp) < 1.E-10)   continue;
+
+            if (j == l) jjMax = nchoosek (N - 1, No - 1);
+            else    jjMax = nchoosek (N - 2, No - 1);
+
+            for (jj = 0; jj < jjMax; jj++)
+            {
+                J1 = AEx1[jj][j][l];    J2 = AEx1[jj][l][j];
+                VS = (J1 == Ex1[jj][j][l]) ? (Vtmp) : (-Vtmp);
+                Ytmp.col (J2 - 1) += Xtmp.col (J1 - 1) * VS;
+            }
+        }
+
+//  Scatter Elements of Y
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][k][i];
+            for (jj = 0; jj < Nstr; jj++)
+                Y(jj, I1 - 1) += Ytmp(ii, jj);
+        }
+    }
+
+//  Opposite Spin Two-Electron Part
+    ik = -1;    // X.transposeInPlace ();
+    Xtmp.setZero (Max1, Nstr);
+    for (i = 0; i < N; i++) for (k = 0; k < N; k++)
+    {
+        ik++;   jl = -1;
+        // if (ifzero2[i][k])   continue;
+        if (i == k) iiMax = nchoosek (N - 1, No - 1);
+        else    iiMax = nchoosek (N - 2, No - 1);
+
+//  Gather together phases in Xtmp
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][i][k];
+            VS = (I1 == Ex1[ii][i][k]) ? (one) : (-one);
+            for (jj = 0; jj < Nstr; jj++)
+                Xtmp(ii, jj) = X(I1 - 1, jj) * VS;
+        }
+
+//  Collect Elements of Ytmp
+        Ytmp.setZero (Max1, Nstr);
+        for (j = 0; j < N; j++) for (l = 0; l < N; l++)
+        {
+            jl++;
+            //if (IfSym)    // As mentioned above, sym is not needed
+            if (ik < jl)    continue;
+            if (ik == jl)   Vtmp = Vab[ind4(i,k,j,l)] / two;
+            if (ik > jl)    Vtmp = Vab[ind4(i,k,j,l)];
+            if (fabs (Vtmp) < 1.E-10)   continue;
+            if (!OnlyVab)
+
+            if (j == l) jjMax = nchoosek (N - 1, No - 1);
+            else    jjMax = nchoosek (N - 2, No - 1);
+
+            for (jj = 0; jj < jjMax; jj++)
+            {
+                J1 = AEx1[jj][j][l];    J2 = AEx1[jj][l][j];
+                VS = (J1 == Ex1[jj][j][l]) ? (Vtmp) : (-Vtmp);
+                Ytmp.col (J2 - 1) += Xtmp.col (J1 - 1) * VS;
+            }
+        }
+
+//  Scatter Elements of Y
+        for (ii = 0; ii < iiMax; ii++)
+        {
+            I1 = AEx1[ii][k][i];
+			Y.row(I1-1) += Ytmp.row(ii);
+        }
+    }
+}
+
 // compute 1e and 2e density matrices
-void FCI::URDM12(const int N, const int No, const int Nstr,
+void URDM12(const int N, const int No, const int Nstr,
 	MatrixXd& X, MatrixXd& aD, MatrixXd& bD, dv1& aaG, dv1& abG, dv1& bbG, const bool compute_rdm2)
 // compute 1e and 2e density matrices
 {
@@ -2811,7 +3013,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
     for (i = 0; i < N; i++) for (j = i; j < N; j++)
     {
 		aT1[ind2(i, j)] = aT1[ind2(j, i)] = (i == j) ? (0.5) : (0.25);
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH, true);
         aD(i, j) = MDOT(X, XH);	aD(j, i) = aD(i, j);
         aT1[ind2(i, j)] = aT1[ind2(j, i)] = 0.;
     }
@@ -2819,7 +3021,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
     for (i = 0; i < N; i++) for (j = i; j < N; j++)
     {
 		bT1[ind2(i, j)] = bT1[ind2(j, i)] = (i == j) ? (0.5) : (0.25);
-        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH, true);
         bD(i, j) = MDOT(X, XH);	bD(j, i) = bD(i, j);
         bT1[ind2(i, j)] = bT1[ind2(j, i)] = 0.;
     }
@@ -2839,7 +3041,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 			aaT2[ind4(j,i,k,l)] = aaT2[ind4(j,i,l,k)] =
 			aaT2[ind4(k,l,i,j)] = aaT2[ind4(k,l,j,i)] =
 			aaT2[ind4(l,k,i,j)] = aaT2[ind4(l,k,j,i)] = temp;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH, true);
 	        aaG[i * s3 + j * s2 + k * s1 + l]			// ijkl
 				= aaG[j * s3 + i * s2 + k * s1 + l]	// jikl
 				= aaG[i * s3 + j * s2 + l * s1 + k]	// ijlk
@@ -2860,10 +3062,21 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 	    for (k = 0; k < N; k++) for (l = 0; l < N; l++)
 	    {
 	        abT2[ind4(i,j,k,l)] = 1.0;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH, false);
 	        abG[i * s3 + j * s2 + k * s1 + l] = MDOT(X, XH);
 			abT2[ind4(i,j,k,l)] = 0.;
 	    }
+
+        // baG = dv1(__s3 * N, 0.);
+	    // for (i = 0; i < N; i++) for (j = 0; j < N; j++)
+	    // for (k = 0; k < N; k++) for (l = 0; l < N; l++)
+	    // {
+	    //     abT2[ind4(i,j,k,l)] = 1.0;
+        //     Eigen::MatrixXd XT = X.transpose();
+	    //     UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, XT, aT1, bT1, aaT2, abT2, bbT2, XH, true);
+	    //     baG[i * s3 + j * s2 + k * s1 + l] = MDOT(XT, XH);
+		// 	abT2[ind4(i,j,k,l)] = 0.;
+	    // }
 
         bbG = dv1(__s3 * N, 0.);
 	    for (i = 0, ij = 0; i < N; i++) for (j = 0; j <= i; j++, ij++)
@@ -2878,7 +3091,7 @@ void FCI::URDM12(const int N, const int No, const int Nstr,
 			bbT2[ind4(j,i,k,l)] = bbT2[ind4(j,i,l,k)] =
 			bbT2[ind4(k,l,i,j)] = bbT2[ind4(k,l,j,i)] =
 			bbT2[ind4(l,k,i,j)] = bbT2[ind4(l,k,j,i)] = temp;
-	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+	        UHX(N, No, N2, Max1, Max2, Nstr, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH, true);
 	        bbG[i * s3 + j * s2 + k * s1 + l]			// ijkl
 				= bbG[j * s3 + i * s2 + k * s1 + l]	// jikl
 				= bbG[i * s3 + j * s2 + l * s1 + k]	// ijlk
