@@ -51,3 +51,6 @@ Eigen::Tensor<std::complex<double>, 4> Form2RDM(InputObj&, int, Eigen::VectorXcd
 double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &bBias, int SolnNum, Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, 
            Eigen::MatrixXd &aCoeffMatrix, Eigen::MatrixXd &bCoeffMatrix, std::vector<int> &aOccupiedOrbitals, std::vector<int> &bOccupiedOrbitals, std::vector<int> &aVirtualOrbitals, std::vector<int> &bVirtualOrbitals, 
            int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &aOrbitalEV, Eigen::VectorXd &bOrbitalEV);
+
+// Fock.cpp
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals, std::map<std::string, double> &MixedSpinIntegrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);

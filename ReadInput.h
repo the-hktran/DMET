@@ -10,6 +10,9 @@ class InputObj
         void SetNames(std::string, std::string, std::string);
         void Set();
         std::map< std::string, double > Integrals;
+        std::map< std::string, double > aaIntegrals;
+        std::map< std::string, double > abIntegrals;
+        std::map< std::string, double > bbIntegrals;
         Eigen::MatrixXd OverlapMatrix;
         std::string IntegralsInput;
         std::string OverlapInput;

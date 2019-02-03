@@ -114,3 +114,23 @@ void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix
         }
     }
 }
+
+void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals, std::map<std::string, double> &MixedSpinIntegrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons)
+{
+    for(int m = 0; m < FockMatrix.rows(); m++)
+    {
+        for(int n = m; n < FockMatrix.cols(); n++)
+        {
+            FockMatrix(m, n) = Integrals[std::to_string(m + 1) + " " + std::to_string(n + 1) + " 0 0"] // This is HCore
+                             + CoulombTerm(m, n, DensityMatrix, Integrals)
+                             + CoulombTerm(m, n, OppositeSpinDensity, MixedSpinIntegrals)
+                             - ExchangeTerm(m, n, DensityMatrix, Integrals)
+                             + BiasMatrixElement(m, n, Bias, DensityMatrix, NumElectrons); // Metadynamics bias.
+            FockMatrix(n, m) = FockMatrix(m, n);
+            // CoulombMatrix(m, n) = CoulombTerm(m, n, DensityMatrix, Integrals);
+            // CoulombMatrix(n, m) = CoulombMatrix(m, n);
+            // ExchangeMatrix(m, n) = ExchangeTerm(m, n, DensityMatrix, Integrals);
+            // ExchangeMatrix(n, m) = ExchangeMatrix(m, n);
+        }
+    }
+}

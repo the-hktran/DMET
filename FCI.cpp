@@ -370,6 +370,53 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
     ENuc = ERIMap["0 0 0 0"];
 }
 
+void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& bbIntegrals)
+{
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            aaIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = aOEI[i * aActive + j];
+            for (int k = 0; k < aActive; k++)
+            {
+                for (int l = 0; l < aActive; l++)
+                {
+                    aaIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) +  " " + std::to_string(l + 1)] = aaTEI[i * aActive * aActive * aActive + j * aActive * aActive + k * aActive + l];
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < aActive; i++)
+    {
+        for (int j = 0; j < aActive; j++)
+        {
+            for (int k = 0; k < bActive; k++)
+            {
+                for (int l = 0; l < bActive; l++)
+                {
+                    abIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) +  " " + std::to_string(l + 1)] = abTEI[i * aActive * bActive * bActive + j * bActive * bActive + k * bActive + l];
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < bActive; i++)
+    {
+        for (int j = 0; j < bActive; j++)
+        {
+            bbIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = bOEI[i * bActive + j];
+            for (int k = 0; k < bActive; k++)
+            {
+                for (int l = 0; l < bActive; l++)
+                {
+                    bbIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) +  " " + std::to_string(l + 1)] = bbTEI[i * bActive * bActive * bActive + j * bActive * bActive + k * bActive + l];
+                }
+            }
+        }
+    }
+}
+
 void FCI::RotateERI(double *h, double *V, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb, double *ha, double *hb, double *Vaa, double *Vab, double *Vbb)
 {
     int N = Ra.rows();
@@ -1059,7 +1106,7 @@ void FCI::PrintERI()
     {
         for (int j = 0; j < aActive; j++)
         {
-            std::cout << i << "\t" << j << "\t" << aOEI[ind2(i, j)] << std::endl;
+            std::cout << i << "\t" << j << "\t" << aOEIPlusCore[ind2(i, j)] << std::endl;
         }
     }
     std::cout << "hb:" << std::endl;
@@ -1067,7 +1114,7 @@ void FCI::PrintERI()
     {
         for (int j = 0; j < aActive; j++)
         {
-            std::cout << i << "\t" << j << "\t" << bOEI[ind2(i, j)] << std::endl;
+            std::cout << i << "\t" << j << "\t" << bOEIPlusCore[ind2(i, j)] << std::endl;
         }
     }
     std::cout << "ha core:" << std::endl;
@@ -2988,7 +3035,7 @@ void UHX (const int N, const int No, const int N2,
 }
 
 // compute 1e and 2e density matrices
-void URDM12(const int N, const int No, const int Nstr,
+void FCI::URDM12(const int N, const int No, const int Nstr,
 	MatrixXd& X, MatrixXd& aD, MatrixXd& bD, dv1& aaG, dv1& abG, dv1& bbG, const bool compute_rdm2)
 // compute 1e and 2e density matrices
 {
@@ -3175,7 +3222,7 @@ std::vector<Eigen::MatrixXd> FCI::EigVecToMatrix(std::vector<Eigen::VectorXd> Ei
     return EigMat;
 }
 
-void FCI::dbgMyShitUp()
+void FCI::dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb)
 {
     // std::cout << "hs alpha" << std::endl;
     // for (int i = 0; i < 4; i++)
@@ -3222,7 +3269,83 @@ void FCI::dbgMyShitUp()
         std::cout << "EV " << i << std::endl;
         std::cout << Eigenvectors[i] << std::endl;
     }
+    PrintERI();
 
+    std::cout << "Trying alternative rotation." << std::endl;
+    double *h = NULL;
+    double *V = NULL;
+
+    double *ha = NULL;
+    double *hb = NULL;
+    double *Vaa = NULL;
+    double *Vab = NULL;
+    double *Vbb = NULL;
+    
+    h = new double[16];
+    ha = new double[16];
+    hb = new double[16];
+    V = new double[256];
+    Vaa = new double[256];
+    Vab = new double[256];
+    Vbb = new double[256];
+
+    for (int i = 0; i < 4; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            h[i * 4 + j] = ERIMap[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"];
+            for (int k = 0; k < 4; k++)
+            {
+                for (int l = 0; l < 4; l++)
+                {
+                    V[i * 64 + j * 16 + k * 4 + l] = ERIMap[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) + " " + std::to_string(l + 1)];
+                }
+            }
+        }
+    }
+    RotateERI(h, V, Ra, Rb, ha, hb, Vaa, Vab, Vbb);
+    std::cout << "Vaa" << std::endl;
+    for (int i = 0; i < aActiveList.size(); i++)
+    {
+        for (int j = 0; j < aActiveList.size(); j++)
+        {
+            for (int k = 0; k < aActiveList.size(); k++)
+            {
+                for (int l = 0; l < aActiveList.size(); l++)
+                {
+                    std::cout << aActiveList[i] << "\t" << aActiveList[j] << "\t" << aActiveList[j] << "\t" << aActiveList[l] << "\t" << Vaa[aActiveList[i] * 64 + aActiveList[j] * 16 + aActiveList[k] * 4 + aActiveList[l]] << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "Vab" << std::endl;
+    for (int i = 0; i < aActiveList.size(); i++)
+    {
+        for (int j = 0; j < aActiveList.size(); j++)
+        {
+            for (int k = 0; k < aActiveList.size(); k++)
+            {
+                for (int l = 0; l < aActiveList.size(); l++)
+                {
+                    std::cout << aActiveList[i] << "\t" << aActiveList[j] << "\t" << aActiveList[j] << "\t" << aActiveList[l] << "\t" << Vab[aActiveList[i] * 64 + aActiveList[j] * 16 + aActiveList[k] * 4 + aActiveList[l]] << std::endl;
+                }
+            }
+        }
+    }
+    std::cout << "Vbb" << std::endl;
+    for (int i = 0; i < aActiveList.size(); i++)
+    {
+        for (int j = 0; j < aActiveList.size(); j++)
+        {
+            for (int k = 0; k < aActiveList.size(); k++)
+            {
+                for (int l = 0; l < aActiveList.size(); l++)
+                {
+                    std::cout << aActiveList[i] << "\t" << aActiveList[j] << "\t" << aActiveList[j] << "\t" << aActiveList[l] << "\t" << Vbb[aActiveList[i] * 64 + aActiveList[j] * 16 + aActiveList[k] * 4 + aActiveList[l]] << std::endl;
+                }
+            }
+        }
+    }
 }
 // void FCI::dbgTwoByTwo()
 // {

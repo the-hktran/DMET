@@ -148,6 +148,16 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
     return Orbital;
 }
 
+void MakeFragmentInput(InputObj &Input, InputObj &FragInput, std::map<std::string, double> aaInt, std::map<std::string, double> &abInt, std::map<std::string, double> &bbInt, int NumFragElectrons, int NumFragOrbitals)
+{
+    FragInput = Input;
+    FragInput.NumElectrons = NumFragElectrons;
+    FragInput.NumAO = NumFragOrbitals;
+    FragInput.aaIntegrals = aaInt;
+    FragInput.abIntegrals = abInt;
+    FragInput.bbIntegrals = bbInt;
+}
+
 //double CalcCostDMETPot(std::vector<Eigen::MatrixXd> FragmentDensities, Eigen::MatrixXd FullDensity, InputObj Input)
 //{
 //    /* This matches the diagonal of the density matrices */
@@ -1277,6 +1287,15 @@ int main(int argc, char* argv[])
                 {
                     std::cout << ActiveList[ii] << std::endl;
                 }
+                // if (x == 0)
+                // {
+                //     aRotationMatrix(1, 2) = -1 * aRotationMatrix(1, 2);
+                //     aRotationMatrix(2, 2) = -1 * aRotationMatrix(2, 2);
+                //     aRotationMatrix(3, 2) = -1 * aRotationMatrix(3, 2);
+                //     bRotationMatrix(1, 2) = -1 * bRotationMatrix(1, 2);
+                //     bRotationMatrix(2, 2) = -1 * bRotationMatrix(2, 2);
+                //     bRotationMatrix(3, 2) = -1 * bRotationMatrix(3, 2);
+                // }
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
@@ -1290,12 +1309,12 @@ int main(int argc, char* argv[])
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                // myFCI.runFCI();
+                myFCI.runFCI();
+                myFCI.getSpecificRDM(ImpurityStates[x], true);
+                myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
+                // myFCI.DirectFCI();
                 // myFCI.getSpecificRDM(ImpurityStates[x], true);
                 // myFCI.dbgMyShitUp();
-                myFCI.DirectFCI();
-                myFCI.getSpecificRDM(ImpurityStates[x], true);
-                myFCI.dbgMyShitUp();
 
                 // myFCI.getRDM(true);
                 // Determine the best density matrix:
