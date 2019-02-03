@@ -83,7 +83,7 @@ class FCI
         void ERIMapToArray(std::map<std::string, double>&);
         void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd RotationMatrix, std::vector<int> ActiveOrbitals);
         void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList);
-        void ERIArrayToMap(std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&);
+        void ERIArrayToMap(std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&, std::map<std::string, double>&);
         void RotateERI(double*, double*, Eigen::MatrixXd, Eigen::MatrixXd, double*, double*, double*, double*, double*);
         void AddChemicalPotentialGKLC(std::vector<int>, double);
         void runFCI();

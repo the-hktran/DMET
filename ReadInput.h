@@ -12,6 +12,7 @@ class InputObj
         std::map< std::string, double > Integrals;
         std::map< std::string, double > aaIntegrals;
         std::map< std::string, double > abIntegrals;
+        std::map< std::string, double > baIntegrals;
         std::map< std::string, double > bbIntegrals;
         Eigen::MatrixXd OverlapMatrix;
         std::string IntegralsInput;

@@ -13,6 +13,8 @@
 #include <algorithm>
 #include <iomanip>
 
+#include <Functions.h>
+
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 double Metric(int NumElectrons, Eigen::MatrixXd &FirstDensityMatrix, Eigen::MatrixXd &SecondDensityMatrix);
@@ -1347,8 +1349,8 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     // Eigen::MatrixXd bCoulombMatrix(bDensityMatrix.rows(), bDensityMatrix.cols());
     // Eigen::MatrixXd aExchangeMatrix(aDensityMatrix.rows(), aDensityMatrix.cols());
     // Eigen::MatrixXd bExchangeMatrix(bDensityMatrix.rows(), bDensityMatrix.cols());
-    BuildFockMatrix(aFockMatrix, aDensityMatrix, bDensityMatrix, Input.Integrals, aBias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
-    BuildFockMatrix(bFockMatrix, bDensityMatrix, aDensityMatrix, Input.Integrals, bBias, Input.NumElectrons);
+    BuildFockMatrix(aFockMatrix, aDensityMatrix, bDensityMatrix, Input.aaIntegrals, Input.abIntegrals, aBias, Input.NumElectrons); // Calculates and stores fock matrix. Includes bias.
+    BuildFockMatrix(bFockMatrix, bDensityMatrix, aDensityMatrix, Input.aaIntegrals, Input.baIntegrals, bBias, Input.NumElectrons);
     aFockMatrix += DMETPotential; // If before DIIS, results in improper Fock matrix. If after DIIS, gradient is wrong.
     bFockMatrix += DMETPotential; 
     aAllFockMatrices.push_back(aFockMatrix); // Store this iteration's Fock matrix for the DIIS procedure.

@@ -370,7 +370,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
     ENuc = ERIMap["0 0 0 0"];
 }
 
-void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& bbIntegrals)
+void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& bbIntegrals)
 {
     for (int i = 0; i < aActive; i++)
     {
@@ -396,6 +396,7 @@ void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std
                 for (int l = 0; l < bActive; l++)
                 {
                     abIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) +  " " + std::to_string(l + 1)] = abTEI[i * aActive * bActive * bActive + j * bActive * bActive + k * bActive + l];
+                    baIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) +  " " + std::to_string(l + 1)] = abTEI[k * aActive * bActive * bActive + l * bActive * bActive + i * bActive + j];
                 }
             }
         }
