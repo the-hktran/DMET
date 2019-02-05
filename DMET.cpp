@@ -1310,6 +1310,7 @@ int main(int argc, char* argv[])
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
 
+                // Begin SCF-IN-SCF Embedding Impurity Calculation
                 std::map<std::string, double> aaInt, abInt, baInt, bbInt;
                 myFCI.ERIArrayToMap(aaInt, abInt, baInt, bbInt);
                 InputObj FragInput;
@@ -1322,6 +1323,20 @@ int main(int argc, char* argv[])
                 xtmp = Eigen::MatrixXd::Random(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
                 Eigen::MatrixXd bP = xtmp + xtmp.transpose();
                 Eigen::MatrixXd I = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+
+                Eigen::MatrixXd RaR = aRotationMatrix.transpose() * aDensityMatrix * aRotationMatrix;
+                Eigen::MatrixXd RbR = bRotationMatrix.transpose() * bDensityMatrix * bRotationMatrix;
+                for (int i = 0; i < ActiveList.size(); i++)
+                {
+                    for (int j = 0; j < ActiveList.size(); j++)
+                    {
+                        aP(i, j) = RaR.coeffRef(ActiveList[i], ActiveList[j]);
+                        bP(i, j) = RbR.coeffRef(ActiveList[i], ActiveList[j]);
+                    }
+                }
+
+                std::cout << aP << std::endl;
+                std::cout << bP << std::endl;
 
                 std::vector<double> AllFragE;
                 Eigen::MatrixXd aC, bC;
@@ -1341,11 +1356,11 @@ int main(int argc, char* argv[])
                 int xcount = 0;
                 Eigen::MatrixXd ZeroMat = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
 
-                std::cout << "Beginning sketch-ass SCF" << std::endl;
                 double xE = SCF(EmptyBias, EmptyBias, 1, aP, bP, FragInput, Output, I, FragInput.aHCore, FragInput.bHCore, AllFragE, aC, bC, aOcc, bOcc, aVirt, bVirt, xcount, -1, ZeroMat, aOrbEV, bOrbEV);
                 myFCI.aOneRDMs[ImpurityStates[x]] = aP;
                 myFCI.bOneRDMs[ImpurityStates[x]] = bP;
                 Eigen::MatrixXd Fragment1RDM = aP + bP;
+                xE = CalcSCFImpurityEnergy(aP, bP, FragPos, myFCI.aOEI, myFCI.bOEI, myFCI.aOEIPlusCore, myFCI.bOEIPlusCore, myFCI.aaTEI, myFCI.abTEI, myFCI.bbTEI);
                 std::vector<double> tmpDVec;
                 tmpDVec.push_back(xE);
                 FragmentEnergies[x] = tmpDVec;

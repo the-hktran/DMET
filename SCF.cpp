@@ -1722,3 +1722,49 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
 
     return Energy + Input.Integrals["0 0 0 0"];
 }
+
+double CalcSCFImpurityEnergy(Eigen::MatrixXd aDensityMatrix, Eigen::MatrixXd bDensityMatrix, std::vector<int> FragPos, double *aOEI, double *bOEI, double *aOEIPlusCore, double *bOEIPlusCore, double *aaTEI, double *abTEI, double *bbTEI)
+{
+    int N = aDensityMatrix.rows();
+    int N4 = N * N * N * N;
+    std::vector<double> aaG(N4), abG(N4), baG(N4), bbG(N4);
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    aaG[i * N * N * N + j * N * N + k * N + l] = aDensityMatrix.coeffRef(i, j) * aDensityMatrix.coeffRef(k, l);
+                    abG[i * N * N * N + j * N * N + k * N + l] = aDensityMatrix.coeffRef(i, j) * bDensityMatrix.coeffRef(k, l);
+                    baG[i * N * N * N + j * N * N + k * N + l] = bDensityMatrix.coeffRef(i, j) * aDensityMatrix.coeffRef(k, l);
+                    bbG[i * N * N * N + j * N * N + k * N + l] = bDensityMatrix.coeffRef(i, j) * bDensityMatrix.coeffRef(k, l);
+                }
+            }
+        }
+    } 
+
+    double EImp = 0.0;
+
+    for (int i = 0; i < FragPos.size(); i++)
+    {
+        int iIdx = FragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            EImp += 0.5 * aDensityMatrix.coeffRef(iIdx, j) * (aOEI[iIdx * N + j] + aOEIPlusCore[iIdx * N + j])
+                  + 0.5 * bDensityMatrix.coeffRef(iIdx, j) * (bOEI[iIdx * N + j] + bOEIPlusCore[iIdx * N + j]);
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    EImp += 0.5 * 2.0 * aaG[iIdx * N * N * N + j * N * N + k * N + l] * (aaTEI[iIdx * N * N * N + j * N * N + k * N + l] - aaTEI[iIdx * N * N * N + l * N * N + k * N + j])
+                          + 1.0 * 2.0 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l] + 1.0 * 2.0 * baG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[k * N * N * N + l * N * N + iIdx * N + j]
+                          + 0.5 * 2.0 * bbG[iIdx * N * N * N + j * N * N + k * N + l] * (bbTEI[iIdx * N * N * N + j * N * N + k * N + l] - bbTEI[iIdx * N * N * N + l * N * N + k * N + j]);
+                }
+            }
+        }
+    }
+
+    return EImp;
+}
