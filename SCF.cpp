@@ -1488,7 +1488,6 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
         Eigen::MatrixXd bCoeffMatrixPrev = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO); // Two sequential coefficient matrices are stored for MOM.
         ContinueSCF = true;
         Count = 1;
-        std::cout << "Hello!" << std::endl;
         while((ContinueSCF || Count < 5) && !aBias.empty()) // Do 15 times atleast, but skip if this is the first SCF.
         {
             std::cout << "SCF MetaD: Iteration " << Count << "...";
@@ -1498,9 +1497,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
                 aDensityMatrixPrev = aDensityMatrix;
                 bDensityMatrixPrev = bDensityMatrix;
             }
-            std::cout << "Hello!" << std::endl;
             Energy = SCFIteration(aDensityMatrix, bDensityMatrix, Input, aHCore, bHCore, SOrtho, aBias, bBias, aCoeffMatrix, bCoeffMatrix, aAllFockMatrices, bAllFockMatrices, aAllErrorMatrices, bAllErrorMatrices, aCoeffMatrixPrev, bCoeffMatrixPrev, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, DMETPotential, aOrbitalEV, bOrbitalEV);
-            std::cout << "Hello!" << std::endl;
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (aDensityMatrix - aDensityMatrixPrev).squaredNorm() + (bDensityMatrix - bDensityMatrixPrev).squaredNorm();

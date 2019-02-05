@@ -166,6 +166,8 @@ void MakeFragmentInput(InputObj &Input, InputObj &FragInput, std::map<std::strin
     BuildFockMatrix(aHCore, ZeroMat, aaInt, EmptyBias, NumFragElectrons);
     BuildFockMatrix(bHCore, ZeroMat, bbInt, EmptyBias, NumFragElectrons);
 
+    FragInput.OverlapMatrix = Eigen::MatrixXd::Identity(NumFragOrbitals, NumFragOrbitals);
+
     FragInput.aHCore = aHCore;
     FragInput.bHCore = bHCore;
     // Wow such coding, much algorithms
@@ -1337,7 +1339,7 @@ int main(int argc, char* argv[])
                     bVirt.push_back(ii);
                 }
                 int xcount = 0;
-                Eigen::MatrixXd ZeroMat = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals.size(), 2 * Input.FragmentOrbitals.size());
+                Eigen::MatrixXd ZeroMat = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
 
                 std::cout << "Beginning sketch-ass SCF" << std::endl;
                 double xE = SCF(EmptyBias, EmptyBias, 1, aP, bP, FragInput, Output, I, FragInput.aHCore, FragInput.bHCore, AllFragE, aC, bC, aOcc, bOcc, aVirt, bVirt, xcount, -1, ZeroMat, aOrbEV, bOrbEV);
