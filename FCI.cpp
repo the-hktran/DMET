@@ -370,7 +370,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
     ENuc = ERIMap["0 0 0 0"];
 }
 
-void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& bbIntegrals)
+void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std::string, double>& abIntegrals, std::map<std::string, double>& baIntegrals, std::map<std::string, double>& bbIntegrals)
 {
     for (int i = 0; i < aActive; i++)
     {

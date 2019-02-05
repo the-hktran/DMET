@@ -148,14 +148,27 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
     return Orbital;
 }
 
-void MakeFragmentInput(InputObj &Input, InputObj &FragInput, std::map<std::string, double> aaInt, std::map<std::string, double> &abInt, std::map<std::string, double> &bbInt, int NumFragElectrons, int NumFragOrbitals)
+void MakeFragmentInput(InputObj &Input, InputObj &FragInput, std::map<std::string, double> &aaInt, std::map<std::string, double> &abInt, std::map<std::string, double> &baInt, std::map<std::string, double> &bbInt, int NumFragElectrons, int NumFragOrbitals)
 {
     FragInput = Input;
     FragInput.NumElectrons = NumFragElectrons;
+    FragInput.NumOcc = NumFragElectrons / 2;
     FragInput.NumAO = NumFragOrbitals;
     FragInput.aaIntegrals = aaInt;
     FragInput.abIntegrals = abInt;
+    FragInput.baIntegrals = baInt;
     FragInput.bbIntegrals = bbInt;
+
+    Eigen::MatrixXd ZeroMat = Eigen::MatrixXd::Zero(NumFragOrbitals, NumFragOrbitals);
+    Eigen::MatrixXd aHCore = Eigen::MatrixXd::Zero(NumFragOrbitals, NumFragOrbitals);
+    Eigen::MatrixXd bHCore = Eigen::MatrixXd::Zero(NumFragOrbitals, NumFragOrbitals);
+    std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias;
+    BuildFockMatrix(aHCore, ZeroMat, aaInt, EmptyBias, NumFragElectrons);
+    BuildFockMatrix(bHCore, ZeroMat, bbInt, EmptyBias, NumFragElectrons);
+
+    FragInput.aHCore = aHCore;
+    FragInput.bHCore = bHCore;
+    // Wow such coding, much algorithms
 }
 
 //double CalcCostDMETPot(std::vector<Eigen::MatrixXd> FragmentDensities, Eigen::MatrixXd FullDensity, InputObj Input)
@@ -1282,20 +1295,6 @@ int main(int argc, char* argv[])
                 // ***** The following solves the impurity using code from TroyFCI
                 std::vector<int> ActiveList, VirtualList, CoreList;
                 GetCASList(Input, x, ActiveList, CoreList, VirtualList);
-                std::cout << "active list" << std::endl;
-                for (int ii = 0; ii < ActiveList.size(); ii++)
-                {
-                    std::cout << ActiveList[ii] << std::endl;
-                }
-                // if (x == 0)
-                // {
-                //     aRotationMatrix(1, 2) = -1 * aRotationMatrix(1, 2);
-                //     aRotationMatrix(2, 2) = -1 * aRotationMatrix(2, 2);
-                //     aRotationMatrix(3, 2) = -1 * aRotationMatrix(3, 2);
-                //     bRotationMatrix(1, 2) = -1 * bRotationMatrix(1, 2);
-                //     bRotationMatrix(2, 2) = -1 * bRotationMatrix(2, 2);
-                //     bRotationMatrix(3, 2) = -1 * bRotationMatrix(3, 2);
-                // }
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
@@ -1308,10 +1307,53 @@ int main(int argc, char* argv[])
                 }
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
-                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                myFCI.runFCI();
-                myFCI.getSpecificRDM(ImpurityStates[x], true);
-                myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
+
+                std::map<std::string, double> aaInt, abInt, baInt, bbInt;
+                myFCI.ERIArrayToMap(aaInt, abInt, baInt, bbInt);
+                InputObj FragInput;
+                MakeFragmentInput(Input, FragInput, aaInt, abInt, baInt, bbInt, NumAOImp * 2, 2 * Input.FragmentOrbitals[x].size());
+
+                std::vector< std::tuple< Eigen::MatrixXd, double, double> > EmptyBias;
+
+                Eigen::MatrixXd xtmp = Eigen::MatrixXd::Random(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                Eigen::MatrixXd aP = xtmp + xtmp.transpose();
+                xtmp = Eigen::MatrixXd::Random(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                Eigen::MatrixXd bP = xtmp + xtmp.transpose();
+                Eigen::MatrixXd I = Eigen::MatrixXd::Identity(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+
+                std::vector<double> AllFragE;
+                Eigen::MatrixXd aC, bC;
+                aC = bC = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals[x].size(), 2 * Input.FragmentOrbitals[x].size());
+                std::vector<int> aOcc, bOcc, aVirt, bVirt;
+                Eigen::VectorXd aOrbEV, bOrbEV;
+                for (int ii = 0; ii < Input.FragmentOrbitals[x].size(); ii++)
+                {
+                    aOcc.push_back(ii);
+                    bOcc.push_back(ii);
+                }
+                for (int ii = Input.FragmentOrbitals[x].size(); ii < 2 * Input.FragmentOrbitals[x].size(); ii++)
+                {
+                    aVirt.push_back(ii);
+                    bVirt.push_back(ii);
+                }
+                int xcount = 0;
+                Eigen::MatrixXd ZeroMat = Eigen::MatrixXd::Zero(2 * Input.FragmentOrbitals.size(), 2 * Input.FragmentOrbitals.size());
+
+                std::cout << "Beginning sketch-ass SCF" << std::endl;
+                double xE = SCF(EmptyBias, EmptyBias, 1, aP, bP, FragInput, Output, I, FragInput.aHCore, FragInput.bHCore, AllFragE, aC, bC, aOcc, bOcc, aVirt, bVirt, xcount, -1, ZeroMat, aOrbEV, bOrbEV);
+                myFCI.aOneRDMs[ImpurityStates[x]] = aP;
+                myFCI.bOneRDMs[ImpurityStates[x]] = bP;
+                Eigen::MatrixXd Fragment1RDM = aP + bP;
+                std::vector<double> tmpDVec;
+                tmpDVec.push_back(xE);
+                FragmentEnergies[x] = tmpDVec;
+
+
+                // myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
+                // myFCI.runFCI();
+                // myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
+
                 // myFCI.DirectFCI();
                 // myFCI.getSpecificRDM(ImpurityStates[x], true);
                 // myFCI.dbgMyShitUp();
@@ -1321,10 +1363,10 @@ int main(int argc, char* argv[])
                 // int ChosenImpState = BestRDM(DensityMatrix, Input.FragmentOrbitals[x], myFCI.OneRDMs, FragPos);
                 // ImpurityStates[x] = ChosenImpState;
                 
-                Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
-                std::vector<double> tmpDVec;
-                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
-                FragmentEnergies[x] = tmpDVec;
+                // Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
+                // std::vector<double> tmpDVec;
+                // tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                // FragmentEnergies[x] = tmpDVec;
 
                 // ***** END IMPURITY CALCULATION WITH TROYFCI
 

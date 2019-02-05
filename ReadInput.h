@@ -46,7 +46,7 @@ class InputObj
 
 		/* Some things that are nice to carry around */
 		Eigen::MatrixXd SOrtho;
-		Eigen::MatrixXd HCore;
+		Eigen::MatrixXd HCore, aHCore, bHCore;
 		std::vector< int > OccupiedOrbitals;
 		std::vector< int > VirtualOrbitals;
 };

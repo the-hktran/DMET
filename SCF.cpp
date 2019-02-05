@@ -13,7 +13,7 @@
 #include <algorithm>
 #include <iomanip>
 
-#include <Functions.h>
+#include "Functions.h"
 
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
 void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &OppositeSpinDensity, std::map<std::string, double> &Integrals, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, int NumElectrons);
@@ -1336,7 +1336,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
 }
 
 /******* OVERLOADED FUNCTION FOR UNRESTRICTED HARTREE FOCK WITH DIFFERENT SPIN INTEGRALS ********/
-double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, Eigen::MatrixXd &HCore, Eigen::MatrixXd &SOrtho, 
+double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, Eigen::MatrixXd &aHCore, Eigen::MatrixXd &bHCore, Eigen::MatrixXd &SOrtho, 
                     std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &bBias, Eigen::MatrixXd &aCoeffMatrix, Eigen::MatrixXd &bCoeffMatrix,
                     std::vector< Eigen::MatrixXd > &aAllFockMatrices, std::vector< Eigen::MatrixXd > &bAllFockMatrices, std::vector< Eigen::MatrixXd > &aAllErrorMatrices, std::vector< Eigen::MatrixXd > &bAllErrorMatrices, 
                     Eigen::MatrixXd &aCoeffMatrixPrev, Eigen::MatrixXd &bCoeffMatrixPrev, 
@@ -1451,12 +1451,12 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     // std::getline(std::cin, tmpstring);
 
 	/* Now calculate the HF energy. E = sum_ij P_ij * (HCore_ij + F_ij) */
-    double Energy = 0.5 * (aDensityMatrix.cwiseProduct(HCore + aFockMatrix)).sum()
-                  + 0.5 * (bDensityMatrix.cwiseProduct(HCore + bFockMatrix)).sum(); // I don't know what this should be.
+    double Energy = 0.5 * (aDensityMatrix.cwiseProduct(aHCore + aFockMatrix)).sum()
+                  + 0.5 * (bDensityMatrix.cwiseProduct(bHCore + bFockMatrix)).sum(); // I don't know what this should be.
     return Energy;
 }
 
-double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &bBias, int SolnNum, Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &HCore, std::vector< double > &AllEnergies, 
+double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, std::vector< std::tuple< Eigen::MatrixXd, double, double > > &bBias, int SolnNum, Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMatrix, InputObj &Input, std::ofstream &Output, Eigen::MatrixXd &SOrtho, Eigen::MatrixXd &aHCore, Eigen::MatrixXd &bHCore, std::vector< double > &AllEnergies, 
            Eigen::MatrixXd &aCoeffMatrix, Eigen::MatrixXd &bCoeffMatrix, std::vector<int> &aOccupiedOrbitals, std::vector<int> &bOccupiedOrbitals, std::vector<int> &aVirtualOrbitals, std::vector<int> &bVirtualOrbitals, 
            int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &aOrbitalEV, Eigen::VectorXd &bOrbitalEV)
 {
@@ -1488,6 +1488,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
         Eigen::MatrixXd bCoeffMatrixPrev = Eigen::MatrixXd::Identity(Input.NumAO, Input.NumAO); // Two sequential coefficient matrices are stored for MOM.
         ContinueSCF = true;
         Count = 1;
+        std::cout << "Hello!" << std::endl;
         while((ContinueSCF || Count < 5) && !aBias.empty()) // Do 15 times atleast, but skip if this is the first SCF.
         {
             std::cout << "SCF MetaD: Iteration " << Count << "...";
@@ -1497,7 +1498,9 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
                 aDensityMatrixPrev = aDensityMatrix;
                 bDensityMatrixPrev = bDensityMatrix;
             }
-            Energy = SCFIteration(aDensityMatrix, bDensityMatrix, Input, HCore, SOrtho, aBias, bBias, aCoeffMatrix, bCoeffMatrix, aAllFockMatrices, bAllFockMatrices, aAllErrorMatrices, bAllErrorMatrices, aCoeffMatrixPrev, bCoeffMatrixPrev, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, DMETPotential, aOrbitalEV, bOrbitalEV);
+            std::cout << "Hello!" << std::endl;
+            Energy = SCFIteration(aDensityMatrix, bDensityMatrix, Input, aHCore, bHCore, SOrtho, aBias, bBias, aCoeffMatrix, bCoeffMatrix, aAllFockMatrices, bAllFockMatrices, aAllErrorMatrices, bAllErrorMatrices, aCoeffMatrixPrev, bCoeffMatrixPrev, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, DMETPotential, aOrbitalEV, bOrbitalEV);
+            std::cout << "Hello!" << std::endl;
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (aDensityMatrix - aDensityMatrixPrev).squaredNorm() + (bDensityMatrix - bDensityMatrixPrev).squaredNorm();
@@ -1577,7 +1580,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
                 aDensityMatrixPrev = aDensityMatrix;
                 bDensityMatrixPrev = bDensityMatrix;
             }
-            Energy = SCFIteration(aDensityMatrix, bDensityMatrix, Input, HCore, SOrtho, EmptyBias, EmptyBias, aCoeffMatrix, bCoeffMatrix, aAllFockMatrices, bAllFockMatrices, aAllErrorMatrices, bAllErrorMatrices, aCoeffMatrixPrev, bCoeffMatrixPrev, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, DMETPotential, aOrbitalEV, bOrbitalEV);
+            Energy = SCFIteration(aDensityMatrix, bDensityMatrix, Input, aHCore, bHCore, SOrtho, EmptyBias, EmptyBias, aCoeffMatrix, bCoeffMatrix, aAllFockMatrices, bAllFockMatrices, aAllErrorMatrices, bAllErrorMatrices, aCoeffMatrixPrev, bCoeffMatrixPrev, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, DMETPotential, aOrbitalEV, bOrbitalEV);
             if(!Input.Options[0]) // Don't use DIIS. Check matrix RMS instead.
             {
                DensityRMS = (aDensityMatrix - aDensityMatrixPrev).squaredNorm() + (bDensityMatrix - bDensityMatrixPrev).squaredNorm();
