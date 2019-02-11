@@ -376,7 +376,7 @@ void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std
     {
         for (int j = 0; j < aActive; j++)
         {
-            aaIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = aOEI[i * aActive + j];
+            aaIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = aOEIPlusCore[i * aActive + j];
             for (int k = 0; k < aActive; k++)
             {
                 for (int l = 0; l < aActive; l++)
@@ -406,7 +406,7 @@ void FCI::ERIArrayToMap(std::map<std::string, double>& aaIntegrals, std::map<std
     {
         for (int j = 0; j < bActive; j++)
         {
-            bbIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = bOEI[i * bActive + j];
+            bbIntegrals[std::to_string(i + 1) + " " + std::to_string(j + 1) + " 0 0"] = bOEIPlusCore[i * bActive + j];
             for (int k = 0; k < bActive; k++)
             {
                 for (int l = 0; l < bActive; l++)
@@ -3221,6 +3221,114 @@ std::vector<Eigen::MatrixXd> FCI::EigVecToMatrix(std::vector<Eigen::VectorXd> Ei
         }
     }
     return EigMat;
+}
+
+Eigen::MatrixXd FCI::ProjectMatrix(std::vector<Eigen::MatrixXd> Basis)
+{
+    const int N2 = nchoosek(aActive, 2),
+		  Max1 = nchoosek(aActive - 1, aElectronsActive - 1),
+		  Max2 = nchoosek(aActive - 2, aElectronsActive - 2),
+          NumStrings = nchoosek(aActive, aElectronsActive);
+    iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(aActive, aElectronsActive, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    Eigen::MatrixXd HY;
+    Eigen::MatrixXd ProjectedMatrix = Eigen::MatrixXd::Zero(Basis.size(), Basis.size());
+
+    for (int i = 0; i < Basis.size(); i++)
+    {
+        Basis[i].normalize();
+    }
+    
+    for (int i = 0; i < Basis.size(); i++)
+    {
+        for (int j = 0; j < Basis.size(); j++)
+        {
+            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Basis[j], aOEI, bOEI, bbTEI, abTEI, aaTEI, HY);
+            ProjectedMatrix(i, j) = MDOT(Basis[i], HY);
+        }
+    }
+
+    return ProjectedMatrix;
+}
+
+std::vector<Eigen::MatrixXd> FCI::HalfFilledSchmidtBasis(Eigen::MatrixXd Vec)
+{
+    std::vector<Eigen::MatrixXd> SchmidtBasis;
+    int BlockSize = Vec.cols() / 2;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            Eigen::MatrixXd Basis = Eigen::MatrixXd::Zero(Vec.cols(), Vec.cols());
+            Basis.block(i * BlockSize, j * BlockSize, BlockSize, BlockSize) = Vec.block(i * BlockSize, j * BlockSize, BlockSize, BlockSize);
+            SchmidtBasis.push_back(Basis);
+        }
+    }
+    return SchmidtBasis;
+}
+
+std::vector<Eigen::MatrixXd> FCI::HalfFilledSchmidtBasis(int State)
+{
+    std::vector<Eigen::MatrixXd> SchmidtBasis;
+    int BlockSize = Eigenvectors[State].cols() / 2;
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 2; j++)
+        {
+            Eigen::MatrixXd Basis = Eigen::MatrixXd::Zero(Eigenvectors[State].cols(), Eigenvectors[State].cols());
+            Basis.block(i * BlockSize, j * BlockSize, BlockSize, BlockSize) = Eigenvectors[State].block(i * BlockSize, j * BlockSize, BlockSize, BlockSize);
+            SchmidtBasis.push_back(Basis);
+        }
+    }
+    return SchmidtBasis;
+}
+
+void MakeSubCoeff(Eigen::MatrixXd &SubC, Eigen::MatrixXd C, std::vector<int> Occ, std::vector<unsigned short int> OrbList)
+{
+    for (int i = 0; i < SubC.rows(); i++)
+    {
+        for (int j = 0; j < SubC.cols(); j++)
+        {
+            SubC(i, j) = C.coeffRef(OrbList[i], Occ[j]);
+        }
+    }
+}
+
+Eigen::MatrixXd FCI::HFInFCISpace(Eigen::MatrixXd aCoeffMatrix, Eigen::MatrixXd bCoeffMatrix, std::vector<int> aOccupiedOrbitals, std::vector<int> bOccupiedOrbitals)
+{
+    const int N2 = nchoosek(aActive, 2),
+		  Max1 = nchoosek(aActive - 1, aElectronsActive - 1),
+		  Max2 = nchoosek(aActive - 2, aElectronsActive - 2),
+          NumStrings = nchoosek(aActive, aElectronsActive);
+    iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(aActive, aElectronsActive, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    std::vector< std::vector<unsigned short int> > OrbitalStrings;
+    for (int i = 0; i < NumStrings; i++)
+    {
+        std::vector<bool> tmpVec;
+        std::vector<unsigned short int> tmpVec2;
+        GetOrbitalString(i, aElectronsActive, aActive, tmpVec);
+        tmpVec2 = ListOrbitals(tmpVec);
+        OrbitalStrings.push_back(tmpVec2);
+    }
+
+    Eigen::MatrixXd HFDet(NumStrings, NumStrings);
+    for (int i = 0; i < NumStrings; i++)
+    {
+        for (int j = 0; j < NumStrings; j++)
+        {
+            Eigen::MatrixXd aSubC(aOccupiedOrbitals.size(), aOccupiedOrbitals.size());
+            Eigen::MatrixXd bSubC(bOccupiedOrbitals.size(), bOccupiedOrbitals.size());
+            MakeSubCoeff(aSubC, aCoeffMatrix, aOccupiedOrbitals, OrbitalStrings[i]);
+            MakeSubCoeff(bSubC, bCoeffMatrix, bOccupiedOrbitals, OrbitalStrings[j]);
+            double Elem = aSubC.determinant() * bSubC.determinant();
+            HFDet(i, j) = Elem;
+        }
+    }
+
+    return HFDet;
 }
 
 void FCI::dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb)

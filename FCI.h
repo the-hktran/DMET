@@ -96,6 +96,11 @@ class FCI
         void DirectFCI();
 
         void PrintERI();
+        Eigen::MatrixXd ProjectMatrix(std::vector<Eigen::MatrixXd>);
+        std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(int);
+        std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(Eigen::MatrixXd);
+        Eigen::MatrixXd HFInFCISpace(Eigen::MatrixXd, Eigen::MatrixXd, std::vector<int>, std::vector<int>);
+
         void dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb);
 
     private:
