@@ -3176,7 +3176,7 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
         {
             Y.setZero(NumStrings, NumStrings);
             Y(i, j) = 1.0;
-            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Y, aOEI, bOEI, bbTEI, abTEI, aaTEI, HY);
+            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Y, aOEI, bOEI, aaTEI, abTEI, bbTEI, HY);
             for (int k = 0; k < NumStrings; k++)
             {
                 for (int l = 0; l < NumStrings; l++)
@@ -3244,7 +3244,7 @@ Eigen::MatrixXd FCI::ProjectMatrix(std::vector<Eigen::MatrixXd> Basis)
     {
         for (int j = 0; j < Basis.size(); j++)
         {
-            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Basis[j], aOEI, bOEI, bbTEI, abTEI, aaTEI, HY);
+            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Basis[j], aOEI, bOEI, aaTEI, abTEI, bbTEI, HY);
             ProjectedMatrix(i, j) = MDOT(Basis[i], HY);
         }
     }
@@ -3329,6 +3329,149 @@ Eigen::MatrixXd FCI::HFInFCISpace(Eigen::MatrixXd aCoeffMatrix, Eigen::MatrixXd 
     }
 
     return HFDet;
+}
+
+double FCI::ExpVal(Eigen::MatrixXd X)
+{
+    const int N2 = nchoosek(aActive, 2),
+		  Max1 = nchoosek(aActive - 1, aElectronsActive - 1),
+		  Max2 = nchoosek(aActive - 2, aElectronsActive - 2),
+          NumStrings = nchoosek(aActive, aElectronsActive);
+    iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(aActive, aElectronsActive, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    Eigen::MatrixXd XH(NumStrings, NumStrings);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aOEI, bOEI, aaTEI, abTEI, bbTEI, XH);
+
+    double E = MDOT(X, XH);
+    return E;
+}
+
+std::vector<Eigen::MatrixXd> FCI::DirectProjection(Eigen::MatrixXd aSCFDensity, Eigen::MatrixXd bSCFDensity, Eigen::MatrixXd aR, Eigen::MatrixXd bR, int FragOrb)
+{
+    const int N2 = nchoosek(aActive, 2),
+		  Max1 = nchoosek(aActive - 1, aElectronsActive - 1),
+		  Max2 = nchoosek(aActive - 2, aElectronsActive - 2),
+          NumStrings = nchoosek(aActive, aElectronsActive);
+    iv2 Zindex;	iv3 Ex1, Ex2;
+	FCI_init(aActive, aElectronsActive, N2, Max1, Max2, Zindex, Ex1, Ex2);
+
+    std::vector<Eigen::MatrixXd> Basis;
+
+    Eigen::MatrixXd aRPR = aR.transpose() * aSCFDensity * aR;
+    Eigen::MatrixXd bRPR = bR.transpose() * bSCFDensity * bR;
+    Eigen::MatrixXd X = Eigen::MatrixXd::Ones(NumStrings, NumStrings);
+    Eigen::MatrixXd XH(NumStrings, NumStrings);
+    Eigen::MatrixXd XHH(NumStrings, NumStrings);
+    double aT1[aActive * aActive] = {0}, bT1[bActive * bActive] = {0}, 
+           aaT2[aActive * aActive * aActive * aActive] = {0}, abT2[aActive * bActive * aActive * bActive] = {0}, bbT2[bActive * bActive * bActive * bActive] = {0};
+    // for (int i = 0; i < ActiveSpace.size(); i++)
+    // {
+    //     aT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = aRPR.coeffRef(ActiveSpace[i], ActiveSpace[i]);
+    //     bT1[ActiveSpace[i] * bActive + ActiveSpace[i]] = bRPR.coeffRef(ActiveSpace[i], ActiveSpace[i]);
+
+    //     UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    //     Basis.push_back(XH);
+    //     std::cout << "XH\n" << XH << std::endl;
+
+    //     aT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = 0.0;
+    //     bT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = 0.0;
+
+    //     aT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = 1.0 - aRPR.coeffRef(ActiveSpace[i], ActiveSpace[i]);
+    //     bT1[ActiveSpace[i] * bActive + ActiveSpace[i]] = 1.0 - bRPR.coeffRef(ActiveSpace[i], ActiveSpace[i]);
+
+    //     UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    //     Basis.push_back(XH);
+    //     std::cout << "XH\n" << XH << std::endl;
+
+    //     aT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = 0.0;
+    //     bT1[ActiveSpace[i] * aActive + ActiveSpace[i]] = 0.0;
+    // }
+
+    std::cout << "FragOrb\n" << FragOrb << std::endl;
+    std::cout << aRPR.coeffRef(FragOrb, FragOrb) << std::endl;
+
+    // na nb
+    aT1[FragOrb * aActive + FragOrb] = aRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    aT1[FragOrb * aActive + FragOrb] = 0.0;
+    bT1[FragOrb * bActive + FragOrb] = bRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, XH, aT1, bT1, aaT2, abT2, bbT2, XHH);
+    bT1[FragOrb * bActive + FragOrb] = 0.0;
+    Basis.push_back(XHH);
+    std::cout << "X\n" << X << std::endl;
+    std::cout << "XH\n" << XH << std::endl;
+    std::cout << "XHH\n" << XHH << std::endl;
+
+    // nb (1 - na)
+    X = Eigen::MatrixXd::Ones(NumStrings, NumStrings);
+    for (int i = 0; i < aActive; i++)
+    {
+        aT1[i * aActive + i] = 1.0;
+    }
+    aT1[FragOrb * aActive + FragOrb] -= aRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    for (int i = 0; i < aActive; i++)
+    {
+        aT1[i * aActive + i] = 0.0;
+    }
+    bT1[FragOrb * bActive + FragOrb] = bRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, XH, aT1, bT1, aaT2, abT2, bbT2, XHH);
+    bT1[FragOrb * bActive + FragOrb] = 0.0;
+    Basis.push_back(XHH);
+    std::cout << "X\n" << X << std::endl;
+    std::cout << "XH\n" << XH << std::endl;
+    std::cout << "XHH\n" << XHH << std::endl;
+
+    // na (1 - nb)
+    X = Eigen::MatrixXd::Ones(NumStrings, NumStrings);
+    aT1[FragOrb * aActive + FragOrb] = aRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    aT1[FragOrb * aActive + FragOrb] = 0.0;
+    for (int i = 0; i < bActive; i++)
+    {
+        bT1[i * bActive + i] = 1.0;
+    }
+    bT1[FragOrb * bActive + FragOrb] -= bRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, XH, aT1, bT1, aaT2, abT2, bbT2, XHH);
+    for (int i = 0; i < bActive; i++)
+    {
+        std::cout << bT1[i * bActive + i] << std::endl;
+        bT1[i * bActive + i] = 0.0;
+    }
+    Basis.push_back(XHH);
+    std::cout << "X\n" << X << std::endl;
+    std::cout << "XH\n" << XH << std::endl;
+    std::cout << "XHH\n" << XHH << std::endl;
+
+    // (1 - nb) (1 - na)
+    X = Eigen::MatrixXd::Ones(NumStrings, NumStrings);
+    for (int i = 0; i < aActive; i++)
+    {
+        aT1[i * aActive + i] = 1.0;
+    }
+    aT1[FragOrb * aActive + FragOrb] -= aRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, X, aT1, bT1, aaT2, abT2, bbT2, XH);
+    for (int i = 0; i < aActive; i++)
+    {
+        aT1[i * aActive + i] = 0.0;
+    }
+    for (int i = 0; i < bActive; i++)
+    {
+        bT1[i * bActive + i] = 1.0;
+    }
+    bT1[FragOrb * bActive + FragOrb] -= bRPR.coeffRef(FragOrb, FragOrb);
+    UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, XH, aT1, bT1, aaT2, abT2, bbT2, XHH);
+    for (int i = 0; i < bActive; i++)
+    {
+        bT1[i * bActive + i] = 0.0;
+    }
+    Basis.push_back(XHH);
+    std::cout << "X\n" << X << std::endl;
+    std::cout << "XH\n" << XH << std::endl;
+    std::cout << "XHH\n" << XHH << std::endl;
+
+    return Basis;
 }
 
 void FCI::dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb)

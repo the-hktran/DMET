@@ -95,11 +95,15 @@ class FCI
         double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);
         void DirectFCI();
 
+        double ExpVal(Eigen::MatrixXd);
+
         void PrintERI();
         Eigen::MatrixXd ProjectMatrix(std::vector<Eigen::MatrixXd>);
         std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(int);
         std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(Eigen::MatrixXd);
         Eigen::MatrixXd HFInFCISpace(Eigen::MatrixXd, Eigen::MatrixXd, std::vector<int>, std::vector<int>);
+
+        std::vector<Eigen::MatrixXd> DirectProjection(Eigen::MatrixXd, Eigen::MatrixXd, Eigen::MatrixXd, Eigen::MatrixXd, int);
 
         void dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb);
 

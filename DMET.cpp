@@ -882,7 +882,7 @@ int main(int argc, char* argv[])
         FullFCI.runFCI();
         std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
         Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
-        std::cout << PH << std::endl;
+        // std::cout << PH << std::endl;
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
            We retreive the density matrix, coefficient matrix, and orbital EVs */
@@ -1129,6 +1129,8 @@ int main(int argc, char* argv[])
 
             Eigen::MatrixXd HFDet = FullFCI.HFInFCISpace(aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals);
             std::cout << "HFDet\n" << HFDet << std::endl;
+            double TestHFDet = FullFCI.ExpVal(HFDet);
+            std::cout << "<HFDet>\n" << TestHFDet << std::endl;
             std::vector<Eigen::MatrixXd> HFSchmidtBasis = FullFCI.HalfFilledSchmidtBasis(HFDet);
             Eigen::MatrixXd PH_HF = FullFCI.ProjectMatrix(HFSchmidtBasis);
             std::cout << "PH_HF\n" << PH_HF << std::endl;
@@ -1385,12 +1387,20 @@ int main(int argc, char* argv[])
                 myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
-                myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
+                // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
 
-                myFCI.DirectFCI();
-                myFCI.getSpecificRDM(ImpurityStates[x], true);
-                // myFCI.dbgMyShitUp();
-                std::cout << myFCI.Hamiltonian << std::endl;
+                // myFCI.DirectFCI();
+                // myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // // myFCI.dbgMyShitUp();
+                // std::cout << myFCI.Hamiltonian << std::endl;
+
+                FullFCI.ERIMapToArray(Input.Integrals);
+                std::vector<Eigen::MatrixXd> ProjBasis = FullFCI.DirectProjection(aDensityMatrix, bDensityMatrix, aRotationMatrix, bRotationMatrix, Input.FragmentOrbitals[x][0]);
+                Eigen::MatrixXd ProjH = FullFCI.ProjectMatrix(ProjBasis);
+                std::cout << "ProjH\n" << ProjH << std::endl;
+                Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> ProjEV(ProjH);
+                std::cout << "E1 = " << myFCI.Energies[0] << std::endl;
+                std::cout << "E2 = " << ProjEV.eigenvalues()[0] << std::endl;
 
                 // myFCI.getRDM(true);
                 // Determine the best density matrix:
