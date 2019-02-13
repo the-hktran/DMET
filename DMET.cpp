@@ -31,6 +31,19 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &Bias, i
 void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::MatrixXd CoeffMatrix, Eigen::VectorXd OrbitalEV, std::vector< std::vector< int > > OccupiedOrbitals, std::vector< std::vector< int > > VirtualOrbitals, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd> &FullDensities, std::ofstream &Output, std::vector< Eigen::MatrixXd > &FragmentRotations, std::vector< int > ImpurityStates, std::vector< int > BathStates);
 double CalcL(InputObj &Input, std::vector< Eigen::MatrixXd > FragmentDensities, std::vector< Eigen::MatrixXd > &FullDensities, std::vector< Eigen::MatrixXd > FragmentRotations, std::vector< int > BathStates, int CostFunctionVariant = 2);
 
+Eigen::MatrixXd ReadMat(std::string MatFile, int N)
+{
+    Eigen::MatrixXd Mat(N, N);
+    std::ifstream File(MatFile);
+    int i, j;
+    double val;
+    while(!File.eof())
+    {
+        File >> i >> j >> val;
+        Mat(i, j) = val;
+    }
+    return Mat;
+}
 void GetCASList(InputObj Input, int FragmentIndex, std::vector<int> &ActiveList, std::vector<int> &CoreList, std::vector<int> &VirtualList)
 {
     int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
@@ -1127,6 +1140,14 @@ int main(int argc, char* argv[])
                 Output << "DMET: and MOs in AO basis:\n" << LocalToAO * MO << std::endl;
             }
 
+            aCoeffMatrix = ReadMat("Ra.txt", NumAO);
+            bCoeffMatrix = ReadMat("Rb.txt", NumAO);
+            for (int i = 0; i < aOccupiedOrbitals.size(); i++)
+            {
+             
+                std::cout << aOccupiedOrbitals[i] << std::endl;
+            }
+            std::cout << aCoeffMatrix << std::endl;
             Eigen::MatrixXd HFDet = FullFCI.HFInFCISpace(aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals);
             std::cout << "HFDet\n" << HFDet << std::endl;
             double TestHFDet = FullFCI.ExpVal(HFDet);
@@ -1138,6 +1159,8 @@ int main(int argc, char* argv[])
             // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
             // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
             // Output << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
+
+            return 0;
 
             FullDensities[i] = PFactor * DensityMatrix; // SCFMD1RDM[NextIndex];
             if (Unrestricted) 
@@ -1389,18 +1412,17 @@ int main(int argc, char* argv[])
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
 
-                // myFCI.DirectFCI();
+                myFCI.DirectFCI();
                 // myFCI.getSpecificRDM(ImpurityStates[x], true);
                 // // myFCI.dbgMyShitUp();
-                // std::cout << myFCI.Hamiltonian << std::endl;
+                std::cout << myFCI.Hamiltonian << std::endl;
 
-                FullFCI.ERIMapToArray(Input.Integrals);
-                std::vector<Eigen::MatrixXd> ProjBasis = FullFCI.DirectProjection(aDensityMatrix, bDensityMatrix, aRotationMatrix, bRotationMatrix, Input.FragmentOrbitals[x][0]);
-                Eigen::MatrixXd ProjH = FullFCI.ProjectMatrix(ProjBasis);
-                std::cout << "ProjH\n" << ProjH << std::endl;
-                Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> ProjEV(ProjH);
-                std::cout << "E1 = " << myFCI.Energies[0] << std::endl;
-                std::cout << "E2 = " << ProjEV.eigenvalues()[0] << std::endl;
+                // std::vector<Eigen::MatrixXd> ProjBasis = FullFCI.DirectProjection(aDensityMatrix, bDensityMatrix, aRotationMatrix, bRotationMatrix, Input.FragmentOrbitals[x][0]);
+                // Eigen::MatrixXd ProjH = FullFCI.ProjectMatrix(ProjBasis);
+                // std::cout << "ProjH\n" << ProjH << std::endl;
+                // Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> ProjEV(ProjH);
+                // std::cout << "E1 = " << myFCI.Energies[0] << std::endl;
+                // std::cout << "E2 = " << ProjEV.eigenvalues()[0] << std::endl;
 
                 // myFCI.getRDM(true);
                 // Determine the best density matrix:

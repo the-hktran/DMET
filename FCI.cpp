@@ -1107,7 +1107,7 @@ void FCI::PrintERI()
     {
         for (int j = 0; j < aActive; j++)
         {
-            std::cout << i << "\t" << j << "\t" << aOEIPlusCore[ind2(i, j)] << std::endl;
+            std::cout << i << "\t" << j << "\t" << aOEI[ind2(i, j)] << std::endl;
         }
     }
     std::cout << "hb:" << std::endl;
@@ -1115,7 +1115,7 @@ void FCI::PrintERI()
     {
         for (int j = 0; j < aActive; j++)
         {
-            std::cout << i << "\t" << j << "\t" << bOEIPlusCore[ind2(i, j)] << std::endl;
+            std::cout << i << "\t" << j << "\t" << bOEI[ind2(i, j)] << std::endl;
         }
     }
     std::cout << "ha core:" << std::endl;
@@ -3313,6 +3313,13 @@ Eigen::MatrixXd FCI::HFInFCISpace(Eigen::MatrixXd aCoeffMatrix, Eigen::MatrixXd 
         tmpVec2 = ListOrbitals(tmpVec);
         OrbitalStrings.push_back(tmpVec2);
     }
+    for (int i = 0; i < OrbitalStrings.size(); i++)
+    {
+        for (int j = 0; j < OrbitalStrings[i].size(); j++)
+        {
+            OrbitalStrings[i][j]--;
+        }
+    }
 
     Eigen::MatrixXd HFDet(NumStrings, NumStrings);
     for (int i = 0; i < NumStrings; i++)
@@ -3323,6 +3330,7 @@ Eigen::MatrixXd FCI::HFInFCISpace(Eigen::MatrixXd aCoeffMatrix, Eigen::MatrixXd 
             Eigen::MatrixXd bSubC(bOccupiedOrbitals.size(), bOccupiedOrbitals.size());
             MakeSubCoeff(aSubC, aCoeffMatrix, aOccupiedOrbitals, OrbitalStrings[i]);
             MakeSubCoeff(bSubC, bCoeffMatrix, bOccupiedOrbitals, OrbitalStrings[j]);
+            std::cout << "aSubC\n" << aSubC << std::endl;
             double Elem = aSubC.determinant() * bSubC.determinant();
             HFDet(i, j) = Elem;
         }
