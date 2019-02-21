@@ -94,6 +94,10 @@ FCI::FCI(InputObj &Input)
     //     }
     //     bStrings.push_back(DetString);
     // }
+
+    __s1 = aActive;
+	__s2 = aActive * aActive;
+	__s3 = aActive * aActive * aActive;
 }
 
 FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int> CoreList, std::vector<int> ActiveList, std::vector<int> VirtualList)
@@ -160,6 +164,10 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
     //     }
     //     bStrings.push_back(DetString);
     // }
+
+    __s1 = aActive;
+	__s2 = aActive * aActive;
+	__s3 = aActive * aActive * aActive;
 }
 
 FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vector<int> aCorList, std::vector<int> aActList, std::vector<int> aVirList, std::vector<int> bCorList, std::vector<int> bActList, std::vector<int> bVirList)
@@ -227,6 +235,10 @@ FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vecto
     //     }
     //     bStrings.push_back(DetString);
     // }
+
+    __s1 = aActive;
+	__s2 = aActive * aActive;
+	__s3 = aActive * aActive * aActive;
 }
 
 void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap)
@@ -497,8 +509,8 @@ void FCI::runFCI()
     int NumStrings = nchoosek(aActive, aElectronsActive);
     int it;
 
-    if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, bOEI, aaTEI, abTEI, bbTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
-    else FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEI, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
+    if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEIPlusCore, bOEIPlusCore, aaTEI, abTEI, bbTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
+    else FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEIPlusCore, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
 
     // Now we sort the eigenpairs based on eigenenergies.
     std::vector< std::tuple<double, Eigen::MatrixXd, double> > EigenPairs;
@@ -3176,7 +3188,7 @@ Eigen::MatrixXd FCI::GenerateHamiltonian()
         {
             Y.setZero(NumStrings, NumStrings);
             Y(i, j) = 1.0;
-            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Y, aOEI, bOEI, aaTEI, abTEI, bbTEI, HY);
+            UHX(aActive, aElectronsActive, N2, Max1, Max2, NumStrings, Ex1, Ex2, Y, aOEIPlusCore, bOEIPlusCore, aaTEI, abTEI, bbTEI, HY);
             for (int k = 0; k < NumStrings; k++)
             {
                 for (int l = 0; l < NumStrings; l++)
@@ -3330,7 +3342,6 @@ Eigen::MatrixXd FCI::HFInFCISpace(Eigen::MatrixXd aCoeffMatrix, Eigen::MatrixXd 
             Eigen::MatrixXd bSubC(bOccupiedOrbitals.size(), bOccupiedOrbitals.size());
             MakeSubCoeff(aSubC, aCoeffMatrix, aOccupiedOrbitals, OrbitalStrings[i]);
             MakeSubCoeff(bSubC, bCoeffMatrix, bOccupiedOrbitals, OrbitalStrings[j]);
-            std::cout << "aSubC\n" << aSubC << std::endl;
             double Elem = aSubC.determinant() * bSubC.determinant();
             HFDet(i, j) = Elem;
         }
