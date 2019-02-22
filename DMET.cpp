@@ -911,11 +911,11 @@ int main(int argc, char* argv[])
         std::vector< Eigen::VectorXd > OrbitalEVByState;
 
         /* Begin FCI calculation on full system */
-        FCI FullFCI(Input);
-        FullFCI.ERIMapToArray(Input.Integrals);
-        FullFCI.runFCI();
-        std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
-        Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
+        // FCI FullFCI(Input);
+        // FullFCI.ERIMapToArray(Input.Integrals);
+        // FullFCI.runFCI();
+        // std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
+        // Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
         // std::cout << PH << std::endl;
 
         /* This performs an SCF calculation, with the correlation energy added to the Hamiltonian. 
@@ -1161,24 +1161,6 @@ int main(int argc, char* argv[])
                 Output << "DMET: and MOs in AO basis:\n" << LocalToAO * MO << std::endl;
             }
 
-            if (!Unrestricted)
-            {
-                aCoeffMatrix = bCoeffMatrix = CoeffMatrix;
-                aOccupiedOrbitals = bOccupiedOrbitals = OccupiedOrbitals;
-            }
-            aCoeffMatrix = ReadMat("Ra.txt", NumAO);
-            bCoeffMatrix = ReadMat("Rb.txt", NumAO);
-            aDensityMatrix = DensityFromCoeff(aCoeffMatrix, aOccupiedOrbitals);
-            bDensityMatrix = DensityFromCoeff(bCoeffMatrix, bOccupiedOrbitals);
-            Eigen::MatrixXd HFDet = FullFCI.HFInFCISpace(aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals);
-            std::cout << "HFDet\n" << HFDet << std::endl;
-            double TestHFDet = FullFCI.ExpVal(HFDet);
-            std::cout << "<HFDet>\n" << TestHFDet + FullFCI.ENuc << std::endl;
-            std::vector<Eigen::MatrixXd> HFSchmidtBasis = FullFCI.HalfFilledSchmidtBasis(HFDet);
-            Eigen::MatrixXd PH_HF = FullFCI.ProjectMatrix(HFSchmidtBasis);
-            std::cout << "PH_HF\n" << PH_HF << std::endl;
-            Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> PH_HF_EV(PH_HF);
-            std::cout << "EV\n" << PH_HF_EV.eigenvalues()[0] << std::endl;
             // std::cout << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
             // std::cout << "DMET: and 1RDM of \n " << 2 * SCFMD1RDM[NextIndex] << std::endl;
             // Output << "DMET: SCF solution for state " << i + 1 << " has an energy of " << -1 * SCFMDEnergyQueue.top().first << std::endl;
@@ -1429,19 +1411,13 @@ int main(int argc, char* argv[])
                 // End SCF-in-SCF impurity calculation
 
 
-                // myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
-                // myFCI.runFCI();
-                // myFCI.getSpecificRDM(ImpurityStates[x], true);
-                // // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
-                // std::cout << "E_david = " << myFCI.Energies[0] << std::endl;
+                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
+                myFCI.runFCI();
+                myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
 
-                myFCI.DirectFCI();
-                // myFCI.getSpecificRDM(ImpurityStates[x], true);
-                // // myFCI.dbgMyShitUp();
-                std::cout << "E_exact = " << myFCI.Energies[0] << std::endl;
-                std::cout << myFCI.Hamiltonian << std::endl;
-                myFCI.PrintERI();
-                return 0;
+                // myFCI.DirectFCI();
+                // // myFCI.getSpecificRDM(ImpurityStates[x], true);
 
                 // std::vector<Eigen::MatrixXd> ProjBasis = FullFCI.DirectProjection(aDensityMatrix, bDensityMatrix, aRotationMatrix, bRotationMatrix, Input.FragmentOrbitals[x][0]);
                 // Eigen::MatrixXd ProjH = FullFCI.ProjectMatrix(ProjBasis);
