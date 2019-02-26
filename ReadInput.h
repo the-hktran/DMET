@@ -22,6 +22,8 @@ class InputObj
 		unsigned short int NumSoln;
         unsigned short int NumElectrons;
         unsigned short int NumAO;
+        unsigned short int aNumElectrons;
+        unsigned short int bNumElectrons;
         std::vector< bool > Options;
         bool doScan = false;
         int ScanIntStart;

@@ -53,7 +53,8 @@ void InputObj::SetNames(std::string Int, std::string Overlap, std::string Out)
    in the file titled "INTDUMP". Further modification must be made to this file in order to use it in my
    program. The first two lines must be deleted and the following entered (separated by spaces)
             Number of orbitals
-			Number of electrons
+			Number of alpha electrons
+            Number of beta  electrons
             Number of solutions desired
             Use DIIS? (1 / 0)
             Use MOM? (1 / 0)
@@ -65,7 +66,7 @@ void InputObj::SetNames(std::string Int, std::string Overlap, std::string Out)
    two electrons and we looking for 10 solutions. We want to use DIIS and MOM and we will choose a new density
    by rotating an occupied and unoccupied orbital. We proceed for at most 10000 SCF iterations. The starting norm is 0.1
    and the starting lambda is 1.
-            4 2 10
+            4 1 1 10
             1 1 0
             10000
             0.1 1
@@ -80,7 +81,8 @@ void InputObj::SetNames(std::string Int, std::string Overlap, std::string Out)
 void InputObj::Set()
 {
     std::ifstream IntegralsFile(IntegralsInput.c_str());
-    IntegralsFile >> NumAO >> NumElectrons >> NumSoln;
+    IntegralsFile >> NumAO >> aNumElectrons >> bNumElectrons >> NumSoln;
+    NumElectrons = aNumElectrons + bNumElectrons;
 
     /* DIIS and MOM options */
     bool tmpBool1;

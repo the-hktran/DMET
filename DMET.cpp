@@ -883,20 +883,26 @@ int main(int argc, char* argv[])
         std::vector< int > aVirtualOrbitals;
         std::vector< int > bOccupiedOrbitals;
         std::vector< int > bVirtualOrbitals;
-        for(int i = 0; i < NumOcc; i++)
+        for (int i = 0; i < Input.aNumElectrons; i++)
         {
             aOccupiedOrbitals.push_back(i);
+        }
+        for (int i = 0; i < Input.bNumElectrons; i++)
+        {
             bOccupiedOrbitals.push_back(i);
         }
-        for(int i = NumOcc; i < NumAO; i++)
+        for (int i = Input.aNumElectrons; i < NumAO; i++)
         {
             aVirtualOrbitals.push_back(i);
+        }
+        for (int i = Input.bNumElectrons; i < NumAO; i++)
+        {
             bVirtualOrbitals.push_back(i);
         }
         if (Unrestricted && DeltaSCF)
         {
-            bOccupiedOrbitals[NumOcc - 1] = NumOcc;
-            bVirtualOrbitals[0] = NumOcc - 1;
+            bOccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
+            bVirtualOrbitals[0] = Input.bNumElectrons - 1;
         }
 
         Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation

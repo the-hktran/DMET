@@ -998,8 +998,8 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     {
         if(!aBias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
         {
-            MaximumOverlapMethod(aDensityMatrix, aCoeffMatrix, aCoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, aOccupiedOrbitals, aVirtualOrbitals); // MoM 
-            MaximumOverlapMethod(bDensityMatrix, bCoeffMatrix, bCoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, bOccupiedOrbitals, bVirtualOrbitals);
+            MaximumOverlapMethod(aDensityMatrix, aCoeffMatrix, aCoeffMatrixPrev, Input.OverlapMatrix, Input.aNumElectrons, Input.NumAO, aOccupiedOrbitals, aVirtualOrbitals); // MoM 
+            MaximumOverlapMethod(bDensityMatrix, bCoeffMatrix, bCoeffMatrixPrev, Input.OverlapMatrix, Input.bNumElectrons, Input.NumAO, bOccupiedOrbitals, bVirtualOrbitals);
             aCoeffMatrixPrev = aCoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
             bCoeffMatrixPrev = bCoeffMatrix;
         }
@@ -1010,7 +1010,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
                 for (int j = 0; j < aDensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < Input.NumOcc; k++)
+                    for (int k = 0; k < Input.aNumElectrons; k++)
                     {
                         DensityElement += aCoeffMatrix(i, aOccupiedOrbitals[k]) * aCoeffMatrix(j, aOccupiedOrbitals[k]);
                     }
@@ -1022,7 +1022,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
                 for (int j = 0; j < bDensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < Input.NumOcc; k++)
+                    for (int k = 0; k < Input.bNumElectrons; k++)
                     {
                         DensityElement += bCoeffMatrix(i, bOccupiedOrbitals[k]) * bCoeffMatrix(j, bOccupiedOrbitals[k]);
                     }
@@ -1038,7 +1038,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
             for (int j = 0; j < aDensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < Input.NumOcc; k++)
+                for (int k = 0; k < Input.aNumElectrons; k++)
                 {
                     DensityElement += aCoeffMatrix(i, aOccupiedOrbitals[k]) * aCoeffMatrix(j, aOccupiedOrbitals[k]);
                 }
@@ -1050,7 +1050,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
             for (int j = 0; j < bDensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < Input.NumOcc; k++)
+                for (int k = 0; k < Input.bNumElectrons; k++)
                 {
                     DensityElement += bCoeffMatrix(i, bOccupiedOrbitals[k]) * bCoeffMatrix(j, bOccupiedOrbitals[k]);
                 }
@@ -1386,8 +1386,8 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
     {
         if(!aBias.empty()) // Means the first SCP loop when there is a bias. Use MOM for this loop.
         {
-            MaximumOverlapMethod(aDensityMatrix, aCoeffMatrix, aCoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, aOccupiedOrbitals, aVirtualOrbitals); // MoM 
-            MaximumOverlapMethod(bDensityMatrix, bCoeffMatrix, bCoeffMatrixPrev, Input.OverlapMatrix, Input.NumOcc, Input.NumAO, bOccupiedOrbitals, bVirtualOrbitals);
+            MaximumOverlapMethod(aDensityMatrix, aCoeffMatrix, aCoeffMatrixPrev, Input.OverlapMatrix, Input.aNumElectrons, Input.NumAO, aOccupiedOrbitals, aVirtualOrbitals); // MoM 
+            MaximumOverlapMethod(bDensityMatrix, bCoeffMatrix, bCoeffMatrixPrev, Input.OverlapMatrix, Input.bNumElectrons, Input.NumAO, bOccupiedOrbitals, bVirtualOrbitals);
             aCoeffMatrixPrev = aCoeffMatrix; // Now that we finish the MoM iteration, set CoeffMatrixPrev.
             bCoeffMatrixPrev = bCoeffMatrix;
         }
@@ -1398,7 +1398,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
                 for (int j = 0; j < aDensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < Input.NumOcc; k++)
+                    for (int k = 0; k < Input.aNumElectrons; k++)
                     {
                         DensityElement += aCoeffMatrix(i, aOccupiedOrbitals[k]) * aCoeffMatrix(j, aOccupiedOrbitals[k]);
                     }
@@ -1410,7 +1410,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
                 for (int j = 0; j < bDensityMatrix.cols(); j++)
                 {
                     double DensityElement = 0;
-                    for (int k = 0; k < Input.NumOcc; k++)
+                    for (int k = 0; k < Input.bNumElectrons; k++)
                     {
                         DensityElement += bCoeffMatrix(i, bOccupiedOrbitals[k]) * bCoeffMatrix(j, bOccupiedOrbitals[k]);
                     }
@@ -1426,7 +1426,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
             for (int j = 0; j < aDensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < Input.NumOcc; k++)
+                for (int k = 0; k < Input.aNumElectrons; k++)
                 {
                     DensityElement += aCoeffMatrix(i, aOccupiedOrbitals[k]) * aCoeffMatrix(j, aOccupiedOrbitals[k]);
                 }
@@ -1438,7 +1438,7 @@ double SCFIteration(Eigen::MatrixXd &aDensityMatrix, Eigen::MatrixXd &bDensityMa
             for (int j = 0; j < bDensityMatrix.cols(); j++)
             {
                 double DensityElement = 0;
-                for (int k = 0; k < Input.NumOcc; k++)
+                for (int k = 0; k < Input.bNumElectrons; k++)
                 {
                     DensityElement += bCoeffMatrix(i, bOccupiedOrbitals[k]) * bCoeffMatrix(j, bOccupiedOrbitals[k]);
                 }
