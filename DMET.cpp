@@ -747,6 +747,13 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd aDensityMatrix = tmpMat + tmpMat.transpose();
     tmpMat = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
     Eigen::MatrixXd bDensityMatrix = tmpMat + tmpMat.transpose();
+    std::ifstream aPInit("aP.txt");
+    std::ifstream bPInit("bP.txt");
+    if (aPInit.good() && bPInit.good())
+    {
+        aDensityMatrix = ReadMatrixFromFile("aP.txt", Input.NumAO);
+        bDensityMatrix = ReadMatrixFromFile("bP.txt", Input.NumAO);
+    }
 
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
     std::vector< Eigen::MatrixXd > aFullDensities(NumSCFStates);
