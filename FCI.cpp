@@ -39,8 +39,8 @@ int __s1, __s2, __s3;
 FCI::FCI(InputObj &Input)
 {
     Inp = Input;
-    aElectrons = Input.NumOcc;
-    bElectrons = Input.NumOcc;
+    aElectrons = Input.aNumElectrons;
+    bElectrons = Input.bNumElectrons;
     aElectronsActive = aElectrons;
     bElectronsActive = bElectrons;
     aActive = Input.NumAO;
@@ -104,8 +104,8 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
 {
     Inp = Input;
 
-    aElectrons = Input.NumOcc;
-    bElectrons = Input.NumOcc;
+    aElectrons = Input.aNumElectrons;
+    bElectrons = Input.bNumElectrons;
     aElectronsActive = aElectronsAct;
     bElectronsActive = bElectronsAct;
     aActive = ActiveList.size();
@@ -170,11 +170,13 @@ FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int>
 	__s3 = aActive * aActive * aActive;
 }
 
-FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vector<int> aCorList, std::vector<int> aActList, std::vector<int> aVirList, std::vector<int> bCorList, std::vector<int> bActList, std::vector<int> bVirList)
+FCI::FCI(InputObj &Input, int aElectronsAct, int bElectronsAct, std::vector<int> aCorList, std::vector<int> aActList, std::vector<int> aVirList, std::vector<int> bCorList, std::vector<int> bActList, std::vector<int> bVirList)
 {
     Inp = Input;
-    aElectrons = Input.NumOcc;
-    bElectrons = Input.NumOcc;
+    aElectrons = Input.aNumElectrons;
+    bElectrons = Input.bNumElectrons;
+    aElectronsActive = aElectronsAct;
+    bElectronsActive = bElectronsAct;
     aActiveList = aActList;
     bActiveList = bActList;
     aActive = aActiveList.size();
@@ -206,13 +208,13 @@ FCI::FCI(InputObj &Input, int aElectronsActive, int bElectronsActive, std::vecto
     bbTwoRDMs.resize(NumberOfEV);
 
     /* Generate the strings. We have to insert the virtual and core orbitals according to their order in the list. */
-    std::vector<int> aCoreAndVirtualList = aCoreList;
-    aCoreAndVirtualList.insert(aCoreAndVirtualList.end(), aVirtualList.begin(), aVirtualList.end());
-    std::sort(aCoreAndVirtualList.begin(), aCoreAndVirtualList.end());
+    // std::vector<int> aCoreAndVirtualList = aCoreList;
+    // aCoreAndVirtualList.insert(aCoreAndVirtualList.end(), aVirtualList.begin(), aVirtualList.end());
+    // std::sort(aCoreAndVirtualList.begin(), aCoreAndVirtualList.end());
 
-    std::vector<int> bCoreAndVirtualList = bCoreList;
-    aCoreAndVirtualList.insert(bCoreAndVirtualList.end(), bVirtualList.begin(), bVirtualList.end());
-    std::sort(bCoreAndVirtualList.begin(), bCoreAndVirtualList.end());
+    // std::vector<int> bCoreAndVirtualList = bCoreList;
+    // aCoreAndVirtualList.insert(bCoreAndVirtualList.end(), bVirtualList.begin(), bVirtualList.end());
+    // std::sort(bCoreAndVirtualList.begin(), bCoreAndVirtualList.end());
 
     // for (int i = 0; i < aDim; i++)
     // {
@@ -263,6 +265,8 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap)
     bOEI = aOEI;
     bbTEI = aaTEI;
     abTEI = aaTEI;
+    aOEIPlusCore = aOEI;
+    bOEIPlusCore = bOEI;
 
     ENuc = ERIMap["0 0 0 0"];
 }
@@ -321,6 +325,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             {
                 for (int l = 0; l < aN; l++)
                 {
+                    // std::cout << i << "\t" << j << "\t" << k << "\t" << l << std::endl;
                     aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
                 }
             }
@@ -329,6 +334,9 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             {
                 // Add alpha part
                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+            }
+            for (int u = 0; u < bCoreList.size(); u++)
+            {
                 // Add beta part
                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bCoreList[u], aActiveList[j], bCoreList[u]);
             }
@@ -353,10 +361,13 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
                 }
             }
             Vcudu2MinusVcuud = 0.0;
-            for (int u = 0; u < aCoreList.size(); u++)
+            for (int u = 0; u < bCoreList.size(); u++)
             {
                 // Add beta part
                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+            }
+            for (int u = 0; u < aCoreList.size(); u++)
+            {
                 // Add alpha part
                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, aRotationMatrix, bActiveList[i], aCoreList[u], bActiveList[j], aCoreList[u]);
             }
@@ -483,15 +494,19 @@ void FCI::RotateERI(double *h, double *V, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb
     }
 }
 
-void FCI::AddChemicalPotentialGKLC(std::vector<int> FragPos, double Mu)
+void FCI::AddChemicalPotentialGKLC(std::vector<int> aFragPos, std::vector<int> bFragPos, double Mu)
 {
     int aN = aActiveList.size();
     int bN = bActiveList.size();
-    for (int i = 0; i < FragPos.size(); i++)
+    for (int i = 0; i < aFragPos.size(); i++)
     {
-        int iIdx = FragPos[i];
-        aOEI[iIdx * aN + iIdx] -= Mu;
-        bOEI[iIdx * bN + iIdx] -= Mu;
+        int aiIdx = aFragPos[i];
+        aOEI[aiIdx * aN + aiIdx] -= Mu;
+    }
+    for (int i = 0; i < bFragPos.size(); i++)
+    {
+        int biIdx = bFragPos[i];
+        bOEI[biIdx * bN + biIdx] -= Mu;
     }
 }
 
@@ -511,7 +526,6 @@ void FCI::runFCI()
 
     if (doUnrestricted) FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEIPlusCore, bOEIPlusCore, aaTEI, abTEI, bbTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
     else FCIman(aActive, aElectronsActive, NumStrings, Conditioner, NumberOfEV, aOEIPlusCore, aaTEI, Eigenvectors, Energies, Symmetries, FCIErrors, it, MaxIteration, 1E-12, false);
-
     // Now we sort the eigenpairs based on eigenenergies.
     std::vector< std::tuple<double, Eigen::MatrixXd, double> > EigenPairs;
     for (int i = 0; i < Energies.size(); i++)
@@ -652,7 +666,7 @@ void FCI::getRDM(bool calc2RDM)
     }
 }
 
-double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
+double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vector<int> bFragPos)
 {
     double ImpEnergy = 0.0;
 
@@ -660,9 +674,9 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
     __s1 = N;
 	__s2 = N * N;
 	__s3 = N * N * N;
-    for (int i = 0; i < FragPos.size(); i++)
+    for (int i = 0; i < aFragPos.size(); i++)
     {
-        int iIdx = FragPos[i];
+        int iIdx = aFragPos[i];
         for (int j = 0; j < N; j++)
         {
             for (int k = 0; k < N; k++)
@@ -672,8 +686,7 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
                     if (doUnrestricted)
                     {
                         ImpEnergy += 0.5 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
-                                   + 1.0 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
-                                   + 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                                   + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
                     }
                     else
                     {
@@ -683,12 +696,42 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
             }
             if (doUnrestricted)
             {
-                ImpEnergy += 0.5 * aOneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)])
-                           + 0.5 * bOneRDMs[ImpState](FragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                ImpEnergy += 0.5 * aOneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
             }
             else
             {
-                ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                ImpEnergy += 0.25 * OneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+            }   
+        }
+    }
+
+    for (int i = 0; i < bFragPos.size(); i++)
+    {
+        int iIdx = bFragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    if (doUnrestricted)
+                    {
+                        ImpEnergy += 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
+                                   + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                    }
+                    else
+                    {
+                        ImpEnergy += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                    }
+                }
+            }
+            if (doUnrestricted)
+            {
+                ImpEnergy += 0.5 * bOneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+            }
+            else
+            {
+                ImpEnergy += 0.25 * OneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
             }   
         }
     }

@@ -67,8 +67,41 @@ Eigen::MatrixXd DensityFromCoeff(Eigen::MatrixXd CoeffMatrix, std::vector<int> O
 
 void GetCASList(InputObj Input, int FragmentIndex, std::vector<int> &ActiveList, std::vector<int> &CoreList, std::vector<int> &VirtualList)
 {
-    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
-    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
+    int NumOcc = Input.NumOcc;
+    
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int NumCore = NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
+
+    for (int i = 0; i < NumVirt; i++)
+    {
+        VirtualList.push_back(Input.EnvironmentOrbitals[FragmentIndex][i]);
+    }
+    for (int i = 0; i < Input.FragmentOrbitals[FragmentIndex].size(); i++)
+    {
+        ActiveList.push_back(Input.EnvironmentOrbitals[FragmentIndex][NumVirt + i]);
+        ActiveList.push_back(Input.FragmentOrbitals[FragmentIndex][i]);
+    }
+    std::sort(ActiveList.begin(), ActiveList.end());
+    for (int i = 0; i < NumCore; i++)
+    {
+        CoreList.push_back(Input.EnvironmentOrbitals[FragmentIndex][NumVirt + Input.FragmentOrbitals[FragmentIndex].size() + i]);
+    }
+}
+
+void GetCASList(InputObj Input, int FragmentIndex, std::vector<int> &ActiveList, std::vector<int> &CoreList, std::vector<int> &VirtualList, bool Alpha)
+{
+    int NumOcc;
+    if (Alpha)
+    {
+        NumOcc = Input.aNumElectrons;
+    }
+    else
+    {
+        NumOcc = Input.bNumElectrons;
+    }
+    
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int NumCore = NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
 
     for (int i = 0; i < NumVirt; i++)
     {
@@ -104,8 +137,60 @@ void GetCASList(InputObj Input, int FragmentIndex, std::vector<int> &ActiveList,
 */ 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos)
 {
-    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
-    int NumCore = Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
+    int NumOcc = Input.NumOcc;
+
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int NumCore = NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
+    int NumBathBefore = 0;
+
+    int NextFragPos = 0;
+    int CurrentBathPos = 0;
+    /* The idea of the following loop is as follows. We are going to loop through each orbital and check whether we are looking at an impurity
+       or active bath orbital. Then we add the count for how many times we've been through the loop into the correct vector. */
+    // We loop through each orbital until both vectors have N_imp elements.
+    while(BathPos.size() < Input.FragmentOrbitals[FragmentIndex].size() || FragmentPos.size() < Input.FragmentOrbitals[FragmentIndex].size())
+    {
+        if(NextFragPos < Input.FragmentOrbitals[FragmentIndex].size() && CurrentBathPos < Input.FragmentOrbitals[FragmentIndex].size()) // Means neither vector is "full"
+        {
+            /* The first condition checks whether the next unaccounted active bath orbital is before the next unaccounted impurity
+               orbital. If that is true, then that means we should mark the next index as a bath orbital. We add the number of times 
+               we've been through the loop into the BathPos, and then start looking at the next bath orbital by incrementing CurrentBathPos.
+               If it is false, it means the next impurity orbital is before the next bath orbital, so we do the opposite */
+            if(Input.EnvironmentOrbitals[FragmentIndex][CurrentBathPos + NumVirt] < Input.FragmentOrbitals[FragmentIndex][NextFragPos])
+            {
+                BathPos.push_back(CurrentBathPos + NextFragPos);
+                CurrentBathPos++;
+            }
+            else
+            {
+                FragmentPos.push_back(CurrentBathPos + NextFragPos);
+                NextFragPos++;
+            }
+        }
+        else // Means one of the vectors is full, so just add the next few orbitals into the not full one until the size is appropriate.
+        {
+            if(NextFragPos == Input.FragmentOrbitals[FragmentIndex].size())
+            {
+                BathPos.push_back(CurrentBathPos + NextFragPos);
+                CurrentBathPos++;
+            }
+            else
+            {
+                FragmentPos.push_back(CurrentBathPos + NextFragPos);
+                NextFragPos++;
+            }
+        }
+    }
+}
+
+void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos, bool Alpha)
+{
+    int NumOcc;
+    if (Alpha) NumOcc = Input.aNumElectrons;
+    else NumOcc = Input.bNumElectrons;
+
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int NumCore = NumOcc - Input.FragmentOrbitals[FragmentIndex].size();
     int NumBathBefore = 0;
 
     int NextFragPos = 0;
@@ -162,11 +247,39 @@ void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPo
 */
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex)
 {
-    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - Input.NumOcc;
+    int NumOcc = Input.NumOcc;
+
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
     int Orbital;
     std::vector< int > FragPos;
     std::vector< int > BathPos;
     GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+    auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
+    if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
+    {
+        PosOfIndex = std::find(BathPos.begin(), BathPos.end(),c);
+        auto IndexOnList = std::distance(BathPos.begin(), PosOfIndex);
+        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt]; // Add NumVirt because the virtual orbitals are before the bath active orbitals.
+    }
+    else 
+    {
+        auto IndexOnList = std::distance(FragPos.begin(), PosOfIndex);
+        Orbital = Input.FragmentOrbitals[FragmentIndex][IndexOnList];
+    }
+    return Orbital;
+}
+
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
+{
+    int NumOcc;
+    if (Alpha) NumOcc = Input.aNumElectrons;
+    else NumOcc = Input.bNumElectrons;
+
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int Orbital;
+    std::vector< int > FragPos;
+    std::vector< int > BathPos;
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos, Alpha);
     auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
     if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
     {
@@ -518,50 +631,6 @@ double OneElectronPlusCoreRotated (InputObj &Input, Eigen::MatrixXd &RotationMat
 		tildehcd += (2 * Vcudu - Vcuud);
 	}
 	return tildehcd;
-}
-
-/* FockMatrix and DensityImp have the same dimension, the number of active space orbitals, or 2 * N_imp */
-void BuildFockMatrix(Eigen::MatrixXd &FockMatrix, Eigen::MatrixXd &HCore, Eigen::MatrixXd &DensityImp, Eigen::MatrixXd &RotationMatrix, InputObj &Input, double &ChemicalPotential, int FragmentIndex)
-{
-    for(int c = 0; c < FockMatrix.rows(); c++)
-    {
-        int cc = ReducedIndexToOrbital(c, Input, FragmentIndex);
-        for(int d = c; d < FockMatrix.cols(); d++)
-        {
-            int dd = ReducedIndexToOrbital(d, Input, FragmentIndex);
-            double Hcd = OneElectronEmbedding(Input.Integrals, RotationMatrix, cc, dd);
-            HCore(c, d) = Hcd;
-            for(int u = 0; u < Input.NumOcc - Input.FragmentOrbitals[FragmentIndex].size(); u++) // XC with core
-            {
-                int uu = Input.EnvironmentOrbitals[FragmentIndex][Input.EnvironmentOrbitals[FragmentIndex].size() - 1 - u];
-                double Vcudu = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, dd, uu);
-                double Vcuud = TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, uu, uu, dd);
-                Hcd += (2 * Vcudu - Vcuud);
-            }
-            for(int l = 0; l < FockMatrix.rows(); l++) // XC within active space.
-            {
-                int ll = ReducedIndexToOrbital(l, Input, FragmentIndex);
-                for(int k = 0; k < FockMatrix.cols(); k++)
-                {
-                    int kk = ReducedIndexToOrbital(k, Input, FragmentIndex);
-                    Hcd += DensityImp(l, k) * (2 * TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, ll, dd, kk) - TwoElectronEmbedding(Input.Integrals, RotationMatrix, cc, kk, ll, dd));
-                }
-            } // end loop over active orbital XC
-            std::vector< int > FragPos;
-            std::vector< int > BathPos;
-            GetCASPos(Input, FragmentIndex, FragPos, BathPos);
-            if(c == d && (std::find(FragPos.begin(), FragPos.end(), c) != FragPos.end()))
-            {
-                Hcd -= ChemicalPotential;
-            }
-            FockMatrix(c, d) = Hcd;
-            FockMatrix(d, c) = Hcd;
-        }
-    }
-    // std::cout << "\nDENSITY\n" << DensityImp << std::endl;
-    // std::cout << "\nFOCK\n" << FockMatrix << std::endl;
-    // std::string tmpstring;
-    // std::getline(std::cin, tmpstring);
 }
 
 void makeDMETFCIDUMP(InputObj &Input, Eigen::MatrixXd &RotationMatrix)
@@ -927,6 +996,7 @@ int main(int argc, char* argv[])
         // FCI FullFCI(Input);
         // FullFCI.ERIMapToArray(Input.Integrals);
         // FullFCI.runFCI();
+        // std::cout << "FCI = " << FullFCI.Energies[0] + FullFCI.ENuc << std::endl;
         // std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
         // Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
         // std::cout << PH << std::endl;
@@ -1271,9 +1341,10 @@ int main(int argc, char* argv[])
                 Eigen::MatrixXd ActiveRotation(NumAO, 2 * NumAOImp);
                 Eigen::MatrixXd aActiveRotation(NumAO, 2 * NumAOImp);
                 Eigen::MatrixXd bActiveRotation(NumAO, 2 * NumAOImp);
-                std::vector<int> FragPos;
-                std::vector<int> BathPos;
-                GetCASPos(Input, x, FragPos, BathPos);
+                std::vector<int> aFragPos, bFragPos;
+                std::vector<int> aBathPos, bBathPos;
+                GetCASPos(Input, x, aFragPos, aBathPos, true);
+                GetCASPos(Input, x, bFragPos, bBathPos, false);
                 
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
@@ -1286,14 +1357,15 @@ int main(int argc, char* argv[])
                     bFragmentRotations[x] = bRotationMatrix;
                     for (int i = 0; i < NumAOImp; i++)
                     {
-                        aActiveRotation.col(FragPos[i]) = aRotationMatrix.col(Input.FragmentOrbitals[x][i]);
-                        bActiveRotation.col(FragPos[i]) = bRotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                        aActiveRotation.col(aFragPos[i]) = aRotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                        bActiveRotation.col(bFragPos[i]) = bRotationMatrix.col(Input.FragmentOrbitals[x][i]);
                     }
                     for (int i = 0; i < NumAOImp; i++)
                     {
-                        int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
-                        aActiveRotation.col(BathPos[i]) = aRotationMatrix.col(ActBathOrb);
-                        bActiveRotation.col(BathPos[i]) = bRotationMatrix.col(ActBathOrb);
+                        int aActBathOrb = ReducedIndexToOrbital(aBathPos[i], Input, x, true);
+                        int bActBathOrb = ReducedIndexToOrbital(bBathPos[i], Input, x, false);
+                        aActiveRotation.col(aBathPos[i]) = aRotationMatrix.col(aActBathOrb);
+                        bActiveRotation.col(bBathPos[i]) = bRotationMatrix.col(bActBathOrb);
                     }
                 }
                 else
@@ -1302,12 +1374,12 @@ int main(int argc, char* argv[])
                     FragmentRotations[x] = RotationMatrix;
                     for (int i = 0; i < NumAOImp; i++)
                     {
-                        ActiveRotation.col(FragPos[i]) = RotationMatrix.col(Input.FragmentOrbitals[x][i]);
+                        ActiveRotation.col(aFragPos[i]) = RotationMatrix.col(Input.FragmentOrbitals[x][i]);
                     }
                     for (int i = 0; i < NumAOImp; i++)
                     {
-                        int ActBathOrb = ReducedIndexToOrbital(BathPos[i], Input, x);
-                        ActiveRotation.col(BathPos[i]) = RotationMatrix.col(ActBathOrb);
+                        int ActBathOrb = ReducedIndexToOrbital(aBathPos[i], Input, x, true);
+                        ActiveRotation.col(aBathPos[i]) = RotationMatrix.col(ActBathOrb);
                     }
                 }
 
@@ -1351,17 +1423,18 @@ int main(int argc, char* argv[])
                 // FragmentEnergies[x] = FCIEnergies;
 
                 // ***** The following solves the impurity using code from TroyFCI
-                std::vector<int> ActiveList, VirtualList, CoreList;
-                GetCASList(Input, x, ActiveList, CoreList, VirtualList);
+                std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
+                GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
+                GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
 
-                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), CoreList, ActiveList, VirtualList);
+                FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
                 if (Unrestricted && !HalfUnrestricted) 
                 {
-                    myFCI.ERIMapToArray(Input.Integrals, aRotationMatrix, bRotationMatrix, ActiveList, ActiveList);
+                    myFCI.ERIMapToArray(Input.Integrals, aRotationMatrix, bRotationMatrix, aActiveList, bActiveList);
                 }
                 else 
                 {
-                    myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, ActiveList);
+                    myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, aActiveList);
                 }
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
@@ -1424,7 +1497,7 @@ int main(int argc, char* argv[])
                 // End SCF-in-SCF impurity calculation
 
 
-                myFCI.AddChemicalPotentialGKLC(FragPos, ChemicalPotential);
+                myFCI.AddChemicalPotentialGKLC(aFragPos, bFragPos, ChemicalPotential);
                 myFCI.runFCI();
                 myFCI.getSpecificRDM(ImpurityStates[x], true);
                 // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
@@ -1446,7 +1519,7 @@ int main(int argc, char* argv[])
                 
                 Eigen::MatrixXd Fragment1RDM = myFCI.OneRDMs[ImpurityStates[x]];
                 std::vector<double> tmpDVec;
-                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], FragPos));
+                tmpDVec.push_back(myFCI.calcImpurityEnergy(ImpurityStates[x], aFragPos, bFragPos));
                 FragmentEnergies[x] = tmpDVec;
 
                 // ***** END IMPURITY CALCULATION WITH TROYFCI
