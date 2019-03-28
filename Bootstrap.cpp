@@ -118,25 +118,56 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     return CF;
 }
 
-std::vector< std::vector< Eigen::MatrixXd > > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, int, int, int, int, double> > > BEPot, double Mu, int ElecState)
+void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, int, double, bool, bool > > > BEPot, double Mu)
 {
-	std::vector< std::vector< Eigen::MatrixXd > > AllBE1RDM;
-	// std::vector< std::vector< Eigen::MatrixXd > > AllBE2RDM;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		std::vector< Eigen::MatrixXd > OneRDM;
 		if (x > 0 && isTS)
 		{
-			OneRDM = AllBE1RDM[0];
-			AllBE1RDM.push_back(OneRDM);
+			aOneRDMs.push_back(aOneRDMs[0]);
+			bOneRDMs.push_back(bOneRDMs[0]);
 			continue;
 		}
 
-		BEImpurityFCI(OneRDM, Input, x, RotationMatrices[x], Mu, ElecState, BEPot[x], MaxState);
-		AllBE1RDM.push_back(OneRDM);
-		std::cout << "BE: Impurity " << x << " 1RDM is\n " << OneRDM[FragState[x]] << std::endl;
+		FCI xFCI = FCIs[x];
+		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], Mu);
+		for (int i = 0; i < BEPot[x].size(); i++)
+		{
+			bool OEIPotential = false;
+			if (std::get<3>(BEPot[x][i]) == -1) OEIPotential = true;
+
+			if (OEIPotential)
+			{
+				std::vector<int>::iterator it1 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<1>(BEPot[x][i]));
+				int Ind1 = std::distance(Input.FragmentOrbitals[x].begin(), it1);
+				std::vector<int>::iterator it2 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<2>(BEPot[x][i]));
+				int Ind2 = std::distance(Input.FragmentOrbitals[x].begin(), it2);
+
+				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]));
+			}
+			else
+			{
+				std::vector<int>::iterator it1 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<1>(BEPot[x][i]));
+				int Ind1 = std::distance(Input.FragmentOrbitals[x].begin(), it1);
+				std::vector<int>::iterator it2 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<2>(BEPot[x][i]));
+				int Ind2 = std::distance(Input.FragmentOrbitals[x].begin(), it2);
+				std::vector<int>::iterator it3 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<3>(BEPot[x][i]));
+				int Ind3 = std::distance(Input.FragmentOrbitals[x].begin(), it3);
+				std::vector<int>::iterator it4 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<4>(BEPot[x][i]));
+				int Ind4 = std::distance(Input.FragmentOrbitals[x].begin(), it4);
+
+				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]), std::get<7>(BEPot[x][i]));
+			}
+		}
+		xFCI.runFCI();
+		xFCI.getSpecificRDM(FragState[x], true);
+		aOneRDMs.push_back(xFCI.aOneRDMs[FragState[x]]);
+		bOneRDMs.push_back(xFCI.bOneRDMs[FragState[x]]);
+		aaTwoRDMs.push_back(xFCI.aaTwoRDMs[FragState[x]]);
+		abTwoRDMs.push_back(xFCI.abTwoRDMs[FragState[x]]);
+		bbTwoRDMs.push_back(xFCI.bbTwoRDMs[FragState[x]]);
 	}
-	return AllBE1RDM;
 }
 
 std::vector< double > Bootstrap::FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> > DensityReference, std::vector<Eigen::MatrixXd> IterDensity, int FragmentIndex)

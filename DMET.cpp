@@ -279,6 +279,32 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
     int Orbital;
     std::vector< int > FragPos;
     std::vector< int > BathPos;
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+    auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
+    if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
+    {
+        PosOfIndex = std::find(BathPos.begin(), BathPos.end(),c);
+        auto IndexOnList = std::distance(BathPos.begin(), PosOfIndex);
+        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt]; // Add NumVirt because the virtual orbitals are before the bath active orbitals.
+    }
+    else 
+    {
+        auto IndexOnList = std::distance(FragPos.begin(), PosOfIndex);
+        Orbital = Input.FragmentOrbitals[FragmentIndex][IndexOnList];
+    }
+    return Orbital;
+}
+
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
+{
+    int NumOcc;
+    if (Alpha) NumOcc = Input.aNumElectrons;
+    else NumOcc = Input.bNumElectrons;
+
+    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
+    int Orbital;
+    std::vector< int > FragPos;
+    std::vector< int > BathPos;
     GetCASPos(Input, FragmentIndex, FragPos, BathPos, Alpha);
     auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
     if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.

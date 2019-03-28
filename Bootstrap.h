@@ -47,7 +47,7 @@ public:
 	// Index 1 is overlapping fragment.
 	// Index 2 is the orbital we want to match to that fragment -- We input this from the CURRENT fragment and we can search it in OTHER fragments.
 	// Index 3 is the value of the potential on that orbital for this fragment.
-	std::vector< std::vector< std::tuple< int, int, int, int, int, double > > > BEPotential;
+	std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPotential;
 
 	// Contains the INDEX of the center position orbital on each fragment.
 	std::vector< std::vector< int > > BECenterPosition; // Need to implement a way to figure this out.
@@ -74,7 +74,8 @@ private:
 	double dLambda = 1E-4;
 	double dMu = 1E-1;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
-	std::vector< std::vector< Eigen::MatrixXd > > CollectRDM(std::vector< std::vector< std::tuple< int, int, int, int, int, double> > >, double, int);
+	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, int, double, bool, bool > > >, double);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
 	void VectorToBE(Eigen::VectorXd);
 	Eigen::VectorXd BEToVector();
