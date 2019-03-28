@@ -510,6 +510,53 @@ void FCI::AddChemicalPotentialGKLC(std::vector<int> aFragPos, std::vector<int> b
     }
 }
 
+void FCI::AddPotential(int i, int j, double dh, bool isAlpha)
+{
+    if (isAlpha)
+    {
+        aOEI[ind2(i, j)] += dh;
+        aOEI[ind2(j, i)] += dh;
+    }
+    else
+    {
+        bOEI[ind2(i, j)] += dh;
+        bOEI[ind2(j, i)] += dh;
+    }
+}
+
+void FCI::AddPotential(int i, int j, int k, int l, double dV, bool LeftAlpha, bool RightAlpha)
+{
+    if (LeftAlpha && RightAlpha)
+    {
+        aaTEI[ind4(i, j, k, l)] += dV;
+        aaTEI[ind4(j, i, k, l)] += dV;
+        aaTEI[ind4(i, j, l, k)] += dV;
+        aaTEI[ind4(j, i, l, k)] += dV;
+        aaTEI[ind4(k, l, i, j)] += dV;
+        aaTEI[ind4(k, l, j, i)] += dV;
+        aaTEI[ind4(l, k, i, j)] += dV;
+        aaTEI[ind4(l, k, j, i)] += dV;
+    }
+    else if (!LeftAlpha && !RightAlpha)
+    {
+        bbTEI[ind4(i, j, k, l)] += dV;
+        bbTEI[ind4(j, i, k, l)] += dV;
+        bbTEI[ind4(i, j, l, k)] += dV;
+        bbTEI[ind4(j, i, l, k)] += dV;
+        bbTEI[ind4(k, l, i, j)] += dV;
+        bbTEI[ind4(k, l, j, i)] += dV;
+        bbTEI[ind4(l, k, i, j)] += dV;
+        bbTEI[ind4(l, k, j, i)] += dV;
+    }
+    else
+    {
+        abTEI[ind4(i, j, k, l)] += dV;
+        abTEI[ind4(j, i, k, l)] += dV;
+        abTEI[ind4(i, j, l, k)] += dV;
+        abTEI[ind4(j, i, l, k)] += dV;
+    }
+}
+
 bool SortEigenpairs(std::tuple<double, Eigen::MatrixXd, double> &Tuple1 , std::tuple<double, Eigen::MatrixXd, double> &Tuple2)
 {
     return std::get<0>(Tuple1) < std::get<0>(Tuple2);

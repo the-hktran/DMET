@@ -1337,6 +1337,8 @@ int main(int argc, char* argv[])
                 Eigen::MatrixXd aRotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
                 Eigen::MatrixXd bRotationMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
                 int NumEnvVirt = NumAO - NumAOImp - NumOcc; // Number of virtual (environment) orbitals in the bath.
+                int aNumEnvVirt = NumAO - NumAOImp - Input.aNumElectrons;
+                int bNumEnvVirt = NumAO - NumAOImp - Input.bNumElectrons;
 
                 Eigen::MatrixXd ActiveRotation(NumAO, 2 * NumAOImp);
                 Eigen::MatrixXd aActiveRotation(NumAO, 2 * NumAOImp);
@@ -1351,8 +1353,8 @@ int main(int argc, char* argv[])
                    is what differs between impurities. From this, the matrix of eigenvectors of the bath density is put into the rotation matrix. */
                 if (Unrestricted && !HalfUnrestricted)
                 {
-                    SchmidtDecomposition(aDensityMatrix, aRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
-                    SchmidtDecomposition(bDensityMatrix, bRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], NumEnvVirt, Output);
+                    SchmidtDecomposition(aDensityMatrix, aRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], aNumEnvVirt, Output);
+                    SchmidtDecomposition(bDensityMatrix, bRotationMatrix, Input.FragmentOrbitals[x], Input.EnvironmentOrbitals[x], bNumEnvVirt, Output);
                     aFragmentRotations[x] = aRotationMatrix;
                     bFragmentRotations[x] = bRotationMatrix;
                     for (int i = 0; i < NumAOImp; i++)

@@ -14,6 +14,7 @@
 #include "Bootstrap.h"
 #include "Functions.h"
 #include "NewtonRaphson.h"
+#include "FCI.h"
 
 // This is a debug function for the time being
 void Bootstrap::debugInit(InputObj Inp, std::ofstream &OutStream)
@@ -117,7 +118,7 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     return CF;
 }
 
-std::vector< std::vector< Eigen::MatrixXd > > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, double> > > BEPot, double Mu, int ElecState)
+std::vector< std::vector< Eigen::MatrixXd > > Bootstrap::CollectRDM(std::vector< std::vector< std::tuple< int, int, int, int, int, int, double> > > BEPot, double Mu, int ElecState)
 {
 	std::vector< std::vector< Eigen::MatrixXd > > AllBE1RDM;
 	// std::vector< std::vector< Eigen::MatrixXd > > AllBE2RDM;
@@ -328,6 +329,21 @@ void Bootstrap::CollectSchmidt(std::vector<Eigen::MatrixXd> MFDensity, std::ofst
 	}
 }
 
+void Bootstrap::CollectSchmidt(std::vector<Eigen::MatrixXd> aMFDensity, std::vector<Eigen::MatrixXd> bMFDensity, std::ofstream &Output)
+{
+	for (int x = 0; x < NumFrag; x++)
+	{
+		Eigen::MatrixXd aRotMat = Eigen::MatrixXd::Zero(NumAO, NumAO);
+		Eigen::MatrixXd bRotMat = Eigen::MatrixXd::Zero(NumAO, NumAO);
+		int aNumEnvVirt = NumAO - Input.aNumElectrons - FragmentOrbitals.size();
+		int bNumEnvVirt = NumAO - Input.bNumElectrons - FragmentOrbitals.size();
+		SchmidtDecomposition(aMFDensity[BathState[x]], aRotMat, FragmentOrbitals[x], EnvironmentOrbitals[x], aNumEnvVirt, Output);
+		SchmidtDecomposition(bMFDensity[BathState[x]], bRotMat, FragmentOrbitals[x], EnvironmentOrbitals[x], bNumEnvVirt, Output);
+		aRotationMatrices.push_back(aRotMat);
+		bRotationMatrices.push_back(bRotMat);
+	}
+}
+
 void Bootstrap::CollectInputs()
 {
 	for (int x = 0; x < NumFrag; x++)
@@ -428,7 +444,7 @@ void Bootstrap::NewtonRaphson()
 	}
 }
 
-void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDensity, std::vector< Eigen::MatrixXd > &TEST, std::ofstream &Output)
+void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDensity, std::ofstream &Output)
 {
 	FragmentOrbitals = Input.FragmentOrbitals;
 	EnvironmentOrbitals = Input.EnvironmentOrbitals;
@@ -447,6 +463,53 @@ void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDen
 	for (int x = 0; x < NumFrag; x++)
 	{
 		ImpurityFCI(ImpurityDensities[x], Input, x, RotationMatrices[x], ChemicalPotential, State, Impurity2RDM[x], ImpurityEigenstates[x]);
+	}
+
+	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.
+	// In each case, we create a BENewton object that handles the Newton Raphson optimization.
+}
+
+void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &aMFDensity, std::vector<Eigen::MatrixXd> &bMFDensity, std::ofstream &Output)
+{
+	FragmentOrbitals = Input.FragmentOrbitals;
+	EnvironmentOrbitals = Input.EnvironmentOrbitals;
+	NumAO = Input.NumAO;
+	NumOcc = Input.NumOcc;
+	NumFrag = Input.NumFragments;
+	FragState = Input.ImpurityStates;
+	BathState = Input.BathStates;
+
+	aFragPos.clear();
+	bFragPos.clear();
+	aBathPos.clear();
+	bBathPos.clear();
+
+	// This will hold all of our impurity densities, calculated from using the BE potential.
+	std::vector< Eigen::MatrixXd > ImpurityDensities(NumFrag);
+	std::vector< Eigen::Tensor<double, 4> > Impurity2RDM(NumFrag);
+	std::vector< Eigen::VectorXd > ImpurityEigenstates(NumFrag);
+
+	CollectSchmidt(aMFDensity, bMFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
+
+	// Generate impurity FCI objects for each impurity.
+	for (int x  = 0; x < NumFrag; x++)
+	{
+		std::vector<int> xaFragPos, xaBathPos, xbFragPos, xbBathPos;
+		GetCASPos(Input, x, xaFragPos, xaBathPos, true);
+		GetCASPos(Input, x, xbFragPos, xbBathPos, false);
+		aFragPos.push_back(xaFragPos);
+		bFragPos.push_back(xbFragPos);
+		aBathPos.push_back(xaBathPos);
+		bBathPos.push_back(xbBathPos);
+
+		std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
+        GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
+        GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
+
+		FCI xFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
+		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
+		xFCI.runFCI();
+		xFCI.getSpecificRDM(FragState[x], true);
 	}
 
 	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.

@@ -8,7 +8,9 @@
 
 // DMET.cpp
 void SchmidtDecomposition(Eigen::MatrixXd&, Eigen::MatrixXd&, std::vector< int >, std::vector< int >, int, std::ofstream&);
+void GetCASList(InputObj, int, std::vector<int>&, std::vector<int>&, std::vector<int>&, bool);
 void GetCASPos(InputObj, int, std::vector< int >&, std::vector< int >&);
+void GetCASPos(InputObj, int, std::vector< int >&, std::vector< int >&, bool);
 double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d);
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &aRotationMatrix, Eigen::MatrixXd &bRotationMatrix, int c, int d, int e, int f);
