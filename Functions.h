@@ -15,6 +15,7 @@ double OneElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::Mat
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix, int c, int d, int e, int f);
 double TwoElectronEmbedding(std::map<std::string, double> &Integrals, Eigen::MatrixXd &aRotationMatrix, Eigen::MatrixXd &bRotationMatrix, int c, int d, int e, int f);
 int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex);
+int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool isAlpha);
 double OneElectronPlusCore(InputObj &Input, Eigen::MatrixXd &RotationMatrix, int FragmentIndex, int c, int d);
 double CalcCostChemPot(std::vector<Eigen::MatrixXd>, InputObj&);
 std::map<std::string, double> RotateIntegrals(std::map<std::string, double> &Integrals, Eigen::MatrixXd &RotationMatrix);

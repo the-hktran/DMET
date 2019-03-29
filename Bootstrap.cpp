@@ -95,6 +95,31 @@ void Bootstrap::PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> > OneRDMs
 	}
 }
 
+int Bootstrap::OrbitalToReducedIndex(int Orbital, int FragIndex, bool Alpha)
+{
+	int RedIdx;
+	if (Alpha)
+	{
+		for (int i = 0; i < aFragPos[FragIndex].size(); i++)
+		{
+			int Pos = aFragPos[FragIndex][i];
+			int Orb = ReducedIndexToOrbital(Pos, Input, FragIndex, Alpha);
+			if (Orb == Orbital) RedIdx = Pos;
+		}
+
+	}
+	else
+	{
+		for (int i = 0; i < bFragPos[FragIndex].size(); i++)
+		{
+			int Pos = bFragPos[FragIndex][i];
+			int Orb = ReducedIndexToOrbital(Pos, Input, FragIndex, Alpha);
+			if (Orb == Orbital) RedIdx = Pos;
+		}
+	}
+	return RedIdx;
+}
+
 double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Frag1RDMs, std::vector< std::vector< int > > BECenter, std::vector<int> FragSt, InputObj &Inp)
 {
     double CF = 0;
@@ -140,6 +165,76 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::
     return CF;
 }
 
+std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneRDMRef, std::vector<Eigen::MatrixXd> bOneRDMRef, std::vector< std::vector<double> > aaTwoRDMRef, std::vector< std::vector<double> > abTwoRDMRef, std::vector< std::vector<double> > bbTwoRDMRef,
+                                 Eigen::MatrixXd aOneRDMIter, Eigen::MatrixXd bOneRDMIter, std::vector<double> aaTwoRDMIter, std::vector<double> abTwoRDMIter, std::vector<double> bbTwoRDMIter, int FragmentIndex)
+{
+	std::vector<double> Loss;
+	for (int i = 0; i < BEPotential[FragmentIndex].size(); i++)
+	{
+		double PRef, PIter;
+
+		bool isOEI = false;
+		if (std::get<3>(BEPotential[FragmentIndex][i]) == -1) isOEI = true;
+		if (isOEI)
+		{
+			int Ind1Ref = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind2Ref = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
+
+			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+
+			if (std::get<6>(BEPotential[FragmentIndex][i]))
+			{
+				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+			}
+			else
+			{
+				PRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+				PIter = bOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+			}
+		}
+		else
+		{
+			int Ind1Ref = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind2Ref = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind3Ref = OrbitalToReducedIndex(std::get<3>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<7>(BEPotential[FragmentIndex][i]));
+			int Ind4Ref = OrbitalToReducedIndex(std::get<4>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<7>(BEPotential[FragmentIndex][i]));
+
+			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+			int Ind3Iter = OrbitalToReducedIndex(std::get<3>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<7>(BEPotential[FragmentIndex][i]));
+			int Ind4Iter = OrbitalToReducedIndex(std::get<4>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<7>(BEPotential[FragmentIndex][i]));
+
+			if (std::get<6>(BEPotential[FragmentIndex][i]) && std::get<7>(BEPotential[FragmentIndex][i]))
+			{
+				int NRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+				PRef = aaTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				int NIter = aOneRDMIter.rows();
+				PIter = aaTwoRDMIter[Ind1Iter * NIter * NIter * NIter + Ind2Iter * NIter * NIter + Ind3Iter * NIter + Ind4Iter];
+			}
+			else if (!std::get<6>(BEPotential[FragmentIndex][i]) && !std::get<7>(BEPotential[FragmentIndex][i]))
+			{
+				int NRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+				PRef = bbTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				int NIter = bOneRDMIter.rows();
+				PIter = bbTwoRDMIter[Ind1Iter * NIter * NIter * NIter + Ind2Iter * NIter * NIter + Ind3Iter * NIter + Ind4Iter];
+			}
+			else
+			{
+				int aNRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+				int bNRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+				PRef = abTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * aNRef * bNRef * bNRef + Ind2Ref * bNRef * bNRef + Ind3Ref * bNRef + Ind4Ref];
+				int aNIter = aOneRDMIter.rows();
+				int bNIter = bOneRDMIter.rows();
+				PIter = bbTwoRDMIter[Ind1Iter * aNIter * bNIter * bNIter + Ind2Iter * bNIter * bNIter + Ind3Iter * bNIter + Ind4Iter];
+			}
+		}
+		Loss.push_back((PRef - PIter) * (PRef - PIter));
+	}
+	return Loss;
+}
+
 void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double Mu)
 {
@@ -161,23 +256,17 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 
 			if (OEIPotential)
 			{
-				std::vector<int>::iterator it1 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<1>(BEPot[x][i]));
-				int Ind1 = std::distance(Input.FragmentOrbitals[x].begin(), it1);
-				std::vector<int>::iterator it2 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<2>(BEPot[x][i]));
-				int Ind2 = std::distance(Input.FragmentOrbitals[x].begin(), it2);
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]));
 			}
 			else
 			{
-				std::vector<int>::iterator it1 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<1>(BEPot[x][i]));
-				int Ind1 = std::distance(Input.FragmentOrbitals[x].begin(), it1);
-				std::vector<int>::iterator it2 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<2>(BEPot[x][i]));
-				int Ind2 = std::distance(Input.FragmentOrbitals[x].begin(), it2);
-				std::vector<int>::iterator it3 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<3>(BEPot[x][i]));
-				int Ind3 = std::distance(Input.FragmentOrbitals[x].begin(), it3);
-				std::vector<int>::iterator it4 = std::find(Input.FragmentOrbitals[x].begin(), Input.FragmentOrbitals[x].end(), std::get<4>(BEPot[x][i]));
-				int Ind4 = std::distance(Input.FragmentOrbitals[x].begin(), it4);
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
+				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPot[x][i]), x, std::get<7>(BEPot[x][i]));
+				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPot[x][i]), x, std::get<7>(BEPot[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]), std::get<7>(BEPot[x][i]));
 			}

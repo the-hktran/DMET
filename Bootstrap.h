@@ -71,6 +71,7 @@ public:
 	void printDebug(std::ofstream&);
 	void runDebug();
 	double CalcBEEnergyByFrag();
+	int OrbitalToReducedIndex(int, int, bool);
 
 private:
 	double dLambda = 1E-4;
@@ -85,6 +86,8 @@ private:
 	void OptMu();
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector<int>);
+	std::vector<double> CalcCostLambda(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector<std::vector< double > >, std::vector<std::vector< double > >, std::vector<std::vector< double > >, 
+	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();
 	void CollectInputs();
 	void PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> >);
