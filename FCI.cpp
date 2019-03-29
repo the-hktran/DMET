@@ -515,12 +515,12 @@ void FCI::AddPotential(int i, int j, double dh, bool isAlpha)
     if (isAlpha)
     {
         aOEI[ind2(i, j)] += dh;
-        aOEI[ind2(j, i)] += dh;
+        aOEI[ind2(j, i)] = aOEI[ind2(i, j)];
     }
     else
     {
         bOEI[ind2(i, j)] += dh;
-        bOEI[ind2(j, i)] += dh;
+        bOEI[ind2(j, i)] = bOEI[ind2(i, j)];
     }
 }
 
@@ -529,31 +529,31 @@ void FCI::AddPotential(int i, int j, int k, int l, double dV, bool LeftAlpha, bo
     if (LeftAlpha && RightAlpha)
     {
         aaTEI[ind4(i, j, k, l)] += dV;
-        aaTEI[ind4(j, i, k, l)] += dV;
-        aaTEI[ind4(i, j, l, k)] += dV;
-        aaTEI[ind4(j, i, l, k)] += dV;
-        aaTEI[ind4(k, l, i, j)] += dV;
-        aaTEI[ind4(k, l, j, i)] += dV;
-        aaTEI[ind4(l, k, i, j)] += dV;
-        aaTEI[ind4(l, k, j, i)] += dV;
+        aaTEI[ind4(j, i, k, l)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(i, j, l, k)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(j, i, l, k)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(k, l, i, j)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(k, l, j, i)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(l, k, i, j)] = aaTEI[ind4(i, j, k, l)];
+        aaTEI[ind4(l, k, j, i)] = aaTEI[ind4(i, j, k, l)];
     }
     else if (!LeftAlpha && !RightAlpha)
     {
         bbTEI[ind4(i, j, k, l)] += dV;
-        bbTEI[ind4(j, i, k, l)] += dV;
-        bbTEI[ind4(i, j, l, k)] += dV;
-        bbTEI[ind4(j, i, l, k)] += dV;
-        bbTEI[ind4(k, l, i, j)] += dV;
-        bbTEI[ind4(k, l, j, i)] += dV;
-        bbTEI[ind4(l, k, i, j)] += dV;
-        bbTEI[ind4(l, k, j, i)] += dV;
+        bbTEI[ind4(j, i, k, l)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(i, j, l, k)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(j, i, l, k)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(k, l, i, j)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(k, l, j, i)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(l, k, i, j)] = bbTEI[ind4(i, j, k, l)];
+        bbTEI[ind4(l, k, j, i)] = bbTEI[ind4(i, j, k, l)];
     }
     else
     {
         abTEI[ind4(i, j, k, l)] += dV;
-        abTEI[ind4(j, i, k, l)] += dV;
-        abTEI[ind4(i, j, l, k)] += dV;
-        abTEI[ind4(j, i, l, k)] += dV;
+        abTEI[ind4(j, i, k, l)] = abTEI[ind4(i, j, k, l)];
+        abTEI[ind4(i, j, l, k)] = abTEI[ind4(i, j, k, l)];
+        abTEI[ind4(j, i, l, k)] = abTEI[ind4(i, j, k, l)];
     }
 }
 

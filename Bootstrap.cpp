@@ -118,8 +118,30 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     return CF;
 }
 
+double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::vector<Eigen::MatrixXd> bFrag1RDMs, std::vector< std::vector< int > > BECenter, std::vector<int> FragSt)
+{
+    double CF = 0;
+    for(int x = 0; x < aFrag1RDMs.size(); x++) // sum over fragments
+    {
+		if (x > 0 && isTS)
+		{
+			CF *= NumFrag;
+			break;
+		}
+
+        for(int i = 0; i < BECenter[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
+        {
+            CF += aFrag1RDMs[FragSt[x]].coeffRef(aFragPos[x][BECenter[x][i]], aFragPos[x][BECenter[x][i]]);
+			CF += bFrag1RDMs[FragSt[x]].coeffRef(bFragPos[x][BECenter[x][i]], bFragPos[x][BECenter[x][i]]);
+        }
+    }
+    CF -= Input.NumElectrons;
+    CF = CF * CF;
+    return CF;
+}
+
 void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
-                           std::vector< std::vector< std::tuple< int, int, int, int, int, int, double, bool, bool > > > BEPot, double Mu)
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double Mu)
 {
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -207,25 +229,35 @@ std::vector< double > Bootstrap::FragmentLoss(std::vector< std::vector<Eigen::Ma
 
 Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 {
-	std::vector< std::vector< Eigen::MatrixXd > > OneRDMs;
-	OneRDMs = CollectRDM(BEPotential, ChemicalPotential, State);
-	PrintOneRDMs(OneRDMs);
+	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
+		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
+		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
+	}
 
-	double LMu = CalcCostChemPot(OneRDMs, BECenterPosition, FragState, Input);
-	std::vector< std::vector< Eigen::MatrixXd > > DensitiesPlusdMu;
-	DensitiesPlusdMu = CollectRDM(BEPotential, ChemicalPotential + dMu, State);
-	double LMuPlus = CalcCostChemPot(DensitiesPlusdMu, BECenterPosition, FragState, Input);
+	double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, BECenterPosition, FragState);
+	std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
+	CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, tmpVecVecDouble, tmpVecVecDouble, tmpVecVecDouble, BEPotential, ChemicalPotential + dMu);
+	double LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, BECenterPosition, FragState);
 	// We need every density matrix to calculation LMu, but since we only calculate one fragment each loop, we will use this vector
 	// to store the different contributions to LMu per fragment, and then when we add the BE potential, we only affect one fragment
 	// so we'll use the difference between LMu in that fragment to figure out the new LMu.
 	std::vector<double> LMuByFrag;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		std::vector< std::vector<Eigen::MatrixXd> > SingleRDM;
+		std::vector<Eigen::MatrixXd> xaOneRDM, xbOneRDM;
 		std::vector< std::vector< int > > SingleCenter;
-		SingleRDM.push_back(OneRDMs[x]);
+		std::vector<int> SingleFragSt;
+		xaOneRDM.push_back(aOneRDMs[x]);
+		xbOneRDM.push_back(bOneRDMs[x]);
 		SingleCenter.push_back(BECenterPosition[x]);
-		double LMuX = CalcCostChemPot(SingleRDM, SingleCenter, FragState, Input);
+		SingleFragSt.push_back(FragState[x]);
+		double LMuX = CalcCostChemPot(xaOneRDM, xbOneRDM, SingleCenter, FragState);
 		LMuByFrag.push_back(LMuX);
 	}
 

@@ -35,6 +35,7 @@ public:
 	InputObj Input;
 	std::vector<InputObj> Inputs;
 	std::vector<FCI> FCIs;
+	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
 	// Some definitions for excited state embedding
 	int State = 0;
@@ -45,8 +46,9 @@ public:
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
 	// Index 1 is overlapping fragment.
-	// Index 2 is the orbital we want to match to that fragment -- We input this from the CURRENT fragment and we can search it in OTHER fragments.
-	// Index 3 is the value of the potential on that orbital for this fragment.
+	// Index 2 - 5 is the orbital we want to match to that fragment -- We input this from the CURRENT fragment and we can search it in OTHER fragments.
+	// Index 6 is the value of the potential on that orbital for this fragment.
+	// Index 7 - 8 describe whether or not the potential is for alpha or beta spins.
 	std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPotential;
 
 	// Contains the INDEX of the center position orbital on each fragment.
@@ -75,13 +77,14 @@ private:
 	double dMu = 1E-1;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
-                           std::vector< std::vector< std::tuple< int, int, int, int, int, int, double, bool, bool > > >, double);
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
 	void VectorToBE(Eigen::VectorXd);
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
+	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector<int>);
 	double CalcBEEnergy();
 	void CollectInputs();
 	void PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> >);
