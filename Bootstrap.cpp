@@ -247,7 +247,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 			continue;
 		}
 
-		FCI xFCI = FCIs[x];
+		FCI xFCI = FCIsBase[x];
 		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], Mu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
@@ -278,6 +278,38 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		aaTwoRDMs.push_back(xFCI.aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(xFCI.abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(xFCI.bbTwoRDMs[FragState[x]]);
+	}
+}
+
+void Bootstrap::UpdateFCIs()
+{
+	for (int x = 0; x < NumFrag; x++)
+	{
+		FCIs[x] = FCIsBase[x]; // First, reset FCI
+		for (int i = 0; i < BEPotential[x].size(); i++)
+		{
+			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
+			if (isOEI)
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+
+				FCIs[x].AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]));
+			}
+			else
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
+				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
+
+				FCIs[x].AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+			}
+			FCIs[x].AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential);
+
+			FCIs[x].runFCI();
+			FCIs[x].getSpecificRDM(FragState[x], true);
+		}
 	}
 }
 
@@ -403,7 +435,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		// Eigen::MatrixXd FragOneRDMMinusdLambda;
 		// BEImpurityFCI(FragOneRDMMinusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEMinusdLambda[x]);
 		// std::vector<double> LossesMinus = FragmentLoss(OneRDMs, FragOneRDMMinusdLambda, x);
-		std::vector<double> LossesMinus = FragmentLoss(OneRDMs, OneRDMs[x], x);
+		std::vector<double> LossesMinus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMs[x], bOneRDMs[x], aaTwoRDMs[x], abTwoRDMs[x], bbTwoRDMs[x], x);
 
 		int JRow = 0;
 		for (int j = 0; j < x; j++)
@@ -413,14 +445,43 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
+			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
 			// Make the + dLambda potential for the fragment.
 			auto BEPlusdLambda = BEPotential;
-			std::get<2>(BEPlusdLambda[x][i]) = std::get<2>(BEPotential[x][i]) + dLambda;
+			std::get<5>(BEPlusdLambda[x][i]) = std::get<5>(BEPotential[x][i]) + dLambda;
 
 			// Collect all the density matrices for this iteration.
 			std::vector<Eigen::MatrixXd> FragOneRDMPlusdLambda;
-			BEImpurityFCI(FragOneRDMPlusdLambda, Input, x, RotationMatrices[x], ChemicalPotential, State, BEPlusdLambda[x], MaxState);
-			std::vector<double> LossesPlus = FragmentLoss(OneRDMs, FragOneRDMPlusdLambda, x);
+			FCI xFCI = FCIsBase[x];
+			if (isOEI)
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
+
+				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]));
+			}
+			else
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
+				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPlusdLambda[x][i]), x, std::get<7>(BEPlusdLambda[x][i]));
+				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPlusdLambda[x][i]), x, std::get<7>(BEPlusdLambda[x][i]));
+
+				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]), std::get<7>(BEPlusdLambda[x][i]));
+			}
+			xFCI.runFCI();
+			xFCI.getSpecificRDM(FragState[x], !isOEI);
+			std::vector<double> LossesPlus;
+			if (isOEI)
+			{
+				std::vector<double> EmptyRDM;
+				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, xFCI.aOneRDMs[FragState[x]], xFCI.bOneRDMs[FragState[x]], EmptyRDM, EmptyRDM, EmptyRDM, x);
+			}
+			else
+			{
+				Eigen::MatrixXd EmptyRDM;
+				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, EmptyRDM, EmptyRDM, xFCI.aaTwoRDMs[FragState[x]], xFCI.abTwoRDMs[FragState[x]], xFCI.bbTwoRDMs[FragState[x]], x);
+			}
 			std::cout << "One RDM for Fragment " << x << " and Condition Number " << i << " is\n" << FragOneRDMPlusdLambda[FragState[x]] << std::endl;
 			*Output << "One RDM for Fragment " << x << " and Condition Number " << i << " is\n" << FragOneRDMPlusdLambda[FragState[x]] << std::endl;
 
@@ -453,7 +514,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 		// Last column is derivative of each loss with respect to chemical potential.
 		// The last element of this column is already handled.
-		std::vector<double> LossesPlusMu = FragmentLoss(OneRDMs, DensitiesPlusdMu[x], x);
+		std::vector<double> Empty2RDM;
+		std::vector<double> LossesPlusMu = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMsPlusdMu[x], bOneRDMsPlusdMu[x], Empty2RDM, Empty2RDM, Empty2RDM, x);
 		for (int j = 0; j < LossesPlusMu.size(); j++)
 		{
 			J(JRow + j, NumConditions) = (LossesPlusMu[j] - LossesMinus[j]) / dMu;
@@ -589,6 +651,7 @@ void Bootstrap::NewtonRaphson()
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
+		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
 		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
@@ -662,7 +725,9 @@ void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &aMFDe
 		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
+		FCIs.push_back(xFCI);
 	}
+	FCIsBase = FCIs;
 
 	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.
 	// In each case, we create a BENewton object that handles the Newton Raphson optimization.

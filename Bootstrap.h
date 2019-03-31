@@ -34,7 +34,7 @@ public:
 	double ChemicalPotential = 0;
 	InputObj Input;
 	std::vector<InputObj> Inputs;
-	std::vector<FCI> FCIs;
+	std::vector<FCI> FCIs, FCIsBase;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
 	// Some definitions for excited state embedding
@@ -90,5 +90,6 @@ private:
 	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();
 	void CollectInputs();
+	void UpdateFCIs();
 	void PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> >);
 }; 
