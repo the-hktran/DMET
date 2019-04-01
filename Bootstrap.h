@@ -52,7 +52,7 @@ public:
 	std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPotential;
 
 	// Contains the INDEX of the center position orbital on each fragment.
-	std::vector< std::vector< int > > BECenterPosition; // Need to implement a way to figure this out.
+	std::vector< std::vector< int > > aBECenterPosition, bBECenterPosition; // Need to implement a way to figure this out.
 
 	std::vector< std::vector<int> > aFragPos, bFragPos, aBathPos, bBathPos;
 
@@ -85,7 +85,7 @@ private:
 	void NewtonRaphson();
 	void OptMu();
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
-	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector<int>);
+	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >, std::vector<int>);
 	std::vector<double> CalcCostLambda(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector<std::vector< double > >, std::vector<std::vector< double > >, std::vector<std::vector< double > >, 
 	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();
