@@ -687,15 +687,17 @@ void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDen
 	// In each case, we create a BENewton object that handles the Newton Raphson optimization.
 }
 
-void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &aMFDensity, std::vector<Eigen::MatrixXd> &bMFDensity, std::ofstream &Output)
+void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDensity, std::vector<Eigen::MatrixXd> &bMFDensity, std::ofstream &Output)
 {
-	FragmentOrbitals = Input.FragmentOrbitals;
-	EnvironmentOrbitals = Input.EnvironmentOrbitals;
-	NumAO = Input.NumAO;
-	NumOcc = Input.NumOcc;
-	NumFrag = Input.NumFragments;
-	FragState = Input.ImpurityStates;
-	BathState = Input.BathStates;
+	FragmentOrbitals = Inp.FragmentOrbitals;
+	EnvironmentOrbitals = Inp.EnvironmentOrbitals;
+	NumAO = Inp.NumAO;
+	NumOcc = Inp.NumOcc;
+	NumFrag = Inp.NumFragments;
+	FragState = Inp.ImpurityStates;
+	BathState = Inp.BathStates;
+	BEInputName = Inp.BEInput;
+	Input = Inp;
 
 	aFragPos.clear();
 	bFragPos.clear();
@@ -732,8 +734,8 @@ void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &aMFDe
 	}
 	FCIsBase = FCIs;
 
-	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.
-	// In each case, we create a BENewton object that handles the Newton Raphson optimization.
+	NewtonRaphson();
+	BEEnergy = CalcBEEnergy();
 }
 
 void Bootstrap::printDebug(std::ofstream &Output)

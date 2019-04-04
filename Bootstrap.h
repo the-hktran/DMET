@@ -20,6 +20,7 @@ class Bootstrap
 {
 public:
 	std::string BEInputName = "matching.be";
+	double BEEnergy;
 	std::ofstream* Output;
 	std::vector< std::vector< int > > FragmentOrbitals;
 	std::vector< std::vector< int > > EnvironmentOrbitals;
