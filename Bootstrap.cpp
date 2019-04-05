@@ -15,6 +15,7 @@
 #include "Functions.h"
 #include "NewtonRaphson.h"
 #include "FCI.h"
+#include "Fragmenting.h"
 
 // This is a debug function for the time being
 //void Bootstrap::debugInit(InputObj Inp, std::ofstream &OutStream)
@@ -86,6 +87,26 @@
 //		NumFragCond.push_back(BEPotential[x].size());
 //	}
 //}
+
+void Bootstrap::InitFromFragmenting(Fragmenting Frag)
+{
+	NumFrag = Frag.MatchingConditions.size();
+	NumFragCond.clear();
+	BEPotential.clear();
+	for (int x = 0; x < Frag.MatchingConditions.size(); x++)
+	{
+		NumFragCond.push_back(Frag.MatchingConditions[x].size());
+		std::vector< std::tuple<int, int, int, int, int, double, bool, bool> > tmpVec;
+		for (int k = 0; k < Frag.MatchingConditions[x].size(); k++)
+		{
+			tmpVec.push_back(std::make_tuple(std::get<0>(Frag.MatchingConditions[x][k]), std::get<1>(Frag.MatchingConditions[x][k]), std::get<2>(Frag.MatchingConditions[x][k]), std::get<3>(Frag.MatchingConditions[x][k]),
+			std::get<4>(Frag.MatchingConditions[x][k]), 0.0, std::get<5>(Frag.MatchingConditions[x][k]), std::get<6>(Frag.MatchingConditions[x][k])));
+		}
+		BEPotential.push_back(tmpVec);
+	}
+
+	aBECenterPosition = bBECenterPosition = Frag.CenterPosition;
+}
 
 void Bootstrap::PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> > OneRDMs)
 {

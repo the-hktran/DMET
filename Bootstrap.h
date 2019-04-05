@@ -15,6 +15,7 @@
 #include "ReadInput.h"
 #include "Functions.h"
 #include "FCI.h"
+#include "Fragmenting.h"
 
 class Bootstrap
 {
@@ -73,6 +74,7 @@ public:
 	void runDebug();
 	double CalcBEEnergyByFrag();
 	int OrbitalToReducedIndex(int, int, bool);
+	void InitFromFragmenting(Fragmenting);
 
 private:
 	double dLambda = 1E-4;
