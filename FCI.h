@@ -76,6 +76,7 @@ class FCI
         std::vector< std::vector<double> > bbTwoRDMs;
         // std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
 
+        FCI(const FCI&);
         FCI(InputObj&);
         FCI(InputObj&, int, int, std::vector<int>, std::vector<int>, std::vector<int>);
         FCI(InputObj&, int, int, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>);

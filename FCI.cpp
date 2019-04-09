@@ -32,6 +32,95 @@ int __s1, __s2, __s3;
 #define ind2(i,j) i*__s1+j
 #define ind4(i,j,k,l) i*__s3+j*__s2+k*__s1+l
 
+FCI::FCI(const FCI& oldFCI)
+{
+    InputObj Inp;
+
+        aElectrons = oldFCI.aElectrons;
+        bElectrons = oldFCI.bElectrons;
+        aElectronsActive = oldFCI.aElectronsActive;
+        bElectronsActive = oldFCI.bElectronsActive; 
+        aActive = oldFCI.aActive;
+        bActive = oldFCI.bActive; 
+        aOrbitals = oldFCI.aOrbitals; 
+        bOrbitals = oldFCI.bOrbitals; 
+        aCore = oldFCI.aCore;
+        bCore = oldFCI.bCore; 
+        aVirtual = oldFCI.aVirtual; 
+        bVirtual = oldFCI.bVirtual;
+        NumberOfEV = oldFCI.NumberOfEV; 
+        L = oldFCI.L; 
+        aDim = oldFCI.aDim;
+        bDim = oldFCI.bDim;
+        Dim = oldFCI.Dim;
+
+        Method = oldFCI.Method; // "FCI", "CIS"
+
+        aCoreList = oldFCI.aCoreList;
+        bCoreList = oldFCI.bCoreList;
+        aActiveList = oldFCI.aActiveList;
+        bActiveList = oldFCI.bActiveList; 
+        aVirtualList = oldFCI.aVirtualList;
+        bVirtualList = oldFCI.bVirtualList;
+
+        aStrings = oldFCI.aStrings;
+        bStrings = oldFCI.bStrings;
+
+        aOEI = aOEIPlusCore = new double[aActive * aActive];
+        for (int i = 0; i < aActive * aActive; i++)
+        {
+            aOEI[i] = oldFCI.aOEI[i];
+            aOEIPlusCore[i] = oldFCI.aOEIPlusCore[i];
+        }
+        bOEI = bOEIPlusCore = new double[bActive * bActive];
+        for (int i = 0; i < bActive * bActive; i++)
+        {
+            bOEI[i] = oldFCI.bOEI[i];
+            bOEIPlusCore[i] = oldFCI.bOEIPlusCore[i];
+        }
+        aaTEI = new double[aActive * aActive * aActive * aActive];
+        for (int i = 0; i < aActive * aActive * aActive * aActive; i++)
+        {
+            aaTEI[i] = oldFCI.aaTEI[i];
+        }
+        bbTEI = new double[bActive * bActive * bActive * bActive];
+        for (int i = 0; i < bActive * bActive * bActive * bActive; i++)
+        {
+            bbTEI[i] = oldFCI.bbTEI[i];
+        }
+        abTEI = new double[aActive * aActive * bActive * bActive];
+        for (int i = 0; i < aActive * aActive * bActive * bActive; i++)
+        {
+            abTEI[i] = oldFCI.abTEI[i];
+        }
+
+        ENuc = oldFCI.ENuc;
+        doUnrestricted = oldFCI.doUnrestricted;
+
+        Conditioner = oldFCI.Conditioner;
+        MaxIteration = oldFCI.MaxIteration;
+
+        ChemicalPotential = oldFCI.ChemicalPotential;
+
+        Energies = oldFCI.Energies;
+        Eigenvectors = oldFCI.Eigenvectors;
+        Symmetries = oldFCI.Symmetries;
+        FCIErrors = oldFCI.FCIErrors;
+
+        Hamiltonian = oldFCI.Hamiltonian;
+        SigmaFCIVector = oldFCI.SigmaFCIVector;
+        Henry1RDM = oldFCI.Henry1RDM;
+        Henry2RDM = oldFCI.Henry2RDM;
+
+        OneRDMs = oldFCI.OneRDMs;
+        aOneRDMs = oldFCI.aOneRDMs;
+        bOneRDMs = oldFCI.bOneRDMs;
+        TwoRDMs = oldFCI.TwoRDMs;
+        aaTwoRDMs = oldFCI.aaTwoRDMs;
+        abTwoRDMs = oldFCI.abTwoRDMs;
+        bbTwoRDMs = oldFCI.bbTwoRDMs;
+}
+
 /* 
    This is the initalization function when only the input object is given. In this case, we assume that the active space
    is the complete space 

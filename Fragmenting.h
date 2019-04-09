@@ -20,7 +20,10 @@ class Fragmenting
         // Element 2-5 are the index of the RDM to match on the current fragment.
         // Element 6-7 are the spins
         std::vector< std::vector< std::tuple<int, int, int, int, int, bool, bool> > > MatchingConditions;
+
+        Fragmenting(int);
+        
     private:
         void OneCenterIteration();
         void OneCenterMatching(bool);
-}
+};

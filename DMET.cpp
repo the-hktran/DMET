@@ -18,6 +18,7 @@
 #include "Functions.h"
 #include "RealTime.h"
 #include "FCI.h"
+#include "Fragmenting.h"
 
 
 
@@ -280,32 +281,6 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
     std::vector< int > FragPos;
     std::vector< int > BathPos;
     GetCASPos(Input, FragmentIndex, FragPos, BathPos);
-    auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
-    if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
-    {
-        PosOfIndex = std::find(BathPos.begin(), BathPos.end(),c);
-        auto IndexOnList = std::distance(BathPos.begin(), PosOfIndex);
-        Orbital = Input.EnvironmentOrbitals[FragmentIndex][IndexOnList + NumVirt]; // Add NumVirt because the virtual orbitals are before the bath active orbitals.
-    }
-    else 
-    {
-        auto IndexOnList = std::distance(FragPos.begin(), PosOfIndex);
-        Orbital = Input.FragmentOrbitals[FragmentIndex][IndexOnList];
-    }
-    return Orbital;
-}
-
-int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
-{
-    int NumOcc;
-    if (Alpha) NumOcc = Input.aNumElectrons;
-    else NumOcc = Input.bNumElectrons;
-
-    int NumVirt = Input.NumAO - Input.FragmentOrbitals[FragmentIndex].size() - NumOcc;
-    int Orbital;
-    std::vector< int > FragPos;
-    std::vector< int > BathPos;
-    GetCASPos(Input, FragmentIndex, FragPos, BathPos, Alpha);
     auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
     if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
     {
@@ -1335,6 +1310,12 @@ int main(int argc, char* argv[])
         // DensityMatrix = FullDensities[0];
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
+
+        Fragmenting FragObj(10);
+        Bootstrap BE;
+        BE.InitFromFragmenting(FragObj);
+        BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
+        return 0;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.

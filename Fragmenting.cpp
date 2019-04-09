@@ -17,6 +17,23 @@
 #include "FCI.h"
 #include "Fragmenting.h"
 
+Fragmenting::Fragmenting(int N)
+{
+    // This is a test.
+    AdjacencyMatrix = Eigen::MatrixXi::Zero(N, N);
+    for (int i = 0; i < N; i++)
+    {
+        AdjacencyMatrix(i, (i + 1) % N) = 1;
+        AdjacencyMatrix((i + 1) % N, i) = 1;
+        AdjacencyMatrix(i, (i + N - 1) % N) = 1;
+        AdjacencyMatrix((i + N - 1) % N, i) = 1;
+    }
+    // end test.
+
+    OneCenterIteration();
+    OneCenterMatching(false);
+}
+
 void Fragmenting::OneCenterIteration()
 {
     Fragments.clear();
@@ -50,7 +67,7 @@ void Fragmenting::OneCenterMatching(bool Match2RDM)
             // Find which other fragment has this element as the center.
             for (int y = 0; y < CenterPosition.size(); y++)
             {
-                if (CenterPosition[y] == Fragments[x][i])
+                if (CenterPosition[y][0] == Fragments[x][i])
                 {
                     FragMatch = y;
                     break;
