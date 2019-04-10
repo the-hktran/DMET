@@ -76,10 +76,13 @@ class FCI
         std::vector< std::vector<double> > bbTwoRDMs;
         // std::vector< Eigen::Tensor<double, 4> > TwoRDMs;
 
+        FCI();
         FCI(const FCI&);
         FCI(InputObj&);
         FCI(InputObj&, int, int, std::vector<int>, std::vector<int>, std::vector<int>);
         FCI(InputObj&, int, int, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>, std::vector<int>);
+
+        void Copy(const FCI&);
 
         void ERIMapToArray(std::map<std::string, double>&);
         void ERIMapToArray(std::map<std::string, double>&, Eigen::MatrixXd RotationMatrix, std::vector<int> ActiveOrbitals);
@@ -100,7 +103,7 @@ class FCI
 
         double ExpVal(Eigen::MatrixXd);
 
-        void PrintERI();
+        void PrintERI(bool);
         Eigen::MatrixXd ProjectMatrix(std::vector<Eigen::MatrixXd>);
         std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(int);
         std::vector<Eigen::MatrixXd> HalfFilledSchmidtBasis(Eigen::MatrixXd);

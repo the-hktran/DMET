@@ -389,6 +389,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
+		std::cout << "Orig 1RDM of Fragment " << x << std::endl;
+		std::cout << aOneRDMs[x] << std::endl;
 	}
 
 	double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
@@ -491,6 +493,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]));
+				xFCI.PrintERI(false);
+				std::cout << "potential added " << Ind1 << " " << Ind2 << " " << std::get<5>(BEPlusdLambda[x][i]) << std::endl;
 			}
 			else
 			{
@@ -508,13 +512,15 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			{
 				std::vector<double> EmptyRDM;
 				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, xFCI.aOneRDMs[FragState[x]], xFCI.bOneRDMs[FragState[x]], EmptyRDM, EmptyRDM, EmptyRDM, x);
-				std::cout << "see it " << LossesPlus[0] << std::endl;
+				std::cout << x << " " << i << "\n" << xFCI.aOneRDMs[FragState[x]] << std::endl;
 			}
 			else
 			{
 				Eigen::MatrixXd EmptyRDM;
 				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, EmptyRDM, EmptyRDM, xFCI.aaTwoRDMs[FragState[x]], xFCI.abTwoRDMs[FragState[x]], xFCI.bbTwoRDMs[FragState[x]], x);
 			}
+			std::string tmpstring;
+			std::getline(std::cin, tmpstring);
 
 			// // Make the - dLambda potential for the fragment.
 			// auto BEMinusdLambda = BEPotential;
@@ -686,7 +692,8 @@ void Bootstrap::NewtonRaphson()
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
-		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		NRIteration++;
 	}
@@ -741,6 +748,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 
 	CollectSchmidt(aMFDensity, bMFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
 
+	FCIs.clear();
 	// Generate impurity FCI objects for each impurity.
 	for (int x = 0; x < NumFrag; x++)
 	{

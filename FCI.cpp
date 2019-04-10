@@ -32,93 +32,186 @@ int __s1, __s2, __s3;
 #define ind2(i,j) i*__s1+j
 #define ind4(i,j,k,l) i*__s3+j*__s2+k*__s1+l
 
+FCI::FCI() {}
+
 FCI::FCI(const FCI& oldFCI)
 {
-    InputObj Inp;
+    Inp = oldFCI.Inp;
 
-        aElectrons = oldFCI.aElectrons;
-        bElectrons = oldFCI.bElectrons;
-        aElectronsActive = oldFCI.aElectronsActive;
-        bElectronsActive = oldFCI.bElectronsActive; 
-        aActive = oldFCI.aActive;
-        bActive = oldFCI.bActive; 
-        aOrbitals = oldFCI.aOrbitals; 
-        bOrbitals = oldFCI.bOrbitals; 
-        aCore = oldFCI.aCore;
-        bCore = oldFCI.bCore; 
-        aVirtual = oldFCI.aVirtual; 
-        bVirtual = oldFCI.bVirtual;
-        NumberOfEV = oldFCI.NumberOfEV; 
-        L = oldFCI.L; 
-        aDim = oldFCI.aDim;
-        bDim = oldFCI.bDim;
-        Dim = oldFCI.Dim;
+    aElectrons = oldFCI.aElectrons;
+    bElectrons = oldFCI.bElectrons;
+    aElectronsActive = oldFCI.aElectronsActive;
+    bElectronsActive = oldFCI.bElectronsActive; 
+    aActive = oldFCI.aActive;
+    bActive = oldFCI.bActive; 
+    aOrbitals = oldFCI.aOrbitals; 
+    bOrbitals = oldFCI.bOrbitals; 
+    aCore = oldFCI.aCore;
+    bCore = oldFCI.bCore; 
+    aVirtual = oldFCI.aVirtual; 
+    bVirtual = oldFCI.bVirtual;
+    NumberOfEV = oldFCI.NumberOfEV; 
+    L = oldFCI.L; 
+    aDim = oldFCI.aDim;
+    bDim = oldFCI.bDim;
+    Dim = oldFCI.Dim;
 
-        Method = oldFCI.Method; // "FCI", "CIS"
+    Method = oldFCI.Method; // "FCI", "CIS"
 
-        aCoreList = oldFCI.aCoreList;
-        bCoreList = oldFCI.bCoreList;
-        aActiveList = oldFCI.aActiveList;
-        bActiveList = oldFCI.bActiveList; 
-        aVirtualList = oldFCI.aVirtualList;
-        bVirtualList = oldFCI.bVirtualList;
+    aCoreList = oldFCI.aCoreList;
+    bCoreList = oldFCI.bCoreList;
+    aActiveList = oldFCI.aActiveList;
+    bActiveList = oldFCI.bActiveList; 
+    aVirtualList = oldFCI.aVirtualList;
+    bVirtualList = oldFCI.bVirtualList;
 
-        aStrings = oldFCI.aStrings;
-        bStrings = oldFCI.bStrings;
+    aStrings = oldFCI.aStrings;
+    bStrings = oldFCI.bStrings;
 
-        aOEI = aOEIPlusCore = new double[aActive * aActive];
-        for (int i = 0; i < aActive * aActive; i++)
-        {
-            aOEI[i] = oldFCI.aOEI[i];
-            aOEIPlusCore[i] = oldFCI.aOEIPlusCore[i];
-        }
-        bOEI = bOEIPlusCore = new double[bActive * bActive];
-        for (int i = 0; i < bActive * bActive; i++)
-        {
-            bOEI[i] = oldFCI.bOEI[i];
-            bOEIPlusCore[i] = oldFCI.bOEIPlusCore[i];
-        }
-        aaTEI = new double[aActive * aActive * aActive * aActive];
-        for (int i = 0; i < aActive * aActive * aActive * aActive; i++)
-        {
-            aaTEI[i] = oldFCI.aaTEI[i];
-        }
-        bbTEI = new double[bActive * bActive * bActive * bActive];
-        for (int i = 0; i < bActive * bActive * bActive * bActive; i++)
-        {
-            bbTEI[i] = oldFCI.bbTEI[i];
-        }
-        abTEI = new double[aActive * aActive * bActive * bActive];
-        for (int i = 0; i < aActive * aActive * bActive * bActive; i++)
-        {
-            abTEI[i] = oldFCI.abTEI[i];
-        }
+    aOEI = new double[aActive * aActive];
+    aOEIPlusCore = new double[aActive * aActive];
+    for (int i = 0; i < aActive * aActive; i++)
+    {
+        aOEI[i] = oldFCI.aOEI[i];
+        aOEIPlusCore[i] = oldFCI.aOEIPlusCore[i];
+    }
+    bOEI = new double[bActive * bActive];
+    bOEIPlusCore = new double[bActive * bActive];
+    for (int i = 0; i < bActive * bActive; i++)
+    {
+        bOEI[i] = oldFCI.bOEI[i];
+        bOEIPlusCore[i] = oldFCI.bOEIPlusCore[i];
+    }
+    aaTEI = new double[aActive * aActive * aActive * aActive];
+    for (int i = 0; i < aActive * aActive * aActive * aActive; i++)
+    {
+        aaTEI[i] = oldFCI.aaTEI[i];
+    }
+    bbTEI = new double[bActive * bActive * bActive * bActive];
+    for (int i = 0; i < bActive * bActive * bActive * bActive; i++)
+    {
+        bbTEI[i] = oldFCI.bbTEI[i];
+    }
+    abTEI = new double[aActive * aActive * bActive * bActive];
+    for (int i = 0; i < aActive * aActive * bActive * bActive; i++)
+    {
+        abTEI[i] = oldFCI.abTEI[i];
+    }
 
-        ENuc = oldFCI.ENuc;
-        doUnrestricted = oldFCI.doUnrestricted;
+    ENuc = oldFCI.ENuc;
+    doUnrestricted = oldFCI.doUnrestricted;
 
-        Conditioner = oldFCI.Conditioner;
-        MaxIteration = oldFCI.MaxIteration;
+    Conditioner = oldFCI.Conditioner;
+    MaxIteration = oldFCI.MaxIteration;
 
-        ChemicalPotential = oldFCI.ChemicalPotential;
+    ChemicalPotential = oldFCI.ChemicalPotential;
 
-        Energies = oldFCI.Energies;
-        Eigenvectors = oldFCI.Eigenvectors;
-        Symmetries = oldFCI.Symmetries;
-        FCIErrors = oldFCI.FCIErrors;
+    Energies = oldFCI.Energies;
+    Eigenvectors = oldFCI.Eigenvectors;
+    Symmetries = oldFCI.Symmetries;
+    FCIErrors = oldFCI.FCIErrors;
 
-        Hamiltonian = oldFCI.Hamiltonian;
-        SigmaFCIVector = oldFCI.SigmaFCIVector;
-        Henry1RDM = oldFCI.Henry1RDM;
-        Henry2RDM = oldFCI.Henry2RDM;
+    Hamiltonian = oldFCI.Hamiltonian;
+    SigmaFCIVector = oldFCI.SigmaFCIVector;
+    Henry1RDM = oldFCI.Henry1RDM;
+    Henry2RDM = oldFCI.Henry2RDM;
 
-        OneRDMs = oldFCI.OneRDMs;
-        aOneRDMs = oldFCI.aOneRDMs;
-        bOneRDMs = oldFCI.bOneRDMs;
-        TwoRDMs = oldFCI.TwoRDMs;
-        aaTwoRDMs = oldFCI.aaTwoRDMs;
-        abTwoRDMs = oldFCI.abTwoRDMs;
-        bbTwoRDMs = oldFCI.bbTwoRDMs;
+    OneRDMs = oldFCI.OneRDMs;
+    aOneRDMs = oldFCI.aOneRDMs;
+    bOneRDMs = oldFCI.bOneRDMs;
+    TwoRDMs = oldFCI.TwoRDMs;
+    aaTwoRDMs = oldFCI.aaTwoRDMs;
+    abTwoRDMs = oldFCI.abTwoRDMs;
+    bbTwoRDMs = oldFCI.bbTwoRDMs;
+}
+
+void FCI::Copy(const FCI& oldFCI)
+{
+    Inp = oldFCI.Inp;
+
+    aElectrons = oldFCI.aElectrons;
+    bElectrons = oldFCI.bElectrons;
+    aElectronsActive = oldFCI.aElectronsActive;
+    bElectronsActive = oldFCI.bElectronsActive; 
+    aActive = oldFCI.aActive;
+    bActive = oldFCI.bActive; 
+    aOrbitals = oldFCI.aOrbitals; 
+    bOrbitals = oldFCI.bOrbitals; 
+    aCore = oldFCI.aCore;
+    bCore = oldFCI.bCore; 
+    aVirtual = oldFCI.aVirtual; 
+    bVirtual = oldFCI.bVirtual;
+    NumberOfEV = oldFCI.NumberOfEV; 
+    L = oldFCI.L; 
+    aDim = oldFCI.aDim;
+    bDim = oldFCI.bDim;
+    Dim = oldFCI.Dim;
+
+    Method = oldFCI.Method; // "FCI", "CIS"
+
+    aCoreList = oldFCI.aCoreList;
+    bCoreList = oldFCI.bCoreList;
+    aActiveList = oldFCI.aActiveList;
+    bActiveList = oldFCI.bActiveList; 
+    aVirtualList = oldFCI.aVirtualList;
+    bVirtualList = oldFCI.bVirtualList;
+
+    aStrings = oldFCI.aStrings;
+    bStrings = oldFCI.bStrings;
+
+    aOEI = aOEIPlusCore = new double[aActive * aActive];
+    for (int i = 0; i < aActive * aActive; i++)
+    {
+        aOEI[i] = oldFCI.aOEI[i];
+        aOEIPlusCore[i] = oldFCI.aOEIPlusCore[i];
+    }
+    bOEI = bOEIPlusCore = new double[bActive * bActive];
+    for (int i = 0; i < bActive * bActive; i++)
+    {
+        bOEI[i] = oldFCI.bOEI[i];
+        bOEIPlusCore[i] = oldFCI.bOEIPlusCore[i];
+    }
+    aaTEI = new double[aActive * aActive * aActive * aActive];
+    for (int i = 0; i < aActive * aActive * aActive * aActive; i++)
+    {
+        aaTEI[i] = oldFCI.aaTEI[i];
+    }
+    bbTEI = new double[bActive * bActive * bActive * bActive];
+    for (int i = 0; i < bActive * bActive * bActive * bActive; i++)
+    {
+        bbTEI[i] = oldFCI.bbTEI[i];
+    }
+    abTEI = new double[aActive * aActive * bActive * bActive];
+    for (int i = 0; i < aActive * aActive * bActive * bActive; i++)
+    {
+        abTEI[i] = oldFCI.abTEI[i];
+    }
+
+    ENuc = oldFCI.ENuc;
+    doUnrestricted = oldFCI.doUnrestricted;
+
+    Conditioner = oldFCI.Conditioner;
+    MaxIteration = oldFCI.MaxIteration;
+
+    ChemicalPotential = oldFCI.ChemicalPotential;
+
+    Energies = oldFCI.Energies;
+    Eigenvectors = oldFCI.Eigenvectors;
+    Symmetries = oldFCI.Symmetries;
+    FCIErrors = oldFCI.FCIErrors;
+
+    Hamiltonian = oldFCI.Hamiltonian;
+    SigmaFCIVector = oldFCI.SigmaFCIVector;
+    Henry1RDM = oldFCI.Henry1RDM;
+    Henry2RDM = oldFCI.Henry2RDM;
+
+    OneRDMs = oldFCI.OneRDMs;
+    aOneRDMs = oldFCI.aOneRDMs;
+    bOneRDMs = oldFCI.bOneRDMs;
+    TwoRDMs = oldFCI.TwoRDMs;
+    aaTwoRDMs = oldFCI.aaTwoRDMs;
+    abTwoRDMs = oldFCI.abTwoRDMs;
+    bbTwoRDMs = oldFCI.bbTwoRDMs;
 }
 
 /* 
@@ -605,11 +698,15 @@ void FCI::AddPotential(int i, int j, double dh, bool isAlpha)
     {
         aOEI[ind2(i, j)] += dh;
         aOEI[ind2(j, i)] = aOEI[ind2(i, j)];
+        aOEIPlusCore[ind2(i, j)] += dh;
+        aOEIPlusCore[ind2(j, i)] = aOEIPlusCore[ind2(i, j)];
     }
     else
     {
         bOEI[ind2(i, j)] += dh;
         bOEI[ind2(j, i)] = bOEI[ind2(i, j)];
+        bOEIPlusCore[ind2(i, j)] += dh;
+        bOEIPlusCore[ind2(j, i)] = bOEIPlusCore[ind2(i, j)];
     }
 }
 
@@ -1290,7 +1387,7 @@ double FCI::RDMFromHenryFCI(Eigen::VectorXd Eigenstate, int FragmentIndex, Eigen
     return Energy;
 }
 
-void FCI::PrintERI()
+void FCI::PrintERI(bool TEI)
 {
     std::cout << "-- Printing all ERI --\nha:" << std::endl;
     int N = aActive;
@@ -1325,44 +1422,47 @@ void FCI::PrintERI()
             std::cout << i << "\t" << j << "\t" << bOEIPlusCore[ind2(i, j)] - bOEI[ind2(i, j)] << std::endl;
         }
     }
-    std::cout << "Vaa" << std::endl;
-    for (int i = 0; i < aActive; i++)
+    if (TEI)
     {
-        for (int j = 0; j < aActive; j++)
+        std::cout << "Vaa" << std::endl;
+        for (int i = 0; i < aActive; i++)
         {
-            for (int k = 0; k < aActive; k++)
+            for (int j = 0; j < aActive; j++)
             {
-                for (int l = 0; l < aActive; l++)
+                for (int k = 0; k < aActive; k++)
                 {
-                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << aaTEI[ind4(i, j, k, l)] << std::endl;
+                    for (int l = 0; l < aActive; l++)
+                    {
+                        std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << aaTEI[ind4(i, j, k, l)] << std::endl;
+                    }
                 }
             }
         }
-    }
-    std::cout << "Vab" << std::endl;
-    for (int i = 0; i < aActive; i++)
-    {
-        for (int j = 0; j < aActive; j++)
+        std::cout << "Vab" << std::endl;
+        for (int i = 0; i < aActive; i++)
         {
-            for (int k = 0; k < aActive; k++)
+            for (int j = 0; j < aActive; j++)
             {
-                for (int l = 0; l < aActive; l++)
+                for (int k = 0; k < aActive; k++)
                 {
-                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << abTEI[ind4(i, j, k, l)] << std::endl;
+                    for (int l = 0; l < aActive; l++)
+                    {
+                        std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << abTEI[ind4(i, j, k, l)] << std::endl;
+                    }
                 }
             }
         }
-    }
-    std::cout << "Vbb" << std::endl;
-    for (int i = 0; i < aActive; i++)
-    {
-        for (int j = 0; j < aActive; j++)
+        std::cout << "Vbb" << std::endl;
+        for (int i = 0; i < aActive; i++)
         {
-            for (int k = 0; k < aActive; k++)
+            for (int j = 0; j < aActive; j++)
             {
-                for (int l = 0; l < aActive; l++)
+                for (int k = 0; k < aActive; k++)
                 {
-                    std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << bbTEI[ind4(i, j, k, l)] << std::endl;
+                    for (int l = 0; l < aActive; l++)
+                    {
+                        std::cout << i << "\t" << j << "\t" << k << "\t" << l << "\t" << bbTEI[ind4(i, j, k, l)] << std::endl;
+                    }
                 }
             }
         }
@@ -3719,7 +3819,7 @@ void FCI::dbgMyShitUp(std::map<std::string, double> &ERIMap, Eigen::MatrixXd Ra,
         std::cout << "EV " << i << std::endl;
         std::cout << Eigenvectors[i] << std::endl;
     }
-    PrintERI();
+    PrintERI(true);
 
     std::cout << "Trying alternative rotation." << std::endl;
     double *h = NULL;
