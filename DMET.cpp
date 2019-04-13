@@ -994,10 +994,10 @@ int main(int argc, char* argv[])
         std::vector< Eigen::VectorXd > OrbitalEVByState;
 
         /* Begin FCI calculation on full system */
-        // FCI FullFCI(Input);
-        // FullFCI.ERIMapToArray(Input.Integrals);
-        // FullFCI.runFCI();
-        // std::cout << "FCI = " << FullFCI.Energies[0] + FullFCI.ENuc << std::endl;
+        FCI FullFCI(Input);
+        FullFCI.ERIMapToArray(Input.Integrals);
+        FullFCI.runFCI();
+        std::cout << "FCI = " << FullFCI.Energies[0] + FullFCI.ENuc << std::endl;
         // std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
         // Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
         // std::cout << PH << std::endl;

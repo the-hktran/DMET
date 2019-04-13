@@ -77,7 +77,7 @@ public:
 	void InitFromFragmenting(Fragmenting);
 
 private:
-	double dLambda = 1E-1;
+	double dLambda = 1E-4;
 	double dMu = 1E-1;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,

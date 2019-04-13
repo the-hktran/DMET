@@ -684,11 +684,13 @@ void FCI::AddChemicalPotentialGKLC(std::vector<int> aFragPos, std::vector<int> b
     {
         int aiIdx = aFragPos[i];
         aOEI[aiIdx * aN + aiIdx] -= Mu;
+        aOEIPlusCore[aiIdx * aN + aiIdx] -= Mu;
     }
     for (int i = 0; i < bFragPos.size(); i++)
     {
         int biIdx = bFragPos[i];
         bOEI[biIdx * bN + biIdx] -= Mu;
+        bOEIPlusCore[biIdx * bN + biIdx] -= Mu;
     }
 }
 
@@ -910,6 +912,7 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
     for (int i = 0; i < aFragPos.size(); i++)
     {
         int iIdx = aFragPos[i];
+        std::cout << iIdx << std::endl;
         for (int j = 0; j < N; j++)
         {
             for (int k = 0; k < N; k++)
