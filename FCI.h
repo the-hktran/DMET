@@ -96,6 +96,7 @@ class FCI
         void getSpecificRDM(int, bool);
         void getRDM(bool);
         double calcImpurityEnergy(int, std::vector<int>, std::vector<int>);
+        double calcImpurityEnergy(int, std::vector<int>);
         Eigen::MatrixXd GenerateHamiltonian();
         void doSigmaFCI(double);
         double RDMFromHenryFCI(Eigen::VectorXd, int, Eigen::MatrixXd, Eigen::MatrixXd&);

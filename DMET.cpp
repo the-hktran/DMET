@@ -1311,11 +1311,11 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        Fragmenting FragObj(10);
-        Bootstrap BE;
-        BE.InitFromFragmenting(FragObj);
-        BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
-        return 0;
+        // Fragmenting FragObj(10);
+        // Bootstrap BE;
+        // BE.InitFromFragmenting(FragObj);
+        // BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
+        // return 0;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
@@ -1354,6 +1354,15 @@ int main(int argc, char* argv[])
                 std::vector<int> aBathPos, bBathPos;
                 GetCASPos(Input, x, aFragPos, aBathPos, true);
                 GetCASPos(Input, x, bFragPos, bBathPos, false);
+
+                for (int i = 0; i < aFragPos.size(); i++)
+                {
+                    std::cout << aFragPos[i] << std::endl;
+                }
+                for (int i = 0; i < bFragPos.size(); i++)
+                {
+                    std::cout << bFragPos[i] << std::endl;
+                }
                 
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
