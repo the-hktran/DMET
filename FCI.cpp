@@ -971,7 +971,6 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
         }
     }
 
-
     return ImpEnergy;
 }
 

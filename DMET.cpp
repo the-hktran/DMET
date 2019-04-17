@@ -994,10 +994,10 @@ int main(int argc, char* argv[])
         std::vector< Eigen::VectorXd > OrbitalEVByState;
 
         /* Begin FCI calculation on full system */
-        FCI FullFCI(Input);
-        FullFCI.ERIMapToArray(Input.Integrals);
-        FullFCI.runFCI();
-        std::cout << "FCI = " << FullFCI.Energies[0] + FullFCI.ENuc << std::endl;
+        // FCI FullFCI(Input);
+        // FullFCI.ERIMapToArray(Input.Integrals);
+        // FullFCI.runFCI();
+        // std::cout << "FCI = " << FullFCI.Energies[0] + FullFCI.ENuc << std::endl;
         // std::vector<Eigen::MatrixXd> SchmidtBasis = FullFCI.HalfFilledSchmidtBasis(0);
         // Eigen::MatrixXd PH = FullFCI.ProjectMatrix(SchmidtBasis);
         // std::cout << PH << std::endl;
@@ -1311,11 +1311,11 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        // Fragmenting FragObj(10);
-        // Bootstrap BE;
-        // BE.InitFromFragmenting(FragObj);
-        // BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
-        // return 0;
+        Fragmenting FragObj(10);
+        Bootstrap BE;
+        BE.InitFromFragmenting(FragObj);
+        BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
+        return 0;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
