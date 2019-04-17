@@ -37,7 +37,7 @@ public:
 	InputObj Input;
 	std::vector<InputObj> Inputs;
 	std::vector<FCI> FCIs, FCIsBase;
-	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+	// std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
 	// Some definitions for excited state embedding
 	int State = 0;
@@ -78,7 +78,7 @@ public:
 
 private:
 	double dLambda = 1E-4;
-	double dMu = 1E-1;
+	double dMu = 1E-4;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double);

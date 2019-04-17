@@ -180,7 +180,6 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::
 
         for (int i = 0; i < aBECenter[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
         {
-			std::cout << "chem pot " << x << " " << i << std::endl;
 			int CenterIdx = OrbitalToReducedIndex(aBECenter[x][i], x, true);
             CF += aFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
         }
@@ -390,6 +389,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
+		std::cout << x << "a\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
+		std::cout << x << "b\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 	}
 
 	// double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
@@ -656,9 +657,14 @@ void Bootstrap::OptMu()
 		double LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition, FragState);
 		double dL = (LMuPlus - LMu) / dMu;
 		ChemicalPotential = ChemicalPotential - LMu / dL;
-		aOneRDMs = aOneRDMsPlusdMu;
-		bOneRDMs = bOneRDMsPlusdMu;
+		aOneRDMs.clear();
+		bOneRDMs.clear();
+		aaTwoRDMs.clear();
+		abTwoRDMs.clear();
+		bbTwoRDMs.clear();
+		CollectRDM(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, BEPotential, ChemicalPotential);
 	}
+	std::cout << "BE-DMET: Chemical Potential = " << ChemicalPotential << std::endl;
 }
 
 void Bootstrap::NewtonRaphson()
@@ -677,8 +683,6 @@ void Bootstrap::NewtonRaphson()
 
 	int NRIteration = 1;
 
-	std::cout << "error = " << f.squaredNorm() << std::endl;
-
 	while (f.squaredNorm() > 1E-16)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
@@ -688,6 +692,7 @@ void Bootstrap::NewtonRaphson()
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
+		std::cout << "J\n" << J << "\nf\n" << f << std::endl;
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
