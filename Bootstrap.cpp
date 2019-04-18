@@ -212,15 +212,26 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
 
-			if (std::get<6>(BEPotential[FragmentIndex][i]))
+			if (MatchFullP)
 			{
-				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
-				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+				Eigen::MatrixXd OneRDMRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])] + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])];
+				Eigen::MatrixXd OneRDMIter = aOneRDMIter + bOneRDMIter;
+
+				PRef = OneRDMRef.coeffRef(Ind1Ref, Ind2Ref);
+				PIter = OneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
 			}
 			else
 			{
-				PRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
-				PIter = bOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+				if (std::get<6>(BEPotential[FragmentIndex][i]))
+				{
+					PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+					PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+				}
+				else
+				{
+					PRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+					PIter = bOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
+				}
 			}
 		}
 		else
@@ -325,6 +336,10 @@ void Bootstrap::UpdateFCIs()
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]));
+				if (MatchFullP)
+				{
+					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), false);
+				}
 			}
 			else
 			{
@@ -334,6 +349,11 @@ void Bootstrap::UpdateFCIs()
 				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+				if (MatchFullP)
+				{
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), true, false);
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
+				}
 			}
 			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential);
 		}
@@ -389,8 +409,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
-		std::cout << x << "a\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
-		std::cout << x << "b\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 	}
 
 	// double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
@@ -469,6 +487,10 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]));
+				if (MatchFullP)
+				{
+					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), false);
+				}
 			}
 			else
 			{
@@ -478,6 +500,11 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPlusdLambda[x][i]), x, std::get<7>(BEPlusdLambda[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]), std::get<7>(BEPlusdLambda[x][i]));
+				if (MatchFullP)
+				{
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), true, false);
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), false, false);
+				}
 			}
 			xFCI.runFCI();
 			xFCI.getSpecificRDM(FragState[x], !isOEI);
@@ -683,7 +710,7 @@ void Bootstrap::NewtonRaphson()
 
 	int NRIteration = 1;
 
-	while (f.squaredNorm() > 1E-16)
+	while (f.squaredNorm() > 1E-8)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
@@ -692,7 +719,6 @@ void Bootstrap::NewtonRaphson()
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
-		std::cout << "J\n" << J << "\nf\n" << f << std::endl;
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
