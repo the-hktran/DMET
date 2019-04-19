@@ -91,11 +91,20 @@
 void Bootstrap::InitFromFragmenting(Fragmenting Frag)
 {
 	NumFrag = Frag.MatchingConditions.size();
+	if (isTS)
+	{
+		TrueNumFrag = NumFrag;
+		NumFrag = 3;
+	}
 	NumFragCond.clear();
 	BEPotential.clear();
 	NumConditions = 0;
 	for (int x = 0; x < Frag.MatchingConditions.size(); x++)
 	{
+		if (isTS && x > 2)
+		{
+			break;
+		}
 		NumFragCond.push_back(Frag.MatchingConditions[x].size());
 		NumConditions += NumFragCond[x];
 		std::vector< std::tuple<int, int, int, int, int, double, bool, bool> > tmpVec;
@@ -172,8 +181,18 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::
 	
     for(int x = 0; x < aFrag1RDMs.size(); x++) // sum over fragments
     {
-		if (x > 0 && isTS)
+		if (isTS)
 		{
+			for (int i = 0; i < aBECenter[1].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
+			{
+				int CenterIdx = OrbitalToReducedIndex(aBECenter[1][i], 1, true);
+				CF += aFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
+			}
+			for (int i = 0; i < bBECenter[x].size(); i++)
+			{
+				int CenterIdx = OrbitalToReducedIndex(bBECenter[1][i], 1, false);
+				CF += bFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
+			}
 			CF *= NumFrag;
 			break;
 		}
@@ -433,35 +452,28 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	int fCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		if (x > 0 && isTS)
+		if (isTS)
 		{
-			for (int xTS = 1; xTS < NumFrag; xTS++)
+			if (x == 0)
 			{
-				int JRow = 0;
-				for (int j = 0; j < xTS; j++)
-				{
-					JRow += NumFragCond[j];
-				}
-				for (int iTS = 0; iTS < BEPotential[xTS].size(); iTS++)
-				{
-					for (int j = 0; j < BEPotential[xTS].size(); j++)
-					{
-						J(JRow + j, JCol) = J.coeffRef(j, JCol % BEPotential[xTS].size());
-					}
-					J(J.rows() - 1, JCol) = J.coeffRef(J.rows() - 1, JCol % BEPotential[xTS].size());
-					JCol++;
-				}
-				for (int j = 0; j < BEPotential[xTS].size(); j++)
-				{
-					J(JRow + j, J.cols() - 1) = J.coeffRef(j, J.cols() - 1);
-				}
-				for (int j = 0; j < BEPotential[xTS].size(); j++)
-				{
-					f[fCount] = f[j];
-					fCount++;
-				}
+				JCol += NumFragCond[0];
+				fCount += NumFragCond[0];
+				continue;
 			}
-			break;
+			if (x == 2)
+			{
+				for (int i = 0; i < NumFragCond[0]; i++)
+				{
+					f[i] = f[i + NumFragCond[0]];
+					f[i + 2 * NumFragCond[0]] = f[i + NumFragCond[0]];
+					for (int j = 0; j < NumFragCond[0]; j++)
+					{
+						J(i, j) = J(i + NumFragCond[0], j + NumFragCond[0]);
+						J(i + 2 *NumFragCond[0], j + 2 * NumFragCond[0]) = J(i + NumFragCond[0], j + NumFragCond[0]);
+					}
+				}
+				break;
+			}
 		}
 
 		std::vector<double> LossesMinus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMs[x], bOneRDMs[x], aaTwoRDMs[x], abTwoRDMs[x], bbTwoRDMs[x], x);
@@ -715,6 +727,7 @@ void Bootstrap::NewtonRaphson()
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
+		std::cout << J << std::endl;
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
@@ -757,7 +770,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	EnvironmentOrbitals = Inp.EnvironmentOrbitals;
 	NumAO = Inp.NumAO;
 	NumOcc = Inp.NumOcc;
-	NumFrag = Inp.NumFragments;
+	// NumFrag = Inp.NumFragments;
 	FragState = Inp.ImpurityStates;
 	BathState = Inp.BathStates;
 	BEInputName = Inp.BEInput;
@@ -772,6 +785,8 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	std::vector< Eigen::MatrixXd > ImpurityDensities(NumFrag);
 	std::vector< Eigen::Tensor<double, 4> > Impurity2RDM(NumFrag);
 	std::vector< Eigen::VectorXd > ImpurityEigenstates(NumFrag);
+
+	std::cout << "NumFrag = " << NumFrag << std::endl;
 
 	CollectSchmidt(aMFDensity, bMFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
 
@@ -828,6 +843,24 @@ double Bootstrap::CalcBEEnergy()
 	std::cout << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	// *Output << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	double FragEnergy;
+	if (isTS)
+	{
+		std::vector<int> aBECenterIndex, bBECenterIndex;
+		for (int i = 0; i < aBECenterPosition[1].size(); i++)
+		{
+			int idx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
+			aBECenterIndex.push_back(idx);
+		}
+		for (int i = 0; i < bBECenterPosition[1].size(); i++)
+		{
+			int idx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
+			bBECenterIndex.push_back(idx);
+		}
+		FragEnergy = FCIs[1].calcImpurityEnergy(FragState[1], aBECenterIndex, bBECenterIndex);
+
+		return FragEnergy * TrueNumFrag + Input.Integrals["0 0 0 0"];
+	}
+
 	for (int x = 0; x < NumFrag; x++)
 	{
 		if (x > 0 && isTS)

@@ -28,10 +28,11 @@ public:
 	int NumAO;
 	int NumOcc;
 	int NumFrag;
+	int TrueNumFrag;
 
 	int NumConditions;
 	std::vector<int> NumFragCond;
-	bool isTS = false;
+	bool isTS = true;
 	bool MatchFullP = true;
 
 	double ChemicalPotential = 0;
