@@ -904,6 +904,8 @@ void FCI::getRDM(bool calc2RDM)
 double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vector<int> bFragPos)
 {
     double ImpEnergy = 0.0;
+    // double E1 = 0.0;
+    // double E2 = 0.0;
 
     int N = aActive;
     __s1 = N;
@@ -920,22 +922,27 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
                 {
                     if (doUnrestricted)
                     {
-                        ImpEnergy += 0.5 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                        ImpEnergy += 1.0 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
                                    + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 1.0 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                        //            + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
                     }
                     else
                     {
                         ImpEnergy += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
                     }
                 }
             }
             if (doUnrestricted)
             {
                 ImpEnergy += 0.5 * aOneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.5 * aOneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
             }
             else
             {
                 ImpEnergy += 0.25 * OneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.25 * OneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
             }   
         }
     }
@@ -951,25 +958,32 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
                 {
                     if (doUnrestricted)
                     {
-                        ImpEnergy += 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
+                        ImpEnergy += 1.0 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
                                    + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 1.0 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
+                        //            + 0.5 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
                     }
                     else
                     {
                         ImpEnergy += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
                     }
                 }
             }
             if (doUnrestricted)
             {
                 ImpEnergy += 0.5 * bOneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.5 * bOneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
             }
             else
             {
                 ImpEnergy += 0.25 * OneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.25 * OneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
             }   
         }
     }
+
+    // std::cout << "E1 = " << E1 << "\nE2 = " << E2 << std::endl;
 
     return ImpEnergy;
 }
@@ -977,6 +991,8 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
 double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
 {
     double ImpEnergy = 0.0;
+    // double E1 = 0.0;
+    // double E2 = 0.0;
 
     int N = aActive;
     __s1 = N;
@@ -993,13 +1009,17 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
                 {
                     if (doUnrestricted)
                     {
-                        ImpEnergy += 0.5 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                        ImpEnergy += 1.0 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
                                    + 1.0 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
-                                   + 0.5 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                                   + 1.0 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 1.0 * aaTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                        //            + 1.0 * abTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)]
+                        //            + 1.0 * bbTwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
                     }
                     else
                     {
                         ImpEnergy += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                        // E2 += 0.5 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
                     }
                 }
             }
@@ -1007,15 +1027,92 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> FragPos)
             {
                 ImpEnergy += 0.5 * aOneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)])
                            + 0.5 * bOneRDMs[ImpState](FragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.5 * aOneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)])
+                //            + 0.5 * bOneRDMs[ImpState](FragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
             }
             else
             {
                 ImpEnergy += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                // E1 += 0.5 * OneRDMs[ImpState](FragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
             }   
         }
     }
 
+    // std::cout << "E1 = " << E1 << "\nE2 = " << E2 << std::endl;
+
     return ImpEnergy;
+}
+
+void FCI::CalcE1E2(int State)
+{
+    double E1 = 0.0;
+    double E2 = 0.0;
+
+    int N = aActive;
+    __s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    if (doUnrestricted)
+                    {
+                        E2 += 0.5 * aaTwoRDMs[State][ind4(i, j, k, l)] * aaTEI[ind4(i, j, k, l)]
+                                   + 0.5 * abTwoRDMs[State][ind4(i, j, k, l)] * abTEI[ind4(i, j, k, l)];
+                    }
+                    else
+                    {
+                        E2 += 0.25 * TwoRDMs[State][ind4(i, j, k, l)] * aaTEI[ind4(i, j, k, l)];
+                    }
+                }
+            }
+            if (doUnrestricted)
+            {
+                E1 += 0.5 * aOneRDMs[State](i, j) * (aOEI[ind2(i, j)] + aOEIPlusCore[ind2(i, j)]);
+            }
+            else
+            {
+                E1 += 0.25 * OneRDMs[State](i, j) * (aOEI[ind2(i, j)] + aOEIPlusCore[ind2(i, j)]);
+            }   
+        }
+    }
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    if (doUnrestricted)
+                    {
+                        E2 += 0.5 * bbTwoRDMs[State][ind4(i, j, k, l)] * bbTEI[ind4(i, j, k, l)]
+                                   + 0.5 * abTwoRDMs[State][ind4(i, j, k, l)] * abTEI[ind4(i, j, k, l)];
+                    }
+                    else
+                    {
+                        E2 += 0.25 * TwoRDMs[State][ind4(i, j, k, l)] * bbTEI[ind4(i, j, k, l)];
+                    }
+                }
+            }
+            if (doUnrestricted)
+            {
+                E1 += 0.5 * bOneRDMs[State](i, j) * (bOEI[ind2(i, j)] + bOEIPlusCore[ind2(i, j)]);
+            }
+            else
+            {
+                E1 += 0.25 * OneRDMs[State](i, j) * (bOEI[ind2(i, j)] + bOEIPlusCore[ind2(i, j)]);
+            }   
+        }
+    }
+
+    std::cout << "E1 = " << E1 << "\nE2 = " << E2 << std::endl;
 }
 
 void FCI::doSigmaFCI(double w)

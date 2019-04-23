@@ -193,7 +193,7 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::
 				int CenterIdx = OrbitalToReducedIndex(bBECenter[1][i], 1, false);
 				CF += bFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
 			}
-			CF *= NumFrag;
+			CF *= TrueNumFrag;
 			break;
 		}
 
@@ -722,7 +722,7 @@ void Bootstrap::NewtonRaphson()
 
 	int NRIteration = 1;
 
-	while (f.squaredNorm() > 1E-8)
+	while (f.squaredNorm() > 1E-6)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
@@ -785,8 +785,6 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	std::vector< Eigen::MatrixXd > ImpurityDensities(NumFrag);
 	std::vector< Eigen::Tensor<double, 4> > Impurity2RDM(NumFrag);
 	std::vector< Eigen::VectorXd > ImpurityEigenstates(NumFrag);
-
-	std::cout << "NumFrag = " << NumFrag << std::endl;
 
 	CollectSchmidt(aMFDensity, bMFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
 

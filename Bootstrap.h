@@ -32,7 +32,7 @@ public:
 
 	int NumConditions;
 	std::vector<int> NumFragCond;
-	bool isTS = true;
+	bool isTS = false;
 	bool MatchFullP = true;
 
 	double ChemicalPotential = 0;
@@ -79,8 +79,8 @@ public:
 	void InitFromFragmenting(Fragmenting);
 
 private:
-	double dLambda = 1E-6;
-	double dMu = 1E-6;
+	double dLambda = 1E-8;
+	double dMu = 1E-8;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double);
