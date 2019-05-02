@@ -13,6 +13,7 @@
 #include <iomanip>
 #include <queue>
 #include <unsupported/Eigen/CXX11/Tensor>
+#include <cstdio>
 
 #include "Bootstrap.h"
 #include "Functions.h"
@@ -38,10 +39,12 @@ Eigen::MatrixXd ReadMat(std::string MatFile, int N)
     std::ifstream File(MatFile);
     int i, j;
     double val;
+    std::cout << "N = " << N << std::endl;
     while(!File.eof())
     {
         File >> i >> j >> val;
         Mat(i, j) = val;
+        std::cout << val << std::endl;
     }
     return Mat;
 }
@@ -726,6 +729,46 @@ int BestRDM(Eigen::MatrixXd RefMat, std::vector<int> FragOrb, std::vector<Eigen:
     return Choice;
 }
 
+int BestRDM(Eigen::MatrixXd RefPop, Eigen::MatrixXd RefCoh, std::vector<int> FragOrb, std::vector<Eigen::MatrixXd> TestMats, std::vector<int> FragPos)
+{
+    int Choice = 0;
+    Eigen::MatrixXd RefMatP = ProjectMatrix(RefPop, FragOrb);
+    Eigen::MatrixXd RefMatC = ProjectMatrix(RefCoh, FragOrb);
+    Eigen::MatrixXd RefMat = RefMatC;
+    for (int i = 0; i < RefMat.rows(); i++)
+    {
+        RefMat(i, i) = RefMatP(i, i);
+    }
+    double BestDiff = 10000.0;
+    for (int i = 0; i < TestMats.size(); i++)
+    {
+        Eigen::MatrixXd TestMatP = ProjectMatrix(TestMats[i], FragPos);
+        double CurrentDiff = (RefMat - TestMatP).squaredNorm();
+        if (CurrentDiff < BestDiff)
+        {
+            BestDiff = CurrentDiff;
+            Choice = i;
+        }
+    }
+    return Choice;
+}
+
+int SameRDM(Eigen::MatrixXd OldP, std::vector<Eigen::MatrixXd> NewPs)
+{
+    int Choice = 0;
+    double BestDiff = 10000.0;
+    for (int i = 0; i < NewPs.size(); i++)
+    {
+        double CurrentDiff = (OldP.cwiseAbs() - NewPs[i].cwiseAbs()).squaredNorm();
+        if (CurrentDiff < BestDiff)
+        {
+            BestDiff = CurrentDiff;
+            Choice = i;
+        }
+    }
+    return Choice;
+}
+
 // int main(int argc, char* argv[])
 // {
 //     InputObj Input;
@@ -798,14 +841,17 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = true;
-    bool DeltaSCF = false;
+    bool Unrestricted = false;
+    bool DeltaSCF = true;
     bool HalfUnrestricted = false;
+    bool useRefP = false;
+    bool doScan = true;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
     Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+    Eigen::MatrixXd RefDensity = Eigen::MatrixXd::Zero(NumAO, NumAO);
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
 	Input.HCore = HCore;
     // for(int i = 0; i < Input.NumOcc; i++) // This initializes the density matrix to be exact in the MO basis.
@@ -817,6 +863,11 @@ int main(int argc, char* argv[])
     Eigen::MatrixXd aDensityMatrix = tmpMat + tmpMat.transpose();
     tmpMat = Eigen::MatrixXd::Random(NumAO, NumAO); // Will hold the density matrix of the full system.
     Eigen::MatrixXd bDensityMatrix = tmpMat + tmpMat.transpose();
+    if (DeltaSCF)
+    {
+        aDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+        bDensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
+    }
     std::ifstream aPInit("aP.txt");
     std::ifstream bPInit("bP.txt");
     if (aPInit.good() && bPInit.good())
@@ -976,7 +1027,7 @@ int main(int argc, char* argv[])
         {
             bVirtualOrbitals.push_back(i);
         }
-        if (Unrestricted && DeltaSCF)
+        if (DeltaSCF)
         {
             bOccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
             bVirtualOrbitals[0] = Input.bNumElectrons - 1;
@@ -1267,6 +1318,14 @@ int main(int argc, char* argv[])
 
             SCFMDEnergyQueue.pop();
         }
+
+        if (useRefP)
+        {
+            SCFEnergy = SCF(aBias, bBias, 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
+            RefDensity = aDensityMatrix + bDensityMatrix;
+            std::cout << "DMET: Reference Density:\n" << RefDensity << std::endl;
+            Output << "Reference Density:\n" << RefDensity << std::endl;
+        }
         // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
@@ -1356,15 +1415,6 @@ int main(int argc, char* argv[])
                 std::vector<int> aBathPos, bBathPos;
                 GetCASPos(Input, x, aFragPos, aBathPos, true);
                 GetCASPos(Input, x, bFragPos, bBathPos, false);
-
-                for (int i = 0; i < aFragPos.size(); i++)
-                {
-                    std::cout << aFragPos[i] << std::endl;
-                }
-                for (int i = 0; i < bFragPos.size(); i++)
-                {
-                    std::cout << bFragPos[i] << std::endl;
-                }
                 
                 // STEP 2: Do Schmidt Decomposition to get impurity and bath states.
                 /* Do the Schmidt-Decomposition on the full system hamiltonian. Which sub matrix is taken to be the impurity density and which to be the bath density
@@ -1519,7 +1569,31 @@ int main(int argc, char* argv[])
 
                 myFCI.AddChemicalPotentialGKLC(aFragPos, bFragPos, ChemicalPotential);
                 myFCI.runFCI();
-                myFCI.getSpecificRDM(ImpurityStates[x], true);
+                // myFCI.DirectFCI();
+                if (useRefP)
+                {
+                    myFCI.getRDM(true);
+                    int ChosenImpState = BestRDM(DensityMatrix, RefDensity, Input.FragmentOrbitals[x], myFCI.OneRDMs, aFragPos);
+                    ImpurityStates[x] = ChosenImpState;
+                    std::cout << "DMET: Selected " << ChosenImpState << std::endl;
+                    Output << "Selected " << ChosenImpState << std::endl;
+                }
+                else if (doScan)
+                {
+                    myFCI.getRDM(true);
+                    std::string OldPName = "FragP_" + std::to_string(x + 1);
+                    Eigen::MatrixXd OldP = ReadMatrixFromFile(OldPName, Input.FragmentOrbitals[x].size() * 2);
+                    int ChosenImpState = SameRDM(OldP, myFCI.OneRDMs);
+                    std::remove(OldPName.c_str());
+                    ImpurityStates[x] = ChosenImpState;
+                    std::ofstream PFile(OldPName);
+                    PFile << myFCI.OneRDMs[ImpurityStates[x]];
+                }
+                else
+                {
+                    myFCI.getSpecificRDM(ImpurityStates[x], true);
+                }
+                
                 // myFCI.dbgMyShitUp(Input.Integrals, aRotationMatrix, bRotationMatrix);
 
                 // myFCI.DirectFCI();
