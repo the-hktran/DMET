@@ -842,15 +842,21 @@ int main(int argc, char* argv[])
     Input.NumberOfEV = NumFCIStates;
 
     bool Unrestricted = false;
-    bool DeltaSCF = true;
+    bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
-    bool doScan = true;
+    std::ifstream FragPFile("FragP_1");
+    bool doScan = FragPFile.good();
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
     Eigen::MatrixXd HCore(NumAO, NumAO); // T + V_eN
     Eigen::MatrixXd DensityMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Will hold the density matrix of the full system.
+    std::ifstream PInit("P.txt");
+    if (PInit.good())
+    {
+        DensityMatrix = ReadMatrixFromFile("P.txt", Input.NumAO);
+    }
     Eigen::MatrixXd RefDensity = Eigen::MatrixXd::Zero(NumAO, NumAO);
     BuildFockMatrix(HCore, DensityMatrix, Input.Integrals, EmptyBias, Input.NumElectrons); // Build HCore, which is H when the density matrix is zero.
 	Input.HCore = HCore;
@@ -980,7 +986,7 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    bool OneShot = true;
+    bool OneShot = false;
     while(fabs(DMETPotentialChange) > 1E-6) // || uOptIt < 10) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
@@ -1029,6 +1035,8 @@ int main(int argc, char* argv[])
         }
         if (DeltaSCF)
         {
+            // OccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
+            // VirtualOrbitals[0] = Input.bNumElectrons - 1;
             bOccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
             bVirtualOrbitals[0] = Input.bNumElectrons - 1;
         }
@@ -1310,11 +1318,11 @@ int main(int argc, char* argv[])
                 bFullDensities[i] = bDensityMatrix;
             }
 
-            // // Collect information needed for derivative calculations later.
-            // OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
-            // VirtualByState.push_back(SCFMDVirtual[NextIndex]);
-            // CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
-            // OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+            // Collect information needed for derivative calculations later.
+            OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
+            VirtualByState.push_back(SCFMDVirtual[NextIndex]);
+            CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
+            OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
 
             SCFMDEnergyQueue.pop();
         }
@@ -1323,8 +1331,30 @@ int main(int argc, char* argv[])
         {
             SCFEnergy = SCF(aBias, bBias, 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
             RefDensity = aDensityMatrix + bDensityMatrix;
+            std::ifstream RefPFile("RefP.txt");
+            if (RefPFile.good())
+            {
+                RefDensity = ReadMatrixFromFile("RefP.txt", Input.NumAO);
+            }
             std::cout << "DMET: Reference Density:\n" << RefDensity << std::endl;
             Output << "Reference Density:\n" << RefDensity << std::endl;
+        }
+
+        if (PInit.good())
+        {
+            std::remove("P.txt");
+            std::ofstream POut("P.txt");
+            POut << DensityMatrix;
+        }
+
+        if (aPInit.good() && bPInit.good())
+        {
+            std::remove("aP.txt");
+            std::remove("bP.txt");
+            std::ofstream aPOut("aP.txt");
+            std::ofstream bPOut("bP.txt");
+            aPOut << aDensityMatrix;
+            bPOut << bDensityMatrix;
         }
         // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
@@ -1496,6 +1526,9 @@ int main(int argc, char* argv[])
                 std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
                 GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
                 GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
+
+                int aElectronImp = (Input.FragmentOrbitals[x].size() < Input.aNumElectrons ? Input.FragmentOrbitals[x].size() : Input.aNumElectrons);
+                int bElectronImp = (Input.FragmentOrbitals[x].size() < Input.bNumElectrons ? Input.FragmentOrbitals[x].size() : Input.bNumElectrons);
 
                 FCI myFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
                 if (Unrestricted && !HalfUnrestricted) 

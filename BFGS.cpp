@@ -12,7 +12,7 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 
-#define H2H2H2
+// #define H2H2H2
 
 void GetCASPos(InputObj Input, int FragmentIndex, std::vector< int > &FragmentPos, std::vector< int > &BathPos);
 // This is the full system SCF
@@ -467,7 +467,7 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
             uComponent++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
 		} // end loop over fragment orbitals
 	} // end loop over fragments
-
+    std::cout << "done" << std::endl;
     return GradL;
 }
 
