@@ -988,7 +988,7 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
         }
     }
 
-    // std::cout << "aE1 = " << aE1 << "\nbE1 = " << bE1 << "\naaE2 = " << aaE2 << "\nabE2 = " << abE2 << "\nbbE2 = " << bbE2 << std::endl;
+    std::cout << "aE1 = " << aE1 << "\nbE1 = " << bE1 << "\naaE2 = " << aaE2 << "\nabE2 = " << abE2 << "\nbbE2 = " << bbE2 << std::endl;
 
     return ImpEnergy;
 }

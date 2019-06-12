@@ -423,7 +423,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		std::cout << x << " a\n" << FCIs[x].aOneRDMs[FragState[x]] << "\n" << x << " b\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
@@ -718,9 +717,6 @@ void Bootstrap::NewtonRaphson()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
-	std::cout << f << std::endl;
-	std::cout << J << std::endl;
-
 	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
 	// *Output << "BE-DMET: Optimizing site potential." << std::endl;
 
@@ -731,7 +727,6 @@ void Bootstrap::NewtonRaphson()
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
-		std::cout << J << std::endl;
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
