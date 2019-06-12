@@ -1157,7 +1157,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
             //     AllErrorMatrices.clear();
             // }
 
-            if(Count % 200 == 0) // Shouldn't take this long.
+            if(Count % 500 == 0) // Shouldn't take this long.
             {
                 Count = 0;
                 aAllFockMatrices.clear();
@@ -1234,7 +1234,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
             //     AllErrorMatrices.clear();
             // }
 
-            if(Count % 200 == 0)
+            if(Count % 500 == 0)
             {
                 Count = 0;
                 aAllFockMatrices.clear();
@@ -1545,7 +1545,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
             //     AllErrorMatrices.clear();
             // }
 
-            if(Count % 200 == 0) // Shouldn't take this long.
+            if(Count % 500 == 0) // Shouldn't take this long.
             {
                 Count = 0;
                 aAllFockMatrices.clear();
@@ -1622,7 +1622,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
             //     AllErrorMatrices.clear();
             // }
 
-            if(Count % 200 == 0)
+            if(Count % 500 == 0)
             {
                 Count = 0;
                 aAllFockMatrices.clear();
@@ -1761,6 +1761,71 @@ double CalcSCFImpurityEnergy(Eigen::MatrixXd aDensityMatrix, Eigen::MatrixXd bDe
                     EImp += 0.5 * 2.0 * aaG[iIdx * N * N * N + j * N * N + k * N + l] * (aaTEI[iIdx * N * N * N + j * N * N + k * N + l] - aaTEI[iIdx * N * N * N + l * N * N + k * N + j])
                           + 1.0 * 2.0 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l] + 1.0 * 2.0 * baG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[k * N * N * N + l * N * N + iIdx * N + j]
                           + 0.5 * 2.0 * bbG[iIdx * N * N * N + j * N * N + k * N + l] * (bbTEI[iIdx * N * N * N + j * N * N + k * N + l] - bbTEI[iIdx * N * N * N + l * N * N + k * N + j]);
+                }
+            }
+        }
+    }
+
+    return EImp;
+}
+
+double CalcSCFImpurityEnergy(Eigen::MatrixXd aDensityMatrix, Eigen::MatrixXd bDensityMatrix, std::vector<int> aFragPos, std::vector<int> bFragPos, double *aOEI, double *bOEI, double *aOEIPlusCore, double *bOEIPlusCore, double *aaTEI, double *abTEI, double *bbTEI)
+{
+    int N = aDensityMatrix.rows();
+    int N4 = N * N * N * N;
+    std::vector<double> aaG(N4), abG(N4), baG(N4), bbG(N4);
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    aaG[i * N * N * N + j * N * N + k * N + l] = aDensityMatrix.coeffRef(i, j) * aDensityMatrix.coeffRef(k, l);
+                    abG[i * N * N * N + j * N * N + k * N + l] = aDensityMatrix.coeffRef(i, j) * bDensityMatrix.coeffRef(k, l);
+                    baG[i * N * N * N + j * N * N + k * N + l] = bDensityMatrix.coeffRef(i, j) * aDensityMatrix.coeffRef(k, l);
+                    bbG[i * N * N * N + j * N * N + k * N + l] = bDensityMatrix.coeffRef(i, j) * bDensityMatrix.coeffRef(k, l);
+                }
+            }
+        }
+    } 
+
+    double EImp = 0.0;
+
+    for (int i = 0; i < aFragPos.size(); i++)
+    {
+        int iIdx = aFragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            EImp += 0.5 * aDensityMatrix.coeffRef(iIdx, j) * (aOEI[iIdx * N + j] + aOEIPlusCore[iIdx * N + j]);
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    // EImp += 0.5 * 2.0 * aaG[iIdx * N * N * N + j * N * N + k * N + l] * (aaTEI[iIdx * N * N * N + j * N * N + k * N + l] - aaTEI[iIdx * N * N * N + l * N * N + k * N + j])
+                    //      + 1.0 * 1.0 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l] + 1.0 * 1.0 * baG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[k * N * N * N + l * N * N + iIdx * N + j];
+                    EImp += aaG[iIdx * N * N * N + j * N * N + k * N + l] * aaTEI[iIdx * N * N * N + j * N * N + k * N + l]
+                         + 0.5 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l];
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < bFragPos.size(); i++)
+    {
+        int iIdx = bFragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            EImp += 0.5 * bDensityMatrix.coeffRef(iIdx, j) * (bOEI[iIdx * N + j] + bOEIPlusCore[iIdx * N + j]);
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    // EImp += 0.5 * 2.0 * bbG[iIdx * N * N * N + j * N * N + k * N + l] * (bbTEI[iIdx * N * N * N + j * N * N + k * N + l] - bbTEI[iIdx * N * N * N + l * N * N + k * N + j])
+                    //       + 1.0 * 1.0 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l] + 1.0 * 1.0 * baG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[k * N * N * N + l * N * N + iIdx * N + j];
+                    EImp += bbG[iIdx * N * N * N + j * N * N + k * N + l] * bbTEI[iIdx * N * N * N + j * N * N + k * N + l]
+                         + 0.5 * abG[iIdx * N * N * N + j * N * N + k * N + l] * abTEI[iIdx * N * N * N + j * N * N + k * N + l];
                 }
             }
         }

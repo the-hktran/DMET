@@ -566,7 +566,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             {
                 for (int l = 0; l < bN; l++)
                 {
-                    abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, bActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
+                    abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
                 }
             }
         }
@@ -988,7 +988,7 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
         }
     }
 
-    std::cout << "aE1 = " << aE1 << "\nbE1 = " << bE1 << "\naaE2 = " << aaE2 << "\nabE2 = " << abE2 << "\nbbE2 = " << bbE2 << std::endl;
+    // std::cout << "aE1 = " << aE1 << "\nbE1 = " << bE1 << "\naaE2 = " << aaE2 << "\nabE2 = " << abE2 << "\nbbE2 = " << bbE2 << std::endl;
 
     return ImpEnergy;
 }

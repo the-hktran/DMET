@@ -33,7 +33,7 @@ public:
 	int NumConditions;
 	std::vector<int> NumFragCond;
 	bool isTS = false;
-	bool MatchFullP = true;
+	bool MatchFullP = false;
 
 	double ChemicalPotential = 0;
 	InputObj Input;

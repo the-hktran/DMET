@@ -458,16 +458,15 @@ Eigen::VectorXd CalcGradL(InputObj &Input, std::vector< Eigen::MatrixXd > Fragme
 			// Now we have D(u + du)
 			// Calculate [L(u + du) - L(u)] / du
 			double dL = CalcL(Input, FragmentDensities, DensityPlusDU, FragmentRotations, BathStates);
-            std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
+            // std::cout << "L(u+du) = " << dL << "\nL(u) = " << L_Initial << std::endl;
             dL = (dL - L_Initial) / du;
-            std::cout << "dLdu = " << dL << std::endl;
+            // std::cout << "dLdu = " << dL << std::endl;
 
 			// Now store it.
             GradL(uComponent) = dL;
             uComponent++; // Increment this index, since we are looping through the elements by fragment, but are storing it as "lined out" or full as I have been calling it.
 		} // end loop over fragment orbitals
 	} // end loop over fragments
-    std::cout << "done" << std::endl;
     return GradL;
 }
 
@@ -639,7 +638,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
     
     LInit = CalcL(Input, FragmentDensities, DNext, FragmentRotations, BathStates);
     LNext = LInit;
-    std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
+    // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     do // while we're decreasing L along the step direction
     {
         LInit = LNext;
@@ -674,7 +673,7 @@ double doLineSearch(InputObj &Input, std::vector< Eigen::MatrixXd > &FragmentDen
         // std::cout.rdbuf(orig_buf); // restore buffer
         
         LNext = CalcL(Input, FragmentDensities, DNext, FragmentRotations, BathStates);
-        std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
+        // std::cout << "Linesearch: " << a << "\t" << LNext << std::endl;
     } while(LInit - LNext > 1E-10); // while it is decreasing rapidly
 
     // std::cout << "DMET: Cost function = " << LNext << std::endl;
@@ -688,12 +687,12 @@ void BFGS_1(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradie
     Eigen::VectorXd p;
     p = -1 * Gradient; 
     // p = Hessian.colPivHouseholderQr().solve(-1 * Gradient);
-    std::cout << "DMET: Commencing line search." << std::endl;
+    // std::cout << "DMET: Commencing line search." << std::endl;
     double a = doLineSearch(Input, FragmentDensities, FullDensities, PotentialElements, PotentialPositions, p, DMETPotential, FragmentRotations, BathStates, OccupiedByState, VirtualByState);
     s = a * p;
-    std::cout << "s\n" << s << std::endl;
+    // std::cout << "s\n" << s << std::endl;
     x = x + s;
-    std::cout << "DMET: Line search complete." << std::endl;
+    // std::cout << "DMET: Line search complete." << std::endl;
 }
 
 void BFGS_2(Eigen::MatrixXd &Hessian, Eigen::VectorXd &s, Eigen::VectorXd Gradient, Eigen::VectorXd GradientPrev, Eigen::VectorXd &x)
@@ -750,7 +749,7 @@ void UpdatePotential(Eigen::MatrixXd &DMETPotential, InputObj &Input, Eigen::Mat
         PrevGrad = GradCF;
         FullUVectorToFragUVector(PotentialElements, PotentialElementsVec);
 
-        std::cout << "DMET Potential:\n" << PotentialElementsVec << std::endl;
+        // std::cout << "DMET Potential:\n" << PotentialElementsVec << std::endl;
 
         // Calculate new L and GradL at the new value of u determined above. We do this out here because it is needed to make the next Hessian.
         // First, make the new DMET potential using new u values.

@@ -355,10 +355,10 @@ void Bootstrap::UpdateFCIs()
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]));
-				if (MatchFullP)
-				{
-					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), false);
-				}
+				// if (MatchFullP)
+				// {
+				// 	xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), false);
+				// }
 			}
 			else
 			{
@@ -368,11 +368,11 @@ void Bootstrap::UpdateFCIs()
 				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
 
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
-				if (MatchFullP)
-				{
-					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), true, false);
-					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
-				}
+				// if (MatchFullP)
+				// {
+				// 	xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), true, false);
+				// 	xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
+				// }
 			}
 			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential);
 		}
@@ -423,6 +423,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
 	for (int x = 0; x < NumFrag; x++)
 	{
+		std::cout << x << " a\n" << FCIs[x].aOneRDMs[FragState[x]] << "\n" << x << " b\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
@@ -716,6 +717,9 @@ void Bootstrap::NewtonRaphson()
 	// Initialize J and f
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
+
+	std::cout << f << std::endl;
+	std::cout << J << std::endl;
 
 	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
 	// *Output << "BE-DMET: Optimizing site potential." << std::endl;

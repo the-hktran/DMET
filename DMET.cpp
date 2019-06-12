@@ -304,6 +304,8 @@ void MakeFragmentInput(InputObj &Input, InputObj &FragInput, std::map<std::strin
     FragInput = Input;
     FragInput.NumElectrons = NumFragElectrons;
     FragInput.NumOcc = NumFragElectrons / 2;
+    FragInput.aNumElectrons = FragInput.NumOcc;
+    FragInput.bNumElectrons = FragInput.NumOcc;
     FragInput.NumAO = NumFragOrbitals;
     FragInput.aaIntegrals = aaInt;
     FragInput.abIntegrals = abInt;
@@ -719,7 +721,7 @@ int BestRDM(Eigen::MatrixXd RefMat, std::vector<int> FragOrb, std::vector<Eigen:
     for (int i = 0; i < TestMats.size(); i++)
     {
         Eigen::MatrixXd TestMatP = ProjectMatrix(TestMats[i], FragPos);
-        double CurrentDiff = (RefMatP - TestMatP).squaredNorm();
+        double CurrentDiff = (RefMatP.cwiseAbs() - TestMatP.cwiseAbs()).squaredNorm();
         if (CurrentDiff < BestDiff)
         {
             BestDiff = CurrentDiff;
@@ -841,7 +843,7 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = false;
+    bool Unrestricted = true;
     bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
@@ -986,8 +988,8 @@ int main(int argc, char* argv[])
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
-    bool OneShot = false;
-    while(fabs(DMETPotentialChange) > 1E-6) // || uOptIt < 10) // Do DMET until correlation potential has converged.
+    bool OneShot = true;
+    while(fabs(DMETPotentialChange) > 1E-3) // || uOptIt < 10) // Do DMET until correlation potential has converged.
     {
         uOptIt++;
 
@@ -1037,8 +1039,20 @@ int main(int argc, char* argv[])
         {
             // OccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
             // VirtualOrbitals[0] = Input.bNumElectrons - 1;
-            bOccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons;
-            bVirtualOrbitals[0] = Input.bNumElectrons - 1;
+            int bExciteLevel = 1;
+            bOccupiedOrbitals[Input.bNumElectrons - 1] = Input.bNumElectrons + bExciteLevel - 1;
+            std::sort(bOccupiedOrbitals.begin(), bOccupiedOrbitals.end(), greater<int>());
+            for (int i = 0; i < bExciteLevel; i++)
+            {
+                bVirtualOrbitals[i] = Input.bNumElectrons - 1 + i;
+            }
+            int aExciteLevel = 0;
+            aOccupiedOrbitals[Input.aNumElectrons - 1] = Input.aNumElectrons + aExciteLevel - 1;
+            std::sort(aOccupiedOrbitals.begin(), aOccupiedOrbitals.end(), greater<int>());
+            for (int i = 0; i < bExciteLevel; i++)
+            {
+                aVirtualOrbitals[i] = Input.aNumElectrons - 1 + i;
+            }
         }
 
         Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO); // Holds the coefficient matrix of the full system calculation
@@ -1319,16 +1333,20 @@ int main(int argc, char* argv[])
             }
 
             // Collect information needed for derivative calculations later.
-            OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
-            VirtualByState.push_back(SCFMDVirtual[NextIndex]);
-            CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
-            OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+            if (!Unrestricted)
+            {   
+                OccupiedByState.push_back(SCFMDOccupied[NextIndex]);
+                VirtualByState.push_back(SCFMDVirtual[NextIndex]);
+                CoeffByState.push_back(CoeffMatrix); // (SCFMDCoeff[NextIndex]);
+                OrbitalEVByState.push_back(OrbitalEV); // (SCFMDOrbitalEV[NextIndex]);
+            }
 
             SCFMDEnergyQueue.pop();
         }
 
         if (useRefP)
         {
+            Input.Options[0] = true;
             SCFEnergy = SCF(aBias, bBias, 1, aDensityMatrix, bDensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, aCoeffMatrix, bCoeffMatrix, aOccupiedOrbitals, bOccupiedOrbitals, aVirtualOrbitals, bVirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, aOrbitalEV, bOrbitalEV);
             RefDensity = aDensityMatrix + bDensityMatrix;
             std::ifstream RefPFile("RefP.txt");
@@ -1338,6 +1356,7 @@ int main(int argc, char* argv[])
             }
             std::cout << "DMET: Reference Density:\n" << RefDensity << std::endl;
             Output << "Reference Density:\n" << RefDensity << std::endl;
+            Output << "Reference Energy = " << SCFEnergy << std::endl;
         }
 
         if (PInit.good())
@@ -1539,6 +1558,7 @@ int main(int argc, char* argv[])
                 {
                     myFCI.ERIMapToArray(Input.Integrals, RotationMatrix, aActiveList);
                 }
+                // myFCI.PrintERI(true);
                 std::cout << "aR\n" << aRotationMatrix << std::endl;
                 std::cout << "bR\n" << bRotationMatrix << std::endl;
 
@@ -1558,12 +1578,18 @@ int main(int argc, char* argv[])
 
                 // Eigen::MatrixXd RaR = aRotationMatrix.transpose() * aDensityMatrix * aRotationMatrix;
                 // Eigen::MatrixXd RbR = bRotationMatrix.transpose() * bDensityMatrix * bRotationMatrix;
-                // for (int i = 0; i < ActiveList.size(); i++)
+                // for (int i = 0; i < aActiveList.size(); i++)
                 // {
-                //     for (int j = 0; j < ActiveList.size(); j++)
+                //     for (int j = 0; j < aActiveList.size(); j++)
                 //     {
-                //         aP(i, j) = RaR.coeffRef(ActiveList[i], ActiveList[j]);
-                //         bP(i, j) = RbR.coeffRef(ActiveList[i], ActiveList[j]);
+                //         aP(i, j) = RaR.coeffRef(aActiveList[i], aActiveList[j]);
+                //     }
+                // }
+                // for (int i = 0; i < bActiveList.size(); i++)
+                // {
+                //     for (int j = 0; j < bActiveList.size(); j++)
+                //     {
+                //         bP(i, j) = RbR.coeffRef(bActiveList[i], bActiveList[j]);
                 //     }
                 // }
 
@@ -1592,7 +1618,7 @@ int main(int argc, char* argv[])
                 // myFCI.aOneRDMs[ImpurityStates[x]] = aP;
                 // myFCI.bOneRDMs[ImpurityStates[x]] = bP;
                 // Eigen::MatrixXd Fragment1RDM = aP + bP;
-                // xE = CalcSCFImpurityEnergy(aP, bP, FragPos, myFCI.aOEI, myFCI.bOEI, myFCI.aOEIPlusCore, myFCI.bOEIPlusCore, myFCI.aaTEI, myFCI.abTEI, myFCI.bbTEI);
+                // xE = CalcSCFImpurityEnergy(aP, bP, aFragPos, bFragPos, myFCI.aOEI, myFCI.bOEI, myFCI.aOEIPlusCore, myFCI.bOEIPlusCore, myFCI.aaTEI, myFCI.abTEI, myFCI.bbTEI);
                 // std::vector<double> tmpDVec;
                 // tmpDVec.push_back(xE);
                 // FragmentEnergies[x] = tmpDVec;
@@ -1606,7 +1632,7 @@ int main(int argc, char* argv[])
                 if (useRefP)
                 {
                     myFCI.getRDM(true);
-                    int ChosenImpState = BestRDM(DensityMatrix, RefDensity, Input.FragmentOrbitals[x], myFCI.OneRDMs, aFragPos);
+                    int ChosenImpState = BestRDM(RefDensity, Input.FragmentOrbitals[x], myFCI.OneRDMs, aFragPos);
                     ImpurityStates[x] = ChosenImpState;
                     std::cout << "DMET: Selected " << ChosenImpState << std::endl;
                     Output << "Selected " << ChosenImpState << std::endl;
