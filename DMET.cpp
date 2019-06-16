@@ -1421,9 +1421,18 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        Fragmenting FragObj(10);
+        Fragmenting FragObj(Input.NumFragments);
         Bootstrap BE;
         BE.InitFromFragmenting(FragObj);
+        if (!Unrestricted)
+        {
+            for (int i = 0; i < SCFMD1RDM.size(); i++)
+            {
+                std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
+                SCFMDa1RDM.push_back(0.5 * SCFMD1RDM[i]);
+                SCFMDb1RDM.push_back(SCFMDa1RDM[i]);
+            }
+        }
         BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
         return 0;
 
