@@ -843,7 +843,7 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = true;
+    bool Unrestricted = false;
     bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
@@ -1429,8 +1429,8 @@ int main(int argc, char* argv[])
             for (int i = 0; i < SCFMD1RDM.size(); i++)
             {
                 std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
-                SCFMDa1RDM.push_back(0.5 * SCFMD1RDM[i]);
-                SCFMDb1RDM.push_back(SCFMDa1RDM[i]);
+                SCFMDa1RDM.push_back(SCFMD1RDM[i]);
+                SCFMDb1RDM.push_back(SCFMD1RDM[i]);
             }
         }
         BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);

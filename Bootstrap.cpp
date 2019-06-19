@@ -476,7 +476,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			}
 		}
 
-		std::vector<double> LossesMinus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMs[x], bOneRDMs[x], aaTwoRDMs[x], abTwoRDMs[x], bbTwoRDMs[x], x);
+		std::vector<double> LossesBase = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMs[x], bOneRDMs[x], aaTwoRDMs[x], abTwoRDMs[x], bbTwoRDMs[x], x);
 
 		int JRow = 0;
 		for (int j = 0; j < x; j++)
@@ -487,49 +487,57 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
 			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
-			// Make the + dLambda potential for the fragment.
-			auto BEPlusdLambda = BEPotential;
-			std::get<5>(BEPlusdLambda[x][i]) = std::get<5>(BEPotential[x][i]) + dLambda;
 
 			// Collect all the density matrices for this iteration.
-			FCI xFCI(FCIsBase[x]);
+			FCI xFCIp(FCIsBase[x]);
+			FCI xFCIm(FCIsBase[x]);
 			if (isOEI)
 			{
-				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
-				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
 
-				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]));
+				xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, std::get<6>(BEPotential[x][i]));
+				xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
-					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPlusdLambda[x][i]), false);
+					xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, false);
+					xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, false);
 				}
 			}
 			else
 			{
-				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
-				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPlusdLambda[x][i]), x, std::get<6>(BEPlusdLambda[x][i]));
-				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPlusdLambda[x][i]), x, std::get<7>(BEPlusdLambda[x][i]));
-				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPlusdLambda[x][i]), x, std::get<7>(BEPlusdLambda[x][i]));
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
+				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
 
-				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), std::get<6>(BEPlusdLambda[x][i]), std::get<7>(BEPlusdLambda[x][i]));
+				xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+				xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
-					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), true, false);
-					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPlusdLambda[x][i]), false, false);
+					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, true, false);
+					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, false, false);
+					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, true, false);
+					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, false, false);
 				}
 			}
-			xFCI.runFCI();
-			xFCI.getSpecificRDM(FragState[x], !isOEI);
+			xFCIp.runFCI();
+			xFCIp.getSpecificRDM(FragState[x], !isOEI);
+			xFCIm.runFCI();
+			xFCIm.getSpecificRDM(FragState[x], !isOEI);
 			std::vector<double> LossesPlus;
+			std::vector<double> LossesMins;
 			if (isOEI)
 			{
 				std::vector<double> EmptyRDM;
-				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, xFCI.aOneRDMs[FragState[x]], xFCI.bOneRDMs[FragState[x]], EmptyRDM, EmptyRDM, EmptyRDM, x);
+				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, xFCIp.aOneRDMs[FragState[x]], xFCIp.bOneRDMs[FragState[x]], EmptyRDM, EmptyRDM, EmptyRDM, x);
+				LossesMins = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, xFCIm.aOneRDMs[FragState[x]], xFCIm.bOneRDMs[FragState[x]], EmptyRDM, EmptyRDM, EmptyRDM, x);
 			}
 			else
 			{
 				Eigen::MatrixXd EmptyRDM;
-				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, EmptyRDM, EmptyRDM, xFCI.aaTwoRDMs[FragState[x]], xFCI.abTwoRDMs[FragState[x]], xFCI.bbTwoRDMs[FragState[x]], x);
+				LossesPlus = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, EmptyRDM, EmptyRDM, xFCIp.aaTwoRDMs[FragState[x]], xFCIp.abTwoRDMs[FragState[x]], xFCIp.bbTwoRDMs[FragState[x]], x);
+				LossesMins = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, EmptyRDM, EmptyRDM, xFCIm.aaTwoRDMs[FragState[x]], xFCIm.abTwoRDMs[FragState[x]], xFCIm.bbTwoRDMs[FragState[x]], x);
 			}
 			// std::vector<Eigen::MatrixXd> aOneRDMsPlusdLambda = aOneRDMs;
 			// std::vector<Eigen::MatrixXd> bOneRDMsPlusdLambda = bOneRDMs;
@@ -541,7 +549,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMinus[j]) / (dLambda);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
 			}
 
 			// Add in chemical potential portion.
@@ -569,9 +577,9 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 		// Fill in f
 		// The chemical potential loss is already filled in.
-		for (int j = 0; j < LossesMinus.size(); j++)
+		for (int j = 0; j < LossesBase.size(); j++)
 		{
-			f[fCount] = LossesMinus[j];
+			f[fCount] = LossesBase[j];
 			fCount++;
 		}
 	}
@@ -722,7 +730,7 @@ void Bootstrap::NewtonRaphson()
 
 	int NRIteration = 1;
 
-	while (f.squaredNorm() > 1E-6)
+	while (f.squaredNorm() > 1E-18)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
@@ -732,7 +740,7 @@ void Bootstrap::NewtonRaphson()
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
-		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
+		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << std::setprecision(20) << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		NRIteration++;
 	}
