@@ -76,10 +76,10 @@ public:
 	void runDebug();
 	double CalcBEEnergyByFrag();
 	int OrbitalToReducedIndex(int, int, bool);
-	void InitFromFragmenting(Fragmenting);
+	void InitFromFragmenting(Fragmenting, std::ofstream&);
 
 private:
-	double dLambda = 1E-4;
+	double dLambda = 1E-8;
 	double dMu = 1E-8;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,

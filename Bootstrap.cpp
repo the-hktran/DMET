@@ -88,8 +88,9 @@
 //	}
 //}
 
-void Bootstrap::InitFromFragmenting(Fragmenting Frag)
+void Bootstrap::InitFromFragmenting(Fragmenting Frag, std::ofstream &OutStream)
 {
+	Output = &OutStream;
 	NumFrag = Frag.MatchingConditions.size();
 	if (isTS)
 	{
@@ -717,7 +718,7 @@ void Bootstrap::OptMu()
 void Bootstrap::NewtonRaphson()
 {
 	std::cout << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
-	// *Output << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
+	*Output << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
 	// First, vectorize Lambdas
 	Eigen::VectorXd x = BEToVector();
 
@@ -726,22 +727,22 @@ void Bootstrap::NewtonRaphson()
 	Eigen::MatrixXd J = CalcJacobian(f);
 
 	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
-	// *Output << "BE-DMET: Optimizing site potential." << std::endl;
+	*Output << "BE-DMET: Optimizing site potential." << std::endl;
 
 	int NRIteration = 1;
 
-	while (f.squaredNorm() > 1E-18)
+	while (f.squaredNorm() > 1E-3)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
-		// *Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
+		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
-		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << std::setprecision(20) << f.squaredNorm() << std::endl;
-		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
+		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		NRIteration++;
 	}
 }
@@ -829,6 +830,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	NewtonRaphson();
 	BEEnergy = CalcBEEnergy();
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
+	Output << "DMET Energy = " << BEEnergy << std::endl;
 }
 
 void Bootstrap::printDebug(std::ofstream &Output)
@@ -846,7 +848,7 @@ double Bootstrap::CalcBEEnergy()
 	double Energy = 0;
 	// Loop through each fragment to calculate the energy of each.
 	std::cout << "BE-DMET: Calculating DMET Energy..." << std::endl;
-	// *Output << "BE-DMET: Calculating DMET Energy..." << std::endl;
+	*Output << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	double FragEnergy;
 	if (isTS)
 	{
@@ -889,7 +891,7 @@ double Bootstrap::CalcBEEnergy()
 		FragEnergy = FCIs[x].calcImpurityEnergy(FragState[x], aBECenterIndex, bBECenterIndex);
 		Energy += FragEnergy;
 		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
-		// *Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
+		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 	}
 	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;

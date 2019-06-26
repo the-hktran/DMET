@@ -843,7 +843,7 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = false;
+    bool Unrestricted = true;
     bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
@@ -1423,7 +1423,7 @@ int main(int argc, char* argv[])
 
         Fragmenting FragObj(Input.NumFragments);
         Bootstrap BE;
-        BE.InitFromFragmenting(FragObj);
+        BE.InitFromFragmenting(FragObj, Output);
         if (!Unrestricted)
         {
             for (int i = 0; i < SCFMD1RDM.size(); i++)
