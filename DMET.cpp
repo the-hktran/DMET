@@ -283,7 +283,7 @@ int ReducedIndexToOrbital(int c, InputObj Input, int FragmentIndex, bool Alpha)
     int Orbital;
     std::vector< int > FragPos;
     std::vector< int > BathPos;
-    GetCASPos(Input, FragmentIndex, FragPos, BathPos);
+    GetCASPos(Input, FragmentIndex, FragPos, BathPos, Alpha);
     auto PosOfIndex = std::find(FragPos.begin(), FragPos.end(), c);
     if (PosOfIndex == FragPos.end()) // Means the index is in the bath orbital.
     {
