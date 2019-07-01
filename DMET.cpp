@@ -361,6 +361,28 @@ double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj 
     return CF;
 }
 
+double CalcCostChemPot(std::vector<Eigen::MatrixXd> FragmentDensities, InputObj &Input, bool Alpha)
+{
+    double CF = 0;
+    int NumElec = 0;
+    if (Alpha) NumElec = Input.aNumElectrons;
+    else NumElec = Input.bNumElectrons;
+
+    for(int x = 0; x < FragmentDensities.size(); x++) // sum over fragments
+    {
+        std::vector< int > FragPos;
+        std::vector< int > BathPos;
+        GetCASPos(Input, x , FragPos, BathPos, Alpha);
+        for(int i = 0; i < FragPos.size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
+        {
+            CF += FragmentDensities[x](FragPos[i], FragPos[i]);
+        }
+    }
+    CF -= NumElec;
+    CF = CF * CF;
+    return CF;
+}
+
 void SchmidtDecomposition(Eigen::MatrixXd &DensityMatrix, Eigen::MatrixXd &RotationMatrix, std::vector< int > FragmentOrbitals, std::vector< int > EnvironmentOrbitals, int NumEnvVirt, std::ofstream &Output)
 {
     // Eigen::MatrixXd DensityEnv = DensityMatrix.bottomRightCorner(NumAOEnv, NumAOEnv);
@@ -922,62 +944,10 @@ int main(int argc, char* argv[])
     //     DMETPotential(2 * i + 1, 2 * i) = -2.334E-03;
     // }
 
-	// DEBUG - Bootstrap
-	//Bootstrap BE;
-	//BE.debugInit(Input); 
-
-	//// Now do SCF to get density matrix.
-	//std::vector< int > OccupiedOrbitals;
-	//std::vector< int > VirtualOrbitals;
-	//for (int i = 0; i < NumOcc; i++)
-	//{
-	//	OccupiedOrbitals.push_back(i);
-	//}
-	//for (int i = NumOcc; i < NumAO; i++)
-	//{
-	//	VirtualOrbitals.push_back(i);
-	//}
-	//// OccupiedOrbitals[NumOcc - 1] = NumOcc;
-	//// VirtualOrbitals[0] = NumOcc - 1;
-	//Input.OccupiedOrbitals = OccupiedOrbitals;
-	//Input.VirtualOrbitals = VirtualOrbitals;
-	//double SCFEnergy = 0.0;
-	//std::vector< std::tuple< Eigen::MatrixXd, double, double > > Bias;
-	//std::vector< Eigen::MatrixXd > SCFMD1RDM;
-	//std::vector< double > AllEnergies;
-	//std::priority_queue< std::pair< double, int > > SCFMDEnergyQueue;
-	//std::vector< std::vector< int > > SCFMDOccupied;
-	//std::vector< std::vector< int > > SCFMDVirtual;
-	//std::vector< Eigen::MatrixXd > SCFMDCoeff;
-	//std::vector< Eigen::VectorXd > SCFMDOrbitalEV;
-
-	//std::ofstream BlankOutput;
-
-	//Eigen::VectorXd OrbitalEV;
-	//int SCFCount = 0;
-	//Eigen::MatrixXd CoeffMatrix = Eigen::MatrixXd::Zero(NumAO, NumAO);
-	//SCFEnergy = SCF(Bias, 0, DensityMatrix, Input, BlankOutput, SOrtho, HCore, AllEnergies, CoeffMatrix, OccupiedOrbitals, VirtualOrbitals, SCFCount, Input.MaxSCF, DMETPotential, OrbitalEV);
-
-	//// Get all Schmidt Decompositions.
-	//for (int i = 0; i < DensityMatrix.rows(); i++)
-	//{
-	//	for (int j = 0; j < DensityMatrix.cols(); j++)
-	//	{
-	//		if (fabs(DensityMatrix.coeffRef(i, j)) < 1E-12)
-	//		{
-	//			DensityMatrix(i, j) = 0;
-	//		}
-	//	}
-	//}
-	//Output << DensityMatrix << std::endl;
-	//BE.doBootstrap(Input, DensityMatrix, Output);
-	//BE.printDebug(Output);
-	//return 0;
-
-	//END DEBUG - Bootstrap
-
     // These hold the density matrix and energies of each impurity.
     std::vector< Eigen::MatrixXd > FragmentDensities(Input.NumFragments);
+    std::vector< Eigen::MatrixXd > aFragmentDensities(Input.NumFragments);
+    std::vector< Eigen::MatrixXd > bFragmentDensities(Input.NumFragments);
     std::vector< Eigen::Tensor<double, 4> > Fragment2RDM(Input.NumFragments);
     std::vector< Eigen::MatrixXd > FragmentRotations(Input.NumFragments); // Stores rotation matrix in case we wish to rotation the 1RDM, such as for certain types of density matching functions.
     std::vector< Eigen::MatrixXd > aFragmentRotations(Input.NumFragments); 
@@ -985,6 +955,8 @@ int main(int argc, char* argv[])
 	std::vector< Eigen::VectorXd > FragmentEigenstates(Input.NumFragments);
 
 	double ChemicalPotential = 0; // The value of the chemical potential. This is a diagonal element on the Hamiltonian, on the diagonal positions corresponding to impurity orbitals.
+    double aChemicalPotential = 0.0;
+    double bChemicalPotential = 0.0;
 
     double DMETPotentialChange = 1;
     int uOptIt = 0; // Number of iterations to optimize u
@@ -1421,30 +1393,42 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        Fragmenting FragObj(Input.NumFragments);
-        Bootstrap BE;
-        BE.InitFromFragmenting(FragObj, Output);
-        if (!Unrestricted)
-        {
-            for (int i = 0; i < SCFMD1RDM.size(); i++)
-            {
-                std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
-                SCFMDa1RDM.push_back(SCFMD1RDM[i]);
-                SCFMDb1RDM.push_back(SCFMD1RDM[i]);
-            }
-        }
-        BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
-        return 0;
+        // Fragmenting FragObj(Input.NumFragments);
+        // Bootstrap BE;
+        // BE.InitFromFragmenting(FragObj, Output);
+        // if (!Unrestricted)
+        // {
+        //     for (int i = 0; i < SCFMD1RDM.size(); i++)
+        //     {
+        //         std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
+        //         SCFMDa1RDM.push_back(SCFMD1RDM[i]);
+        //         SCFMDb1RDM.push_back(SCFMD1RDM[i]);
+        //     }
+        // }
+        // BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
+        // return 0;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.
+        double aCostMu = 1;
+        double bCostMu = 1;
         double CostMuPrev = 0;
+        double aCostMuPrev = 0;
+        double bCostMuPrev = 0;
         double StepSizeMu = 1E-4; // How much to change chemical potential by each iteration. No good reason to choosing this number.
         int MuIteration = 0;
         while(fabs(CostMu) > 1E-2) // While the derivative of the cost function is nonzero, keep changing mu and redoing all fragment calculations.
         {
-            std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << std::endl;
-            Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
+            if (Unrestricted)
+            {
+                std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << aChemicalPotential  << " and " << bChemicalPotential << std::endl;
+                Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << aChemicalPotential  << " and " << bChemicalPotential << ".\n";
+            }
+            else
+            {
+                std::cout << "DMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << std::endl;
+                Output << "\nDMET: -- Running impurity FCI calculations with a chemical potential of " << ChemicalPotential << ".\n";
+            }
             for(int x = 0; x < NumFragments; x++) // Loop over all fragments.
             {
                 // Use the correct density matrix for this fragment.
@@ -1634,8 +1618,8 @@ int main(int argc, char* argv[])
 
                 // End SCF-in-SCF impurity calculation
 
-
-                myFCI.AddChemicalPotentialGKLC(aFragPos, bFragPos, ChemicalPotential);
+                if (Unrestricted) myFCI.AddChemicalPotentialGKLC(aFragPos, bFragPos, aChemicalPotential, bChemicalPotential);
+                else myFCI.AddChemicalPotentialGKLC(aFragPos, bFragPos, ChemicalPotential, ChemicalPotential);
                 myFCI.runFCI();
                 // myFCI.DirectFCI();
                 if (useRefP)
@@ -1716,6 +1700,8 @@ int main(int argc, char* argv[])
                 if (Unrestricted)
                 {
                     Output << "aP\n" << myFCI.aOneRDMs[ImpurityStates[x]] << "\nbP\n" << myFCI.bOneRDMs[ImpurityStates[x]] << std::endl;
+                    aFragmentDensities[x] = myFCI.aOneRDMs[ImpurityStates[x]];
+                    bFragmentDensities[x] = myFCI.bOneRDMs[ImpurityStates[x]];
                 }
                 Eigen::MatrixXd Unrotated1RDM = ActiveRotation * Fragment1RDM * ActiveRotation.transpose();
                 // Eigen::MatrixXd AO1RDM = LocalToAO.transpose().inverse() * Unrotated1RDM * LocalToAO.inverse();
@@ -1731,7 +1717,16 @@ int main(int argc, char* argv[])
             }
             // Start checking if chemical potential is converged.
             CostMuPrev = CostMu;
-            CostMu = CalcCostChemPot(FragmentDensities, Input);
+            aCostMuPrev = aCostMu;
+            bCostMuPrev = bCostMu;
+
+            if (Unrestricted)
+            {
+                aCostMu = CalcCostChemPot(aFragmentDensities, Input, true);
+                bCostMu = CalcCostChemPot(bFragmentDensities, Input, false);
+                CostMu = aCostMu + bCostMu;
+            }
+            else CostMu = CalcCostChemPot(FragmentDensities, Input);
 
             std::cout << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
             Output << "DMET: All impurity calculations complete with a chemical potential of " << ChemicalPotential << " and cost function of " << CostMu << std::endl;
@@ -1743,12 +1738,24 @@ int main(int argc, char* argv[])
             if(MuIteration % 2 == 0 && MuIteration > 0)
             {
                 // Do Newton's Method
-                double dLdmu = (CostMu - CostMuPrev) / StepSizeMu;
-                ChemicalPotential = ChemicalPotential - CostMu / dLdmu;
+                if (Unrestricted)
+                {
+                    double dLdaMu = (aCostMu - aCostMuPrev) / StepSizeMu;
+                    double dLdbMu = (bCostMu - bCostMuPrev) / StepSizeMu;
+                    aChemicalPotential = aChemicalPotential - aCostMu / dLdaMu;
+                    bChemicalPotential = bChemicalPotential - bCostMu / dLdbMu;
+                }
+                else
+                {
+                    double dLdmu = (CostMu - CostMuPrev) / StepSizeMu;
+                    ChemicalPotential = ChemicalPotential - CostMu / dLdmu;
+                }
             }
             else
             {
                 ChemicalPotential += StepSizeMu; // Change chemical potential.
+                aChemicalPotential += StepSizeMu;
+                bChemicalPotential += StepSizeMu;
             }
             MuIteration++;
             if (MuIteration > 10)
@@ -1816,14 +1823,6 @@ int main(int argc, char* argv[])
     }
     std::cout << "DMET: DMET has converged." << std::endl;
     Output << "DMET: DMET has converged." << std::endl;
-
-    // Bootstrap BE;
-    // std::cout << "Init" << std::endl;
-    // BE.debugInit(Input, Output);
-    // std::cout << "schmidt" << std::endl;
-    // BE.CollectSchmidt(FullDensities, Output);
-    // std::cout << "run" << std::endl;
-    // BE.runDebug();
 
     return 0;
 }

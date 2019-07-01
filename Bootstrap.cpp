@@ -308,7 +308,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		}
 
 		FCI xFCI(FCIsBase[x]);
-		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], Mu);
+		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], Mu, Mu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
 			bool OEIPotential = false;
@@ -375,7 +375,7 @@ void Bootstrap::UpdateFCIs()
 				// 	xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
 				// }
 			}
-			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential);
+			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential, ChemicalPotential);
 		}
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);

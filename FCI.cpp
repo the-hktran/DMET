@@ -676,21 +676,21 @@ void FCI::RotateERI(double *h, double *V, Eigen::MatrixXd Ra, Eigen::MatrixXd Rb
     }
 }
 
-void FCI::AddChemicalPotentialGKLC(std::vector<int> aFragPos, std::vector<int> bFragPos, double Mu)
+void FCI::AddChemicalPotentialGKLC(std::vector<int> aFragPos, std::vector<int> bFragPos, double aMu, double bMu)
 {
     int aN = aActiveList.size();
     int bN = bActiveList.size();
     for (int i = 0; i < aFragPos.size(); i++)
     {
         int aiIdx = aFragPos[i];
-        aOEI[aiIdx * aN + aiIdx] -= Mu;
-        aOEIPlusCore[aiIdx * aN + aiIdx] -= Mu;
+        aOEI[aiIdx * aN + aiIdx] -= aMu;
+        aOEIPlusCore[aiIdx * aN + aiIdx] -= aMu;
     }
     for (int i = 0; i < bFragPos.size(); i++)
     {
         int biIdx = bFragPos[i];
-        bOEI[biIdx * bN + biIdx] -= Mu;
-        bOEIPlusCore[biIdx * bN + biIdx] -= Mu;
+        bOEI[biIdx * bN + biIdx] -= bMu;
+        bOEIPlusCore[biIdx * bN + biIdx] -= bMu;
     }
 }
 
