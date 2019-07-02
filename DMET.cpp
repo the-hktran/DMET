@@ -1393,20 +1393,20 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        // Fragmenting FragObj(Input.NumFragments);
-        // Bootstrap BE;
-        // BE.InitFromFragmenting(FragObj, Output);
-        // if (!Unrestricted)
-        // {
-        //     for (int i = 0; i < SCFMD1RDM.size(); i++)
-        //     {
-        //         std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
-        //         SCFMDa1RDM.push_back(SCFMD1RDM[i]);
-        //         SCFMDb1RDM.push_back(SCFMD1RDM[i]);
-        //     }
-        // }
-        // BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
-        // return 0;
+        Fragmenting FragObj(Input.NumFragments);
+        Bootstrap BE;
+        BE.InitFromFragmenting(FragObj, Output);
+        if (!Unrestricted)
+        {
+            for (int i = 0; i < SCFMD1RDM.size(); i++)
+            {
+                std::cout << i << "/" << SCFMD1RDM.size() << std::endl;
+                SCFMDa1RDM.push_back(SCFMD1RDM[i]);
+                SCFMDb1RDM.push_back(SCFMD1RDM[i]);
+            }
+        }
+        BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
+        return 0;
 
         // These are definitions for the global chemical potential, which ensures that the number of electrons stays as it should.
         double CostMu = 1; // Cost function of mu, the sum of squares of difference in diagonal density matrix elements corresponding to impurity orbitals.

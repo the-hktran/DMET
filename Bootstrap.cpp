@@ -176,9 +176,11 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     return CF;
 }
 
-double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::vector<Eigen::MatrixXd> bFrag1RDMs, std::vector< std::vector< int > > aBECenter, std::vector< std::vector< int > > bBECenter, std::vector<int> FragSt)
+std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::vector<Eigen::MatrixXd> bFrag1RDMs, std::vector< std::vector< int > > aBECenter, std::vector< std::vector< int > > bBECenter, std::vector<int> FragSt)
 {
-    double CF = 0;
+    std::vector<double> CF(2);
+	double aCF = 0.0;
+	double bCF = 0.0;
 	
     for(int x = 0; x < aFrag1RDMs.size(); x++) // sum over fragments
     {
@@ -187,30 +189,35 @@ double Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::
 			for (int i = 0; i < aBECenter[1].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
 			{
 				int CenterIdx = OrbitalToReducedIndex(aBECenter[1][i], 1, true);
-				CF += aFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
+				aCF += aFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
 			}
 			for (int i = 0; i < bBECenter[x].size(); i++)
 			{
 				int CenterIdx = OrbitalToReducedIndex(bBECenter[1][i], 1, false);
-				CF += bFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
+				bCF += bFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
 			}
-			CF *= TrueNumFrag;
+			aCF *= TrueNumFrag;
+			bCF *= TrueNumFrag;
 			break;
 		}
 
         for (int i = 0; i < aBECenter[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
         {
 			int CenterIdx = OrbitalToReducedIndex(aBECenter[x][i], x, true);
-            CF += aFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
+            aCF += aFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
         }
 		for (int i = 0; i < bBECenter[x].size(); i++)
 		{
 			int CenterIdx = OrbitalToReducedIndex(bBECenter[x][i], x, false);
-            CF += bFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
+            bCF += bFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
 		}
     }
-    CF -= Input.NumElectrons;
-    CF = CF * CF;
+    aCF -= Input.aNumElectrons;
+	bCF -= Input.bNumElectrons;
+	aCF = aCF * aCF;
+	bCF = bCF * bCF;
+    CF[0] = aCF;
+	CF[1] = bCF;
     return CF;
 }
 
@@ -296,7 +303,7 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 }
 
 void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
-                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double Mu)
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double aMu, double bMu)
 {
 	for (int x = 0; x < NumFrag; x++)
 	{
@@ -308,7 +315,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		}
 
 		FCI xFCI(FCIsBase[x]);
-		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], Mu, Mu);
+		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], aMu, bMu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
 			bool OEIPotential = false;
@@ -375,7 +382,7 @@ void Bootstrap::UpdateFCIs()
 				// 	xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
 				// }
 			}
-			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], ChemicalPotential, ChemicalPotential);
+			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], aChemicalPotential, bChemicalPotential);
 		}
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
@@ -695,24 +702,32 @@ void Bootstrap::OptMu()
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
 	}
-	double LMu = 1.0;
+	std::vector<double> LMu(2);
+	LMu[0] = 1.0;
+	LMu[1] = 1.0;
 
-	while(fabs(LMu) > 1E-6)
+	while(fabs(LMu[0]) > 1E-6 && fabs(LMu[1]) > 1E-6)
 	{
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
 		std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
-		CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, tmpVecVecDouble, tmpVecVecDouble, tmpVecVecDouble, BEPotential, ChemicalPotential + dMu);
-		double LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition, FragState);
-		double dL = (LMuPlus - LMu) / dMu;
-		ChemicalPotential = ChemicalPotential - LMu / dL;
+		CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, tmpVecVecDouble, tmpVecVecDouble, tmpVecVecDouble, BEPotential, aChemicalPotential + dMu, bChemicalPotential + dMu);
+		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition, FragState);
+		double dLa, dLb;
+		for (int i = 0; i < 2; i++)
+		{
+			dLa = (LMuPlus[0] - LMu[0]) / dMu;
+			dLb = (LMuPlus[1] - LMu[1]) / dMu;
+		}
+		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
+		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
 		aOneRDMs.clear();
 		bOneRDMs.clear();
 		aaTwoRDMs.clear();
 		abTwoRDMs.clear();
 		bbTwoRDMs.clear();
-		CollectRDM(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, BEPotential, ChemicalPotential);
+		CollectRDM(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 	}
-	std::cout << "BE-DMET: Chemical Potential = " << ChemicalPotential << std::endl;
+	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
 void Bootstrap::NewtonRaphson()
@@ -765,7 +780,7 @@ void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDen
 	// Now that we have the rotation matrices, we can iterate through each fragment and get the impurity densities.
 	for (int x = 0; x < NumFrag; x++)
 	{
-		ImpurityFCI(ImpurityDensities[x], Input, x, RotationMatrices[x], ChemicalPotential, State, Impurity2RDM[x], ImpurityEigenstates[x]);
+		// ImpurityFCI(ImpurityDensities[x], Input, x, RotationMatrices[x], ChemicalPotential, State, Impurity2RDM[x], ImpurityEigenstates[x]);
 	}
 
 	// Now we iterate through each unique BE potential element and solve for the Lambda potential in each case.

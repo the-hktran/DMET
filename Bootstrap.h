@@ -35,7 +35,8 @@ public:
 	bool isTS = false;
 	bool MatchFullP = true;
 
-	double ChemicalPotential = 0;
+	double aChemicalPotential = 0.0;
+	double bChemicalPotential = 0.0;
 	InputObj Input;
 	std::vector<InputObj> Inputs;
 	std::vector<FCI> FCIs, FCIsBase;
@@ -83,14 +84,14 @@ private:
 	double dMu = 1E-8;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
-                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double);
+                           std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double, double);
 	Eigen::MatrixXd CalcJacobian(Eigen::VectorXd&);
 	void VectorToBE(Eigen::VectorXd);
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
-	double CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >, std::vector<int>);
+	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >, std::vector<int>);
 	std::vector<double> CalcCostLambda(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector<std::vector< double > >, std::vector<std::vector< double > >, std::vector<std::vector< double > >, 
 	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();
