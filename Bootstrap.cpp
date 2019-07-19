@@ -297,7 +297,7 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 				PIter = bbTwoRDMIter[Ind1Iter * aNIter * bNIter * bNIter + Ind2Iter * bNIter * bNIter + Ind3Iter * bNIter + Ind4Iter];
 			}
 		}
-		Loss.push_back((PRef - PIter) * (PRef - PIter));
+		Loss.push_back(PRef - PIter);
 	}
 	return Loss;
 }
@@ -431,6 +431,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
 	for (int x = 0; x < NumFrag; x++)
 	{
+		// std::cout << "x = " << x << "\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
 		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
@@ -506,6 +507,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 
 				xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, std::get<6>(BEPotential[x][i]));
 				xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]));
+				// std::cout << "x = " << x << "\ti = " << i << std::endl;
+				// std::cout << Ind1 << "\t" << Ind2 << std::endl;
 				if (MatchFullP)
 				{
 					xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, false);
@@ -533,6 +536,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			xFCIp.getSpecificRDM(FragState[x], !isOEI);
 			xFCIm.runFCI();
 			xFCIm.getSpecificRDM(FragState[x], !isOEI);
+			// std::cout << "+\n" << xFCIp.aOneRDMs[FragState[x]] << "\n-\n" << xFCIm.aOneRDMs[FragState[x]] << std::endl;
 			std::vector<double> LossesPlus;
 			std::vector<double> LossesMins;
 			if (isOEI)
@@ -557,7 +561,9 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
+				// std::cout << "j = " << j << std::endl;
+				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
 			}
 
 			// Add in chemical potential portion.
@@ -706,7 +712,10 @@ void Bootstrap::OptMu()
 	LMu[0] = 1.0;
 	LMu[1] = 1.0;
 
-	while(fabs(LMu[0]) > 1E-6 && fabs(LMu[1]) > 1E-6)
+	aChemicalPotential = 0.0;
+	bChemicalPotential = 0.0;
+
+	while(fabs(LMu[0]) > 1E-8 && fabs(LMu[1]) > 1E-8)
 	{
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
 		std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
@@ -717,6 +726,10 @@ void Bootstrap::OptMu()
 		{
 			dLa = (LMuPlus[0] - LMu[0]) / dMu;
 			dLb = (LMuPlus[1] - LMu[1]) / dMu;
+			std::cout << "dLa = " << dLa << "\naLMu = " << LMu[0] << std::endl;
+			std::cout << "dLb = " << dLb << "\nbLMu = " << LMu[1] << std::endl;
+			std::cout << "aMu = " << aChemicalPotential << std::endl;
+			std::cout << "bMu = " << bChemicalPotential << std::endl;
 		}
 		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
 		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
@@ -741,16 +754,18 @@ void Bootstrap::NewtonRaphson()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
+	std::cout << "J\n" << J << std::endl;
+
 	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
 	*Output << "BE-DMET: Optimizing site potential." << std::endl;
 
 	int NRIteration = 1;
 
-	while (f.squaredNorm() > 1E-3)
+	while (f.squaredNorm() > 1E-8)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		OptMu();
+		// OptMu();
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
@@ -760,6 +775,7 @@ void Bootstrap::NewtonRaphson()
 		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		NRIteration++;
 	}
+	OptMu();
 }
 
 void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDensity, std::ofstream &Output)
