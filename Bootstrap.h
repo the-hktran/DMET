@@ -58,6 +58,7 @@ public:
 
 	// Contains the INDEX of the center position orbital on each fragment.
 	std::vector< std::vector< int > > aBECenterPosition, bBECenterPosition; // Need to implement a way to figure this out.
+	std::vector< std::vector< int > > aBECenterIndex, bBECenterIndex;
 
 	std::vector< std::vector<int> > aFragPos, bFragPos, aBathPos, bBathPos;
 

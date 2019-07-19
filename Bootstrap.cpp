@@ -214,8 +214,8 @@ std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFra
     }
     aCF -= Input.aNumElectrons;
 	bCF -= Input.bNumElectrons;
-	aCF = aCF * aCF;
-	bCF = bCF * bCF;
+	// aCF = aCF * aCF;
+	// bCF = bCF * bCF;
     CF[0] = aCF;
 	CF[1] = bCF;
     return CF;
@@ -315,7 +315,8 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		}
 
 		FCI xFCI(FCIsBase[x]);
-		xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], aMu, bMu);
+		
+		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aMu, bMu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
 			bool OEIPotential = false;
@@ -382,7 +383,7 @@ void Bootstrap::UpdateFCIs()
 				// 	xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
 				// }
 			}
-			xFCI.AddChemicalPotentialGKLC(aFragPos[x], bFragPos[x], aChemicalPotential, bChemicalPotential);
+			xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 		}
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
@@ -500,6 +501,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Collect all the density matrices for this iteration.
 			FCI xFCIp(FCIsBase[x]);
 			FCI xFCIm(FCIsBase[x]);
+			xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
+			xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 			if (isOEI)
 			{
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
@@ -726,10 +729,10 @@ void Bootstrap::OptMu()
 		{
 			dLa = (LMuPlus[0] - LMu[0]) / dMu;
 			dLb = (LMuPlus[1] - LMu[1]) / dMu;
-			std::cout << "dLa = " << dLa << "\naLMu = " << LMu[0] << std::endl;
-			std::cout << "dLb = " << dLb << "\nbLMu = " << LMu[1] << std::endl;
-			std::cout << "aMu = " << aChemicalPotential << std::endl;
-			std::cout << "bMu = " << bChemicalPotential << std::endl;
+			// std::cout << "dLa = " << dLa << "\naLMu = " << LMu[0] << std::endl;
+			// std::cout << "dLb = " << dLb << "\nbLMu = " << LMu[1] << std::endl;
+			// std::cout << "aMu = " << aChemicalPotential << std::endl;
+			// std::cout << "bMu = " << bChemicalPotential << std::endl;
 		}
 		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
 		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
@@ -765,7 +768,7 @@ void Bootstrap::NewtonRaphson()
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		// OptMu();
+		OptMu();
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
@@ -775,7 +778,6 @@ void Bootstrap::NewtonRaphson()
 		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 		NRIteration++;
 	}
-	OptMu();
 }
 
 void Bootstrap::doBootstrap(InputObj &Input, std::vector<Eigen::MatrixXd> &MFDensity, std::ofstream &Output)
@@ -849,6 +851,30 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		xFCI.getSpecificRDM(FragState[x], true);
 		FCIs.push_back(xFCI);
 	}
+
+	aBECenterIndex.clear();
+	bBECenterIndex.clear();
+	for (int x = 0; x < aBECenterPosition.size(); x++)
+	{
+		std::vector<int> xaBECenterIndex;
+		for (int i = 0; i < aBECenterPosition[x].size(); i++)
+		{
+			int CenterIdx = OrbitalToReducedIndex(aBECenterPosition[x][i], x, true);
+			xaBECenterIndex.push_back(CenterIdx);
+		}
+		aBECenterIndex.push_back(xaBECenterIndex);
+	}
+	for (int x = 0; x < bBECenterPosition.size(); x++)
+	{
+		std::vector<int> xbBECenterIndex;
+		for (int i = 0; i < bBECenterPosition[x].size(); i++)
+		{
+			int CenterIdx = OrbitalToReducedIndex(bBECenterPosition[x][i], x, false);
+			xbBECenterIndex.push_back(CenterIdx);
+		}
+		bBECenterIndex.push_back(xbBECenterIndex);
+	}
+	
 	for (int x = 0; x < FCIs.size(); x++)
 	{
 		FCI xFCI(FCIs[x]);
