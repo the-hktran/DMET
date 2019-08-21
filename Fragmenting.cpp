@@ -74,7 +74,7 @@ void Fragmenting::OneCenterMatching(bool Match2RDM)
                 }
             }
             tmpVec.push_back(std::make_tuple(FragMatch, Fragments[x][i], Fragments[x][i], -1, -1, true, true));
-            //tmpVec.push_back(std::make_tuple(FragMatch, Fragments[x][i], Fragments[x][i], -1, -1, false, false)); // Comment this out when matching full density.
+            // tmpVec.push_back(std::make_tuple(FragMatch, Fragments[x][i], Fragments[x][i], -1, -1, false, false)); // Comment this out when matching full density.
             if (Match2RDM)
             {
                 tmpVec.push_back(std::make_tuple(FragMatch, Fragments[x][i], Fragments[x][i], Fragments[x][i], Fragments[x][i], true, true));
