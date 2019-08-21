@@ -81,8 +81,8 @@ public:
 	void InitFromFragmenting(Fragmenting, std::ofstream&);
 
 private:
-	double dLambda = 1E-4;
-	double dMu = 1E-5;;
+	double dLambda = 1E-6;
+	double dMu = 1E-6;;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double, double);
@@ -93,8 +93,10 @@ private:
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
+	void OptLambda();
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
-	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >, std::vector<int>);
+	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >);
+	std::vector<double> CalcCostChemPot();
 	std::vector<double> CalcCostLambda(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector<std::vector< double > >, std::vector<std::vector< double > >, std::vector<std::vector< double > >, 
 	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();

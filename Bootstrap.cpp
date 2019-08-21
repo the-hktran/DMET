@@ -176,7 +176,7 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     return CF;
 }
 
-std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::vector<Eigen::MatrixXd> bFrag1RDMs, std::vector< std::vector< int > > aBECenter, std::vector< std::vector< int > > bBECenter, std::vector<int> FragSt)
+std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFrag1RDMs, std::vector<Eigen::MatrixXd> bFrag1RDMs, std::vector< std::vector< int > > aBECenter, std::vector< std::vector< int > > bBECenter)
 {
     std::vector<double> CF(2);
 	double aCF = 0.0;
@@ -210,6 +210,51 @@ std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFra
 		{
 			int CenterIdx = OrbitalToReducedIndex(bBECenter[x][i], x, false);
             bCF += bFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
+		}
+    }
+    aCF -= Input.aNumElectrons;
+	bCF -= Input.bNumElectrons;
+	// aCF = aCF * aCF;
+	// bCF = bCF * bCF;
+    CF[0] = aCF;
+	CF[1] = bCF;
+    return CF;
+}
+
+std::vector<double> Bootstrap::CalcCostChemPot()
+{
+    std::vector<double> CF(2);
+	double aCF = 0.0;
+	double bCF = 0.0;
+	
+    for(int x = 0; x < NumFrag; x++) // sum over fragments
+    {
+		if (isTS)
+		{
+			for (int i = 0; i < aBECenterPosition[1].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
+			{ 
+				int CenterIdx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
+				aCF += FCIs[1].aOneRDMs[FragState[1]].coeffRef(CenterIdx, CenterIdx);
+			}
+			for (int i = 0; i < bBECenterPosition[1].size(); i++)
+			{
+				int CenterIdx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
+				bCF += FCIs[1].bOneRDMs[FragState[1]].coeffRef(CenterIdx, CenterIdx);
+			}
+			aCF *= TrueNumFrag;
+			bCF *= TrueNumFrag;
+			break;
+		}
+
+        for (int i = 0; i < aBECenterPosition[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
+        {
+			int CenterIdx = OrbitalToReducedIndex(aBECenterPosition[x][i], x, true);
+            aCF += FCIs[x].aOneRDMs[FragState[x]].coeffRef(CenterIdx, CenterIdx);
+        }
+		for (int i = 0; i < bBECenterPosition[x].size(); i++)
+		{
+			int CenterIdx = OrbitalToReducedIndex(bBECenterPosition[x][i], x, false);
+            bCF += FCIs[x].bOneRDMs[FragState[x]].coeffRef(CenterIdx, CenterIdx);
 		}
     }
     aCF -= Input.aNumElectrons;
@@ -768,21 +813,16 @@ void Bootstrap::OptMu()
 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
 	}
 	std::vector<double> LMu(2);
-	LMu[0] = 1.0;
-	LMu[1] = 1.0;
+	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
 
-	aChemicalPotential = 0.0;
-	bChemicalPotential = 0.0;
-
-	while(fabs(LMu[0]) > 1E-8 && fabs(LMu[1]) > 1E-8)
+	while(fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
 	{
-		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
 		std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
 		// std::cout << "Mu = " << aChemicalPotential + dMu << std::endl;
 		double aMuPlus = aChemicalPotential + dMu;
 		double bMuPlus = bChemicalPotential + dMu;
 		CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, BEPotential, aMuPlus, bMuPlus);
-		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition, FragState);
+		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition);
 		double dLa, dLb;
 
 		dLa = (LMuPlus[0] - LMu[0]) / (dMu / 2); // I think there's a factor of 2 somewhere, but I don't know why it's here except that it works.
@@ -793,40 +833,56 @@ void Bootstrap::OptMu()
 		aOneRDMs.clear();
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
 	}
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
+}
+
+void Bootstrap::OptLambda()
+{
+	Eigen::VectorXd x = BEToVector();
+	Eigen::VectorXd f;
+	Eigen::MatrixXd J = CalcJacobian(f);
+
+	// int NRIteration = 1;
+
+	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
+	while (f.squaredNorm() > 1E-8)
+	{
+		// std::cout << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl;
+		// *Output << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl; 
+		x = x - J.inverse() * f;
+		VectorToBE(x); // Updates the BEPotential for the J and f update next.
+		UpdateFCIs(); // Inputs potentials into the FCI that varies.
+		J = CalcJacobian(f); // Update here to check the loss.
+		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
+		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+	}
+	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
 
 void Bootstrap::NewtonRaphson()
 {
 	std::cout << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
 	*Output << "BE-DMET: Beginning initialization for site potential optimization." << std::endl;
-	// First, vectorize Lambdas
-	Eigen::VectorXd x = BEToVector();
-
-	// Initialize J and f
-	Eigen::VectorXd f;
-	Eigen::MatrixXd J = CalcJacobian(f);
-
-	std::cout << "J\n" << J << std::endl;
 
 	std::cout << "BE-DMET: Optimizing site potential." << std::endl;
 	*Output << "BE-DMET: Optimizing site potential." << std::endl;
 
 	int NRIteration = 1;
+	std::vector<double> LMu(2);
+	LMu[0] = 1.0;
+	LMu[1] = 1.0;
 
-	while (f.squaredNorm() > 1E-8)
+	while (fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
-		x = x - J.inverse() * f;
-		VectorToBE(x); // Updates the BEPotential for the J and f update next.
-		UpdateFCIs(); // Inputs potentials into the FCI that varies.
-		J = CalcJacobian(f); // Update here to check the loss.
-		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
-		std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
-		*Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		OptLambda();
+		std::cout << "Sample RDM\n" << FCIs[1].aOneRDMs[FragState[1]] << std::endl;
+		LMu = CalcCostChemPot();
+		std::cout << LMu[0] << "\t" << LMu[1] << std::endl;
 		NRIteration++;
 	}
 }
