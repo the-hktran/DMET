@@ -834,7 +834,6 @@ void Bootstrap::OptMu()
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << "OptMu: " << LMu[0] << "\t" << LMu[1] << std::endl;
 	}
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
@@ -862,7 +861,6 @@ void Bootstrap::OptLambda()
 		J = CalcJacobian(f); // Update here to check the loss.
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
-		std::cout << "f err = " << f.squaredNorm() << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
@@ -887,7 +885,6 @@ void Bootstrap::NewtonRaphson()
 		OptMu();
 		OptLambda();
 		LMu = CalcCostChemPot();
-		std::cout << LMu[0] << "\t" << LMu[1] << std::endl;
 		NRIteration++;
 	}
 }
