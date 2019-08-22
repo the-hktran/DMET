@@ -226,7 +226,7 @@ std::vector<double> Bootstrap::CalcCostChemPot()
     std::vector<double> CF(2);
 	double aCF = 0.0;
 	double bCF = 0.0;
-	
+
     for(int x = 0; x < NumFrag; x++) // sum over fragments
     {
 		if (isTS)
@@ -449,7 +449,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
-		xFCI.DirectFCI();
+		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], false);
 		aOneRDMs.push_back(xFCI.aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(xFCI.bOneRDMs[FragState[x]]);
@@ -462,6 +462,7 @@ void Bootstrap::UpdateFCIs()
 	for (int x = 0; x < NumFrag; x++)
 	{
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
+		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
 			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
@@ -490,7 +491,6 @@ void Bootstrap::UpdateFCIs()
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
 				}
 			}
-			xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 		}
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
@@ -834,6 +834,7 @@ void Bootstrap::OptMu()
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << "OptMu: " << LMu[0] << "\t" << LMu[1] << std::endl;
 	}
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
@@ -847,6 +848,10 @@ void Bootstrap::OptLambda()
 	// int NRIteration = 1;
 
 	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
+	if (f.squaredNorm() < 1E-8) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
+	{
+		UpdateFCIs();
+	}
 	while (f.squaredNorm() > 1E-8)
 	{
 		// std::cout << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl;
@@ -857,6 +862,7 @@ void Bootstrap::OptLambda()
 		J = CalcJacobian(f); // Update here to check the loss.
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
+		std::cout << "f err = " << f.squaredNorm() << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
@@ -880,7 +886,6 @@ void Bootstrap::NewtonRaphson()
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
 		OptLambda();
-		std::cout << "Sample RDM\n" << FCIs[1].aOneRDMs[FragState[1]] << std::endl;
 		LMu = CalcCostChemPot();
 		std::cout << LMu[0] << "\t" << LMu[1] << std::endl;
 		NRIteration++;
