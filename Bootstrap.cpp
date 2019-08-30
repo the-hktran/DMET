@@ -283,7 +283,6 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 
 			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
-			std::cout << "Ref: " << Ind1Ref << "\nItr: " << Ind1Iter << std::endl;
 
 			if (MatchFullP)
 			{
@@ -349,7 +348,6 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 				PIter = bbTwoRDMIter[Ind1Iter * aNIter * bNIter * bNIter + Ind2Iter * bNIter * bNIter + Ind3Iter * bNIter + Ind4Iter];
 			}
 		}
-		std::cout << "Loss: " << FragmentIndex << " " << i << " " << std::get<0>(BEPotential[FragmentIndex][i]) << " " << PRef << " " << PIter << std::endl;
 		Loss.push_back(PRef - PIter);
 	}
 	return Loss;
@@ -547,8 +545,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		std::cout << "ax = " << x << "\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
-		std::cout << "bx = " << x << "\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
@@ -678,7 +674,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / ((dLambda + dLambda) / 2.0);
 				// std::cout << "j = " << j << std::endl;
 				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
 			}
@@ -868,6 +864,7 @@ void Bootstrap::OptLambda()
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
+		std::cout << "Lambda Error: " << f.squaredNorm() << std::endl;
 		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 	}
