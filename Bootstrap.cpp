@@ -356,6 +356,7 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double aMu, double bMu)
 {
+	std::cout << "HI" << std::endl;
 	for (int x = 0; x < NumFrag; x++)
 	{
 		if (x > 0 && isTS)
@@ -426,17 +427,22 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aMu, bMu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
+			std::cout << x << " " << i << std::endl;
 			bool OEIPotential = false;
 			if (std::get<3>(BEPot[x][i]) == -1) OEIPotential = true;
 
 			if (OEIPotential)
 			{
-				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, std::get<5>(BEPot[x][i]));
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
-
+				
+				std::cout << "INT " << std::get<1>(BEPot[x][i]) << std::endl;
+				std::cout << "IND " << Ind1 << " " << Ind2 << std::endl;
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]));
 				if (MatchFullP)
 				{
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), false);
 				}
 			}
