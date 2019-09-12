@@ -356,7 +356,6 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector< Eigen::MatrixXd > &bOneRDMs, std::vector< std::vector<double> > &aaTwoRDMs, std::vector< std::vector<double> > &abTwoRDMs, std::vector< std::vector<double> > &bbTwoRDMs,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > > BEPot, double aMu, double bMu)
 {
-	std::cout << "HI" << std::endl;
 	for (int x = 0; x < NumFrag; x++)
 	{
 		if (x > 0 && isTS)
@@ -382,6 +381,8 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]));
 				if (MatchFullP)
 				{
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), false);
 				}
 			}
@@ -395,7 +396,11 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]), std::get<7>(BEPot[x][i]));
 				if (MatchFullP)
 				{
+					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPot[x][i]), x, false);
+					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), true, false);
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), false, false);
 				}
 			}
@@ -427,7 +432,6 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aMu, bMu);
 		for (int i = 0; i < BEPot[x].size(); i++)
 		{
-			std::cout << x << " " << i << std::endl;
 			bool OEIPotential = false;
 			if (std::get<3>(BEPot[x][i]) == -1) OEIPotential = true;
 
@@ -436,8 +440,6 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, std::get<5>(BEPot[x][i]));
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, std::get<6>(BEPot[x][i]));
 				
-				std::cout << "INT " << std::get<1>(BEPot[x][i]) << std::endl;
-				std::cout << "IND " << Ind1 << " " << Ind2 << std::endl;
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]));
 				if (MatchFullP)
 				{
@@ -456,7 +458,11 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), std::get<6>(BEPot[x][i]), std::get<7>(BEPot[x][i]));
 				if (MatchFullP)
 				{
+					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPot[x][i]), x, false);
+					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), true, false);
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPot[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPot[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPot[x][i]), false, false);
 				}
 			}
@@ -486,6 +492,8 @@ void Bootstrap::UpdateFCIs()
 				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), false);
 				}
 			}
@@ -499,7 +507,11 @@ void Bootstrap::UpdateFCIs()
 				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
+					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, false);
+					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), true, false);
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
 					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
 				}
 			}
@@ -814,17 +826,33 @@ Eigen::VectorXd Bootstrap::BEToVector()
 //	ChemicalPotential = Mu;
 //}
 
+void Bootstrap::PrintBEPotential()
+{
+	std::cout << "BE Site Potential:" << std::endl;
+	for (int x = 0; x < NumFrag; x++)
+	{
+		for (int i = 0; i < BEPotential[x].size(); i++)
+		{
+			std::cout << x << " " << i << " " << std::get<5>(BEPotential[x][i]) << std::endl;
+		}
+	}
+}
+
 void Bootstrap::OptMu()
 {
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
-	for (int x = 0; x < NumFrag; x++)
-	{
-		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
-		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
-	}
+	// for (int x = 0; x < NumFrag; x++)
+	// {
+	// 	aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+	// 	bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+	// }
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 	std::vector<double> LMu(2);
 	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+	std::cout << "Starting Mu cost = " << LMu[0] << " " << LMu[1] << std::endl;
+	std::cout << "START MU = " << aChemicalPotential << " " << bChemicalPotential << std::endl;
 
 	while(fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
 	{
@@ -845,7 +873,14 @@ void Bootstrap::OptMu()
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << "Mu Cost = " << LMu[0] << " " << LMu[1] << " for " << aChemicalPotential << " " << bChemicalPotential << std::endl;
 	}
+	std::cout << "END MU = " << aChemicalPotential << " " << bChemicalPotential << std::endl;
+	aOneRDMs.clear();
+	bOneRDMs.clear();
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	std::cout << "END LMU = " << LMu[0] << " " << LMu[1] << std::endl;
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
