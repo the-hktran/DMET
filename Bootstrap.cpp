@@ -842,17 +842,14 @@ void Bootstrap::OptMu()
 {
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
-	// for (int x = 0; x < NumFrag; x++)
-	// {
-	// 	aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
-	// 	bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
-	// }
-	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+	for (int x = 0; x < NumFrag; x++)
+	{
+		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+	}
+	// CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 	std::vector<double> LMu(2);
 	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-
-	std::cout << "Starting Mu cost = " << LMu[0] << " " << LMu[1] << std::endl;
-	std::cout << "START MU = " << aChemicalPotential << " " << bChemicalPotential << std::endl;
 
 	while(fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
 	{
@@ -873,14 +870,11 @@ void Bootstrap::OptMu()
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << "Mu Cost = " << LMu[0] << " " << LMu[1] << " for " << aChemicalPotential << " " << bChemicalPotential << std::endl;
 	}
-	std::cout << "END MU = " << aChemicalPotential << " " << bChemicalPotential << std::endl;
 	aOneRDMs.clear();
 	bOneRDMs.clear();
 	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-	std::cout << "END LMU = " << LMu[0] << " " << LMu[1] << std::endl;
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
@@ -905,9 +899,6 @@ void Bootstrap::OptLambda()
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
-		std::cout << "Lambda Error: " << f.squaredNorm() << std::endl;
-		// std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
-		// *Output << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
