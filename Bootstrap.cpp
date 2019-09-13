@@ -692,7 +692,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / ((dLambda + dLambda) / 2.0);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / ((dLambda + dLambda) / 4.0);
 				// std::cout << "j = " << j << std::endl;
 				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
 			}
