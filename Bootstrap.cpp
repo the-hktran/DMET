@@ -861,8 +861,8 @@ void Bootstrap::OptMu()
 		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition);
 		double dLa, dLb;
 
-		dLa = (LMuPlus[0] - LMu[0]) / (dMu / 2); // I think there's a factor of 2 somewhere, but I don't know why it's here except that it works.
-		dLb = (LMuPlus[1] - LMu[1]) / (dMu / 2);
+		dLa = (LMuPlus[0] - LMu[0]) / (dMu / 4.0); // I think there's a factor of 2 somewhere, but I don't know why it's here except that it works.
+		dLb = (LMuPlus[1] - LMu[1]) / (dMu / 4.0);
 
 		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
 		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
@@ -870,6 +870,7 @@ void Bootstrap::OptMu()
 		bOneRDMs.clear();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << "BE-DMET: Mu Loss = " << LMu[0] << "\t" << LMu[1] << std::endl;
 	}
 	aOneRDMs.clear();
 	bOneRDMs.clear();
@@ -884,8 +885,7 @@ void Bootstrap::OptLambda()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
-	// int NRIteration = 1;
-
+	// int SitePotentialIteration = 0;
 	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
 	if (f.squaredNorm() < 1E-8) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
 	{
@@ -893,12 +893,19 @@ void Bootstrap::OptLambda()
 	}
 	while (f.squaredNorm() > 1E-8)
 	{
+		// SitePotentialIteration++;
 		// std::cout << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl;
 		// *Output << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl; 
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 		J = CalcJacobian(f); // Update here to check the loss.
+		// if (SitePotentialIteration / 5 > 1)
+		// {
+		// 	int RandoFactor = SitePotentialIteration / 5;
+		// 	J = J / std::pow(2.0, RandoFactor);
+		// }
+		std::cout << "BE-DMET: Lambda Loss = " << f.squaredNorm() << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
@@ -1031,6 +1038,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
+	CalcBEEnergy();
 	NewtonRaphson();
 	BEEnergy = CalcBEEnergy();
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
@@ -1056,18 +1064,18 @@ double Bootstrap::CalcBEEnergy()
 	double FragEnergy;
 	if (isTS)
 	{
-		std::vector<int> aBECenterIndex, bBECenterIndex;
-		for (int i = 0; i < aBECenterPosition[1].size(); i++)
-		{
-			int idx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
-			aBECenterIndex.push_back(idx);
-		}
-		for (int i = 0; i < bBECenterPosition[1].size(); i++)
-		{
-			int idx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
-			bBECenterIndex.push_back(idx);
-		}
-		FragEnergy = FCIs[1].calcImpurityEnergy(FragState[1], aBECenterIndex, bBECenterIndex);
+		// std::vector<int> aBECenterIndex, bBECenterIndex;
+		// for (int i = 0; i < aBECenterPosition[1].size(); i++)
+		// {
+		// 	int idx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
+		// 	aBECenterIndex.push_back(idx);
+		// }
+		// for (int i = 0; i < bBECenterPosition[1].size(); i++)
+		// {
+		// 	int idx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
+		// 	bBECenterIndex.push_back(idx);
+		// }
+		FragEnergy = FCIs[1].calcImpurityEnergy(FragState[1], aBECenterIndex[1], bBECenterIndex[1]);
 
 		return FragEnergy * TrueNumFrag + Input.Integrals["0 0 0 0"];
 	}
@@ -1081,18 +1089,18 @@ double Bootstrap::CalcBEEnergy()
 		}
 		
 		std::vector<Eigen::MatrixXd> OneRDM;
-		std::vector<int> aBECenterIndex, bBECenterIndex;
-		for (int i = 0; i < aBECenterPosition[x].size(); i++)
-		{
-			int idx = OrbitalToReducedIndex(aBECenterPosition[x][i], x, true);
-			aBECenterIndex.push_back(idx);
-		}
-		for (int i = 0; i < bBECenterPosition[x].size(); i++)
-		{
-			int idx = OrbitalToReducedIndex(bBECenterPosition[x][i], x, false);
-			bBECenterIndex.push_back(idx);
-		}
-		FragEnergy = FCIs[x].calcImpurityEnergy(FragState[x], aBECenterIndex, bBECenterIndex);
+		// std::vector<int> aBECenterIndex, bBECenterIndex;
+		// for (int i = 0; i < aBECenterPosition[x].size(); i++)
+		// {
+		// 	int idx = OrbitalToReducedIndex(aBECenterPosition[x][i], x, true);
+		// 	aBECenterIndex.push_back(idx);
+		// }
+		// for (int i = 0; i < bBECenterPosition[x].size(); i++)
+		// {
+		// 	int idx = OrbitalToReducedIndex(bBECenterPosition[x][i], x, false);
+		// 	bBECenterIndex.push_back(idx);
+		// }
+		FragEnergy = FCIs[x].calcImpurityEnergy(FragState[x], aBECenterIndex[x], bBECenterIndex[x]);
 		Energy += FragEnergy;
 		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
