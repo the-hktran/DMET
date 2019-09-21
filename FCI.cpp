@@ -2,6 +2,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <Eigen/Eigenvalues>
+#include <Eigen/Core>
 #include <vector>
 #include <cmath>
 #include <tuple>
@@ -489,6 +490,119 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
     ENuc = ERIMap["0 0 0 0"];
 }
 
+// void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList)
+// {
+//     doUnrestricted = true;
+
+//     int aN = aActiveList.size();
+//     aOEI = new double[aN * aN];
+//     aaTEI = new double[aN * aN * aN * aN];
+//     aOEIPlusCore = new double[aN * aN];
+//     double Vcudu2MinusVcuud = 0.0;
+//     for (int i = 0; i < aN; i++)
+//     {
+//         for (int j = 0; j < aN; j++)
+//         {
+//             aOEI[i * aN + j] = OneElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[j]);
+//             for (int k = 0; k < aN; k++)
+//             {
+//                 for (int l = 0; l < aN; l++)
+//                 {
+//                     // std::cout << i << "\t" << j << "\t" << k << "\t" << l << std::endl;
+//                     aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
+//                 }
+//             }
+//             Vcudu2MinusVcuud = 0.0;
+//             for (int u = 0; u < aCoreList.size(); u++)
+//             {
+//                 // Add alpha part
+//                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
+//             }
+//             for (int u = 0; u < bCoreList.size(); u++)
+//             {
+//                 // Add beta part
+//                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bCoreList[u], aActiveList[j], bCoreList[u]);
+//             }
+//             aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
+//         }
+//     }
+
+//     int bN = bActiveList.size();
+//     bOEI = new double[bN * bN];
+//     bbTEI = new double[bN * bN * bN * bN];
+//     bOEIPlusCore = new double[bN * bN];
+//     for (int i = 0; i < bN; i++)
+//     {
+//         for (int j = 0; j < bN; j++)
+//         {
+//             bOEI[i * bN + j] = OneElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[j]);
+//             for (int k = 0; k < bN; k++)
+//             {
+//                 for (int l = 0; l < bN; l++)
+//                 {
+//                     bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[k], bActiveList[j], bActiveList[l]);
+//                 }
+//             }
+//             Vcudu2MinusVcuud = 0.0;
+//             for (int u = 0; u < bCoreList.size(); u++)
+//             {
+//                 // Add beta part
+//                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
+//             }
+//             for (int u = 0; u < aCoreList.size(); u++)
+//             {
+//                 // Add alpha part
+//                 Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, aRotationMatrix, bActiveList[i], aCoreList[u], bActiveList[j], aCoreList[u]);
+//             }
+//             bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
+//         }
+//     }
+
+//     abTEI = new double[aN * bN * aN * bN];
+//     for (int i = 0; i < aN; i++)
+//     {
+//         for (int j = 0; j < bN; j++)
+//         {
+//             for (int k = 0; k < aN; k++)
+//             {
+//                 for (int l = 0; l < bN; l++)
+//                 {
+//                      // Something is wrong here, indices don't add up.
+//                     abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
+//                 }
+//             }
+//         }
+//     }
+
+//     ENuc = ERIMap["0 0 0 0"];
+// }
+
+Eigen::MatrixXd ReduceERI(std::map<std::string, double> &ERIMap, int NumAO, int k, int l)
+{
+    Eigen::MatrixXd X(NumAO, NumAO);
+    for (int i = 0; i < NumAO; i++)
+    {
+        for (int j = 0; j < NumAO; j++)
+        {
+            X(i, j) = ERIMap[std::to_string(i + 1) + " " + std::to_string(j + 1) + " " + std::to_string(k + 1) + " " + std::to_string(l + 1)];
+        }
+    }
+    return X;
+}
+
+Eigen::MatrixXd RotateMatrix(Eigen::MatrixXd X, Eigen::MatrixXd R, std::vector<int> RIdx)
+{
+    Eigen::MatrixXd C = R(Eigen::all, RIdx);
+    return C.transpose() * X * C;
+}
+
+Eigen::MatrixXd RotateMatrix(Eigen::MatrixXd X, Eigen::MatrixXd R, std::vector<int> RIdx1, std::vector<int> RIdx2)
+{
+    Eigen::MatrixXd C1 = R(Eigen::all, RIdx1);
+    Eigen::MatrixXd C2 = R(Eigen::all, RIdx2);
+    return C1.transpose() * X * C2;
+}
+
 void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd aRotationMatrix, Eigen::MatrixXd bRotationMatrix, std::vector<int> aActiveList, std::vector<int> bActiveList)
 {
     doUnrestricted = true;
@@ -497,80 +611,187 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
     aOEI = new double[aN * aN];
     aaTEI = new double[aN * aN * aN * aN];
     aOEIPlusCore = new double[aN * aN];
-    double Vcudu2MinusVcuud = 0.0;
+   
+    int bN = bActiveList.size();
+    bOEI = new double[bN * bN];
+    bbTEI = new double[bN * bN * bN * bN];
+    bOEIPlusCore = new double[bN * bN];
+
+    abTEI = new double[aN * aN * bN * bN];
+
+    std::vector< std::vector<Eigen::MatrixXd> > aVmmaa;
+    std::vector< std::vector<Eigen::MatrixXd> > aVmmaaCore;
+    int aNCore = aCoreList.size();
+    int bNCore = bCoreList.size();
+    int NumAO = aRotationMatrix.rows();
+
+    for (int i = 0; i < NumAO; i++)
+    {
+        std::vector<Eigen::MatrixXd> tmpVecMat;
+        std::vector<Eigen::MatrixXd> tmpVecMatCore;
+        for (int j = 0; j < NumAO; j++)
+        {
+            tmpVecMat.push_back(Eigen::MatrixXd::Zero(aN, aN));
+            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(aNCore, aNCore));
+        }
+        aVmmaa.push_back(tmpVecMat);
+        aVmmaaCore.push_back(tmpVecMatCore);
+    }
+
+    for (int i = 0; i < NumAO; i++)
+    {
+        for (int j = 0; j < NumAO; j++)
+        {
+            Eigen::MatrixXd X = ReduceERI(ERIMap, NumAO, i, j);
+            Eigen::MatrixXd Y = RotateMatrix(X, aRotationMatrix, aActiveList);
+            aVmmaa[i][j] = Y;
+
+            Eigen::MatrixXd YCore = RotateMatrix(X, aRotationMatrix, aActiveList, aCoreList);
+            aVmmaaCore[i][j] = YCore;
+        }
+    }
+
     for (int i = 0; i < aN; i++)
     {
         for (int j = 0; j < aN; j++)
         {
             aOEI[i * aN + j] = OneElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[j]);
+            Eigen::MatrixXd X(NumAO, NumAO);
+            for (int a = 0; a < NumAO; a++)
+            {
+                for (int b = 0; b < NumAO; b++)
+                {
+                    X(a, b) = aVmmaa[a][b].coeffRef(i, j);
+                }
+            }
+            Eigen::MatrixXd Y = RotateMatrix(X, aRotationMatrix, aActiveList);
+
             for (int k = 0; k < aN; k++)
             {
                 for (int l = 0; l < aN; l++)
                 {
-                    // std::cout << i << "\t" << j << "\t" << k << "\t" << l << std::endl;
-                    aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aActiveList[k], aActiveList[j], aActiveList[l]);
+                    aaTEI[i * aN * aN * aN + j * aN * aN + k * aN + l] = Y.coeffRef(k, l);
                 }
             }
-            Vcudu2MinusVcuud = 0.0;
-            for (int u = 0; u < aCoreList.size(); u++)
-            {
-                // Add alpha part
-                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aActiveList[j], aCoreList[u]) - TwoElectronEmbedding(ERIMap, aRotationMatrix, aActiveList[i], aCoreList[u], aCoreList[u], aActiveList[j]);
-            }
-            for (int u = 0; u < bCoreList.size(); u++)
-            {
-                // Add beta part
-                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bCoreList[u], aActiveList[j], bCoreList[u]);
-            }
-            aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + Vcudu2MinusVcuud;
-        }
-    }
 
-    int bN = bActiveList.size();
-    bOEI = new double[bN * bN];
-    bbTEI = new double[bN * bN * bN * bN];
-    bOEIPlusCore = new double[bN * bN];
-    for (int i = 0; i < bN; i++)
-    {
-        for (int j = 0; j < bN; j++)
-        {
-            bOEI[i * bN + j] = OneElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[j]);
+            Eigen::MatrixXd bY = RotateMatrix(X, bRotationMatrix, bActiveList);
             for (int k = 0; k < bN; k++)
             {
                 for (int l = 0; l < bN; l++)
                 {
-                    bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[k], bActiveList[j], bActiveList[l]);
+                    abTEI[i * aN * bN * bN + j * bN * bN + k * bN + l] = bY.coeffRef(k, l);
                 }
             }
-            Vcudu2MinusVcuud = 0.0;
-            for (int u = 0; u < bCoreList.size(); u++)
-            {
-                // Add beta part
-                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bActiveList[j], bCoreList[u]) - TwoElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bCoreList[u], bCoreList[u], bActiveList[j]);
-            }
-            for (int u = 0; u < aCoreList.size(); u++)
-            {
-                // Add alpha part
-                Vcudu2MinusVcuud += TwoElectronEmbedding(ERIMap, bRotationMatrix, aRotationMatrix, bActiveList[i], aCoreList[u], bActiveList[j], aCoreList[u]);
-            }
-            bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + Vcudu2MinusVcuud;
+
+            Eigen::MatrixXd aYCore = RotateMatrix(X, aRotationMatrix, aCoreList);
+            Eigen::MatrixXd bYCore = RotateMatrix(X, bRotationMatrix, bCoreList);
+            aOEIPlusCore[i * aN + j] = aOEI[i * aN + j] + aYCore.trace() + bYCore.trace();
         }
     }
 
-    abTEI = new double[aN * bN * aN * bN];
     for (int i = 0; i < aN; i++)
     {
-        for (int j = 0; j < bN; j++)
+        for (int j = 0; j < aNCore; j++)
         {
+            Eigen::MatrixXd X(NumAO, NumAO);
+            for (int a = 0; a < NumAO; a++)
+            {
+                for (int b = 0; b < NumAO; b++)
+                {
+                    X(a, b) = aVmmaaCore[a][b].coeffRef(i, j);
+                }
+            }
+            Eigen::MatrixXd Y = RotateMatrix(X, aRotationMatrix, aCoreList, aActiveList);
             for (int k = 0; k < aN; k++)
             {
-                for (int l = 0; l < bN; l++)
-                {
-                    abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
-                }
+                aOEIPlusCore[i * aN + k] -= Y.coeffRef(j, k);
             }
         }
     }
+
+    aVmmaa.clear();
+    aVmmaaCore.clear();
+
+    std::vector< std::vector<Eigen::MatrixXd> > bVmmaa;
+    std::vector< std::vector<Eigen::MatrixXd> > bVmmaaCore;
+    
+    for (int i = 0; i < NumAO; i++)
+    {
+        std::vector<Eigen::MatrixXd> tmpVecMat;
+        std::vector<Eigen::MatrixXd> tmpVecMatCore;
+        for (int j = 0; j < NumAO; j++)
+        {
+            tmpVecMat.push_back(Eigen::MatrixXd::Zero(bN, bN));
+            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(bNCore, bNCore));
+        }
+        bVmmaa.push_back(tmpVecMat);
+        bVmmaaCore.push_back(tmpVecMatCore);
+    }
+
+    for (int i = 0; i < NumAO; i++)
+    {
+        for (int j = 0; j < NumAO; j++)
+        {
+            Eigen::MatrixXd X = ReduceERI(ERIMap, NumAO, i, j);
+            Eigen::MatrixXd Y = RotateMatrix(X, bRotationMatrix, bActiveList);
+            bVmmaa[i][j] = Y;
+
+            Eigen::MatrixXd YCore = RotateMatrix(X, bRotationMatrix, bActiveList, bCoreList);
+            bVmmaaCore[i][j] = YCore;
+        }
+    }
+
+    for (int i = 0; i < bN; i++)
+    {
+        for (int j = 0; j < bN; j++)
+        {
+            bOEI[i * bN + j] = OneElectronEmbedding(ERIMap, bRotationMatrix, bActiveList[i], bActiveList[j]); 
+            Eigen::MatrixXd X(NumAO, NumAO);
+            for (int a = 0; a < NumAO; a++)
+            {
+                for (int b = 0; b < NumAO; b++)
+                {
+                    X(a, b) = bVmmaa[a][b].coeffRef(i, j);
+                }
+            }
+            Eigen::MatrixXd Y = RotateMatrix(X, bRotationMatrix, bActiveList);
+
+            for (int k = 0; k < bN; k++)
+            {
+                for (int l = 0; l < bN; l++)
+                {
+                    bbTEI[i * bN * bN * bN + j * bN * bN + k * bN + l] = Y.coeffRef(k, l);
+                }
+            }
+
+            Eigen::MatrixXd aYCore = RotateMatrix(X, aRotationMatrix, aCoreList);
+            Eigen::MatrixXd bYCore = RotateMatrix(X, bRotationMatrix, bCoreList);
+            bOEIPlusCore[i * bN + j] = bOEI[i * bN + j] + aYCore.trace() + bYCore.trace();
+        }
+    }
+
+    for (int i = 0; i < bN; i++)
+    {
+        for (int j = 0; j < bNCore; j++)
+        {
+            Eigen::MatrixXd X(NumAO, NumAO);
+            for (int a = 0; a < NumAO; a++)
+            {
+                for (int b = 0; b < NumAO; b++)
+                {
+                    X(a, b) = aVmmaaCore[a][b].coeffRef(i, j);
+                }
+            }
+            Eigen::MatrixXd Y = RotateMatrix(X, bRotationMatrix, bCoreList, bActiveList);
+            for (int k = 0; k < bN; k++)
+            {
+                bOEIPlusCore[i * bN + k] -= Y.coeffRef(j, k);
+            }
+        }
+    }
+
+    bVmmaa.clear();
+    bVmmaaCore.clear();
 
     ENuc = ERIMap["0 0 0 0"];
 }
