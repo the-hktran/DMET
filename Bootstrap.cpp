@@ -1001,6 +1001,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 
 		FCI xFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
 		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
+		if (x == 1) xFCI.PrintERI(true);
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
 		FCIs.push_back(xFCI);

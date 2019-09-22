@@ -632,7 +632,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
         for (int j = 0; j < NumAO; j++)
         {
             tmpVecMat.push_back(Eigen::MatrixXd::Zero(aN, aN));
-            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(aNCore, aNCore));
+            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(aNCore, aN));
         }
         aVmmaa.push_back(tmpVecMat);
         aVmmaaCore.push_back(tmpVecMatCore);
@@ -714,7 +714,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
 
     std::vector< std::vector<Eigen::MatrixXd> > bVmmaa;
     std::vector< std::vector<Eigen::MatrixXd> > bVmmaaCore;
-    
+
     for (int i = 0; i < NumAO; i++)
     {
         std::vector<Eigen::MatrixXd> tmpVecMat;
@@ -722,7 +722,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
         for (int j = 0; j < NumAO; j++)
         {
             tmpVecMat.push_back(Eigen::MatrixXd::Zero(bN, bN));
-            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(bNCore, bNCore));
+            tmpVecMatCore.push_back(Eigen::MatrixXd::Zero(bNCore, bN));
         }
         bVmmaa.push_back(tmpVecMat);
         bVmmaaCore.push_back(tmpVecMatCore);
@@ -779,7 +779,7 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd a
             {
                 for (int b = 0; b < NumAO; b++)
                 {
-                    X(a, b) = aVmmaaCore[a][b].coeffRef(i, j);
+                    X(a, b) = bVmmaaCore[a][b].coeffRef(i, j);
                 }
             }
             Eigen::MatrixXd Y = RotateMatrix(X, bRotationMatrix, bCoreList, bActiveList);
