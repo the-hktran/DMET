@@ -561,14 +561,15 @@ void FCI::ERIMapToArray(std::map<std::string, double> &ERIMap, Eigen::MatrixXd R
 //     abTEI = new double[aN * bN * aN * bN];
 //     for (int i = 0; i < aN; i++)
 //     {
-//         for (int j = 0; j < bN; j++)
+//         for (int j = 0; j < aN; j++)
 //         {
-//             for (int k = 0; k < aN; k++)
+//             for (int k = 0; k < bN; k++)
 //             {
 //                 for (int l = 0; l < bN; l++)
 //                 {
-//                      // Something is wrong here, indices don't add up.
-//                     abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
+//                     // Something is wrong here, indices don't add up.
+//                     //abTEI[i * bN * aN * bN + j * aN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
+//                     abTEI[i * aN * bN * bN + j * bN * bN + k * bN + l] = TwoElectronEmbedding(ERIMap, aRotationMatrix, bRotationMatrix, aActiveList[i], bActiveList[k], aActiveList[j], bActiveList[l]);
 //                 }
 //             }
 //         }

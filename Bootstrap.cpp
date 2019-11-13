@@ -522,6 +522,54 @@ void Bootstrap::UpdateFCIs()
 	}
 }
 
+void Bootstrap::UpdateFCIsE()
+{
+	FCIs.clear();
+	for (int x = 0; x < NumFrag; x++)
+	{
+		FCI xFCI(FCIsBase[x]); // First, reset FCI
+		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential / 2.0, bChemicalPotential / 2.0);
+		for (int i = 0; i < BEPotential[x].size(); i++)
+		{
+			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
+			if (isOEI)
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+
+				xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]));
+				if (MatchFullP)
+				{
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
+					xFCI.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]), false);
+				}
+			}
+			else
+			{
+				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
+				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
+				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
+
+				xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+				if (MatchFullP)
+				{
+					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, false);
+					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, false);
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), true, false);
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
+					xFCI.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]), false, false);
+				}
+			}
+		}
+		xFCI.runFCI();
+		xFCI.getSpecificRDM(FragState[x], true);
+		FCIs.push_back(xFCI);
+	}
+}
+
 std::vector< double > Bootstrap::FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> > DensityReference, std::vector<Eigen::MatrixXd> IterDensity, int FragmentIndex)
 {
 	std::vector< double > AllLosses;
@@ -692,7 +740,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / ((dLambda + dLambda) / 4.0);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
 				// std::cout << "j = " << j << std::endl;
 				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
 			}
@@ -838,44 +886,105 @@ void Bootstrap::PrintBEPotential()
 	}
 }
 
+// void Bootstrap::OptMu()
+// {
+// 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
+// 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+// 	for (int x = 0; x < NumFrag; x++)
+// 	{
+// 		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+// 		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+// 	}
+// 	// CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+// 	std::vector<double> LMu(2);
+// 	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+// 	while(fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
+// 	{
+// 		std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
+// 		// std::cout << "Mu = " << aChemicalPotential + dMu << std::endl;
+// 		double aMuPlus = aChemicalPotential + dMu;
+// 		double bMuPlus = bChemicalPotential + dMu;
+// 		CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, BEPotential, aMuPlus, bMuPlus);
+// 		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition);
+// 		double dLa, dLb;
+
+// 		dLa = (LMuPlus[0] - LMu[0]) / (dMu / 2.0); // I think there's a factor of 2 somewhere, but I don't know why it's here except that it works.
+// 		dLb = (LMuPlus[1] - LMu[1]) / (dMu / 2.0);
+
+// 		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
+// 		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
+// 		aOneRDMs.clear();
+// 		bOneRDMs.clear();
+// 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+// 		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+// 		std::cout << "BE-DMET: Mu Loss = " << LMu[0] << "\t" << LMu[1] << std::endl;
+// 	}
+// 	aOneRDMs.clear();
+// 	bOneRDMs.clear();
+// 	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
+// 	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+// 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
+// }
+
+// Optimization of the chemical potential using secant method.
 void Bootstrap::OptMu()
 {
+	double MuTol = 1E-12;
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
-	for (int x = 0; x < NumFrag; x++)
+
+	double aX2 = 0.001;
+	double bX2 = 0.001;
+	double aX1 = -0.001;
+	double bX1 = -0.001;
+
+	std::vector<double> L1(2), L2(2);
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX1, bX1);
+	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	L2[0] = 1.0; L2[1] = 1.0;
+
+	while (true)
 	{
-		aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
-		bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
-	}
-	// CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
-	std::vector<double> LMu(2);
-	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-
-	while(fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
-	{
-		std::vector<Eigen::MatrixXd> aOneRDMsPlusdMu, bOneRDMsPlusdMu;
-		// std::cout << "Mu = " << aChemicalPotential + dMu << std::endl;
-		double aMuPlus = aChemicalPotential + dMu;
-		double bMuPlus = bChemicalPotential + dMu;
-		CollectRDM(aOneRDMsPlusdMu, bOneRDMsPlusdMu, BEPotential, aMuPlus, bMuPlus);
-		std::vector<double> LMuPlus = CalcCostChemPot(aOneRDMsPlusdMu, bOneRDMsPlusdMu, aBECenterPosition, bBECenterPosition);
-		double dLa, dLb;
-
-		dLa = (LMuPlus[0] - LMu[0]) / (dMu / 4.0); // I think there's a factor of 2 somewhere, but I don't know why it's here except that it works.
-		dLb = (LMuPlus[1] - LMu[1]) / (dMu / 4.0);
-
-		aChemicalPotential = aChemicalPotential - LMu[0] / dLa;
-		bChemicalPotential = bChemicalPotential - LMu[1] / dLb;
 		aOneRDMs.clear();
 		bOneRDMs.clear();
-		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
-		LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << "BE-DMET: Mu Loss = " << LMu[0] << "\t" << LMu[1] << std::endl;
+		aChemicalPotential = aX2; bChemicalPotential = bX2;
+		UpdateFCIs();
+		for (int x = 0; x < FCIs.size(); x++)
+		{
+			aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+			bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+		}
+		// CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX2, bX2);
+		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << "BE-DMET: Mu Loss = " << L1[0] << "\t" << L1[1] << std::endl;
+		std::cout << "BE-DMET: Mu Loss = " << L2[0] << "\t" << L2[1] << std::endl;
+		std::cout << aX1 << "\t" << bX1 << std::endl;
+		std::cout << aX2 << "\t" << bX2 << std::endl;
+		if (fabs(L2[0]) < MuTol && fabs(L2[1]) < MuTol) break;
+
+		double tmpDouble;
+		
+		if (fabs(L2[0]) > MuTol)
+		{
+			tmpDouble = aX2;
+			aX2 = (aX1 * L2[0] - aX2 * L1[0]) / (L2[0] - L1[0]);
+			aX1 = tmpDouble;
+		}
+
+		if (fabs(L2[1]) > MuTol)
+		{
+			tmpDouble = bX2;
+			bX2 = (bX1 * L2[1] - bX2 * L1[1]) / (L2[1] - L1[1]);
+			bX1 = tmpDouble;
+		}
+		std::cout << aX2 << "\t" << bX2 << std::endl;
+
+		L1 = L2;
 	}
-	aOneRDMs.clear();
-	bOneRDMs.clear();
-	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aChemicalPotential, bChemicalPotential);
-	LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+	aChemicalPotential = aX2;
+	bChemicalPotential = bX2;
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
@@ -923,7 +1032,7 @@ void Bootstrap::NewtonRaphson()
 	LMu[0] = 1.0;
 	LMu[1] = 1.0;
 
-	while (fabs(LMu[0]) > 1E-8 || fabs(LMu[1]) > 1E-8)
+	while (fabs(LMu[0]) > 1E-6 || fabs(LMu[1]) > 1E-6)
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
@@ -994,6 +1103,26 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		bFragPos.push_back(xbFragPos);
 		aBathPos.push_back(xaBathPos);
 		bBathPos.push_back(xbBathPos);
+		// if (x > 3 && x < 8)
+		// {
+		// 	std::cout << "x = " << x << std::endl;
+		// 	for (int i = 0; i < xaFragPos.size(); i++)
+		// 	{
+		// 		std::cout << "aFrag = " << xaFragPos[i] << std::endl;
+		// 	}
+		// 	for (int i = 0; i < xaBathPos.size(); i++)
+		// 	{
+		// 		std::cout << "aBath = " << xaBathPos[i] << std::endl;
+		// 	}
+		// 	for (int i = 0; i < xbFragPos.size(); i++)
+		// 	{
+		// 		std::cout << "bFrag = " << xbFragPos[i] << std::endl;
+		// 	}
+		// 	for (int i = 0; i < xbBathPos.size(); i++)
+		// 	{
+		// 		std::cout << "bBath = " << xbBathPos[i] << std::endl;
+		// 	}
+		// }
 
 		std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
         GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
@@ -1001,9 +1130,13 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 
 		FCI xFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
 		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
-		if (x == 1) xFCI.PrintERI(true);
 		xFCI.runFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
+		// if (x == 1 || x == 5)
+		// {
+		// 	std::cout << "xFCI " << x << std::endl;
+		// 	xFCI.PrintERI(true);
+		// }
 		FCIs.push_back(xFCI);
 	}
 
@@ -1039,8 +1172,17 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	CalcBEEnergy();
+	OptMu();
+	// UpdateFCIsE();
+	aChemicalPotential = 0.0008008402;
+	bChemicalPotential = 0.0008008402;
+	UpdateFCIs();
+	double OneShotE = CalcBEEnergy();
+	std::cout << "BE-DMET: BE0 Energy = " << OneShotE << std::endl;
+	Output << "DMET Energy = " << OneShotE << std::endl;
+	return;
 	NewtonRaphson();
+	UpdateFCIsE();
 	BEEnergy = CalcBEEnergy();
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	Output << "DMET Energy = " << BEEnergy << std::endl;

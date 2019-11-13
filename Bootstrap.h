@@ -102,6 +102,7 @@ private:
 	double CalcBEEnergy();
 	void CollectInputs();
 	void UpdateFCIs();
+	void UpdateFCIsE();
 	void PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> >);
 	void PrintBEPotential();
 }; 
