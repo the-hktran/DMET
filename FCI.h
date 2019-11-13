@@ -96,7 +96,8 @@ class FCI
         void getSpecificRDM(int, bool);
         void getRDM(bool);
         double calcImpurityEnergy(int, std::vector<int>, std::vector<int>);
-        double calcImpurityEnergy(int, std::vector<int>);
+        double calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vector<int> bFragPos, Eigen::MatrixXd aP, Eigen::MatrixXd bP, std::vector<double> aaG, std::vector<double> abG, std::vector<double> bbG);
+	double calcImpurityEnergy(int, std::vector<int>);
         void CalcE1E2(int);
         Eigen::MatrixXd GenerateHamiltonian();
         void doSigmaFCI(double);

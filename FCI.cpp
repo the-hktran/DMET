@@ -1123,6 +1123,98 @@ void FCI::getRDM(bool calc2RDM)
     }
 }
 
+double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vector<int> bFragPos, Eigen::MatrixXd aP, Eigen::MatrixXd bP, std::vector<double> aaG, std::vector<double> abG, std::vector<double> bbG)
+{
+    double ImpEnergy = 0.0;
+    double aE1 = 0.0;
+    double aaE2 = 0.0;
+    double bE1 = 0.0;
+    double bbE2 = 0.0;
+    double abE2 = 0.0;
+
+    int N = aActive;
+    __s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
+    for (int i = 0; i < aFragPos.size(); i++)
+    {
+        int iIdx = aFragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    if (doUnrestricted)
+                    {
+                        ImpEnergy += 1.0 * aaG[ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)]
+                                   + 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                        aaE2 += 1.0 * aaG[ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                        abE2 += 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                    }
+                    else
+                    {
+                        ImpEnergy += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                        aaE2 += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * aaTEI[ind4(iIdx, j, k, l)];
+                    }
+                }
+            }
+            if (doUnrestricted)
+            {
+                ImpEnergy += 0.5 * aP(aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                aE1 += 0.5 * aP(aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+            }
+            else
+            {
+                ImpEnergy += 0.25 * OneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+                aE1 += 0.25 * OneRDMs[ImpState](aFragPos[i], j) * (aOEI[ind2(iIdx, j)] + aOEIPlusCore[ind2(iIdx, j)]);
+            }   
+        }
+    }
+
+    N = bActive;
+
+    for (int i = 0; i < bFragPos.size(); i++)
+    {
+        int iIdx = bFragPos[i];
+        for (int j = 0; j < N; j++)
+        {
+            for (int k = 0; k < N; k++)
+            {
+                for (int l = 0; l < N; l++)
+                {
+                    if (doUnrestricted)
+                    {
+                        ImpEnergy += 1.0 * bbG[ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
+                                   + 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                        bbE2 += 1.0 * bbG[ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                        abE2 += 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                    }
+                    else
+                    {
+                        ImpEnergy += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                        bbE2 += 0.25 * TwoRDMs[ImpState][ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
+                    }
+                }
+            }
+            if (doUnrestricted)
+            {
+                ImpEnergy += 0.5 * bP(bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                bE1 += 0.5 * bP(bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+            }
+            else
+            {
+                ImpEnergy += 0.25 * OneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+                bE1 += 0.25 * OneRDMs[ImpState](bFragPos[i], j) * (bOEI[ind2(iIdx, j)] + bOEIPlusCore[ind2(iIdx, j)]);
+            }   
+        }
+    }
+
+    std::cout << "aE1 = " << aE1 << "\nbE1 = " << bE1 << "\naaE2 = " << aaE2 << "\nabE2 = " << abE2 << "\nbbE2 = " << bbE2 << std::endl;
+
+    return ImpEnergy;
+}
+
 double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vector<int> bFragPos)
 {
     double ImpEnergy = 0.0;

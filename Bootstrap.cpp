@@ -1182,7 +1182,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	Output << "DMET Energy = " << OneShotE << std::endl;
 	return;
 	NewtonRaphson();
-	UpdateFCIsE();
+	UpdateFCIs();
 	BEEnergy = CalcBEEnergy();
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	Output << "DMET Energy = " << BEEnergy << std::endl;
@@ -1243,7 +1243,7 @@ double Bootstrap::CalcBEEnergy()
 		// 	int idx = OrbitalToReducedIndex(bBECenterPosition[x][i], x, false);
 		// 	bBECenterIndex.push_back(idx);
 		// }
-		FragEnergy = FCIs[x].calcImpurityEnergy(FragState[x], aBECenterIndex[x], bBECenterIndex[x]);
+		FragEnergy = FCIsBase[x].calcImpurityEnergy(FragState[x], aBECenterIndex[x], bBECenterIndex[x], FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]]);
 		Energy += FragEnergy;
 		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
