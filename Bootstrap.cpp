@@ -740,7 +740,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Fill in J
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
+				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda) * 8.0;
 				// std::cout << "j = " << j << std::endl;
 				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
 			}
@@ -930,7 +930,7 @@ void Bootstrap::PrintBEPotential()
 // Optimization of the chemical potential using secant method.
 void Bootstrap::OptMu()
 {
-	double MuTol = 1E-12;
+	double MuTol = 1E-6;
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
@@ -948,19 +948,9 @@ void Bootstrap::OptMu()
 	{
 		aOneRDMs.clear();
 		bOneRDMs.clear();
-		aChemicalPotential = aX2; bChemicalPotential = bX2;
-		UpdateFCIs();
-		for (int x = 0; x < FCIs.size(); x++)
-		{
-			aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
-			bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
-		}
-		// CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX2, bX2);
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX2, bX2);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << "BE-DMET: Mu Loss = " << L1[0] << "\t" << L1[1] << std::endl;
 		std::cout << "BE-DMET: Mu Loss = " << L2[0] << "\t" << L2[1] << std::endl;
-		std::cout << aX1 << "\t" << bX1 << std::endl;
-		std::cout << aX2 << "\t" << bX2 << std::endl;
 		if (fabs(L2[0]) < MuTol && fabs(L2[1]) < MuTol) break;
 
 		double tmpDouble;
@@ -978,7 +968,6 @@ void Bootstrap::OptMu()
 			bX2 = (bX1 * L2[1] - bX2 * L1[1]) / (L2[1] - L1[1]);
 			bX1 = tmpDouble;
 		}
-		std::cout << aX2 << "\t" << bX2 << std::endl;
 
 		L1 = L2;
 	}
@@ -996,11 +985,11 @@ void Bootstrap::OptLambda()
 
 	// int SitePotentialIteration = 0;
 	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
-	if (f.squaredNorm() < 1E-8) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
+	if (fabs(f.sum()) < 1E-8) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
 	{
 		UpdateFCIs();
 	}
-	while (f.squaredNorm() > 1E-8)
+	while (fabs(f.sum()) > 1E-8)
 	{
 		// SitePotentialIteration++;
 		// std::cout << "BE-DMET: -- Running site potential iteration " << NRIteration << "." << std::endl;
@@ -1014,7 +1003,7 @@ void Bootstrap::OptLambda()
 		// 	int RandoFactor = SitePotentialIteration / 5;
 		// 	J = J / std::pow(2.0, RandoFactor);
 		// }
-		std::cout << "BE-DMET: Lambda Loss = " << f.squaredNorm() << std::endl;
+		std::cout << "BE-DMET: Lambda Loss = " << f.sum() << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.squaredNorm() << std::endl;
 }
@@ -1173,14 +1162,11 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// return;
 
 	OptMu();
-	// UpdateFCIsE();
-	aChemicalPotential = 0.0008008402;
-	bChemicalPotential = 0.0008008402;
 	UpdateFCIs();
 	double OneShotE = CalcBEEnergy();
+	// return;
 	std::cout << "BE-DMET: BE0 Energy = " << OneShotE << std::endl;
 	Output << "DMET Energy = " << OneShotE << std::endl;
-	return;
 	NewtonRaphson();
 	UpdateFCIs();
 	BEEnergy = CalcBEEnergy();
@@ -1218,7 +1204,7 @@ double Bootstrap::CalcBEEnergy()
 		// 	int idx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
 		// 	bBECenterIndex.push_back(idx);
 		// }
-		FragEnergy = FCIs[1].calcImpurityEnergy(FragState[1], aBECenterIndex[1], bBECenterIndex[1]);
+		FragEnergy = FCIsBase[1].calcImpurityEnergy(FragState[1], aBECenterIndex[1], bBECenterIndex[1], FCIs[1].aOneRDMs[FragState[1]], FCIs[1].bOneRDMs[FragState[1]], FCIs[1].aaTwoRDMs[FragState[1]], FCIs[1].abTwoRDMs[FragState[1]], FCIs[1].bbTwoRDMs[FragState[1]]);
 
 		return FragEnergy * TrueNumFrag + Input.Integrals["0 0 0 0"];
 	}
