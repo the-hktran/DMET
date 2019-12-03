@@ -297,8 +297,6 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 
 				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(bInd1Ref, bInd2Ref);
 				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) + bOneRDMIter.coeffRef(bInd1Iter, bInd2Iter);
-				std::cout << "aRef = " << aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) << std::endl;
-				std::cout << "aItr = " << aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) << std::endl;
 			}
 			else
 			{
@@ -351,7 +349,6 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 			}
 		}
 		Loss.push_back(PRef - PIter);
-		std::cout << PRef << "\t" << PIter << "\t" << PRef - PIter << std::endl;
 	}
 	return Loss;
 }
@@ -684,7 +681,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			FCI xFCIm(FCIsBase[x]);
 			xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 			xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
-			std::cout << "Lambda Opt Mu = " << aChemicalPotential << "\t" << bChemicalPotential << std::endl;
 			if (isOEI)
 			{
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
@@ -984,6 +980,7 @@ void Bootstrap::OptMu()
 
 	aChemicalPotential = aX2;
 	bChemicalPotential = bX2;
+	UpdateFCIs();
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
@@ -1040,14 +1037,8 @@ void Bootstrap::NewtonRaphson()
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
-		UpdateFCIs();
 		OptLambda();
-		for (int j = 0; j < NumFrag; j++)
-		{
-			std::cout << "aRDM " << j << std::endl;
-			std::cout << FCIs[j].aOneRDMs[FragState[j]] << std::endl;
-		}
-		
+
 		// Eigen::MatrixXd J;
 		// J = CalcJacobian(f);
 		LMu = CalcCostChemPot();
