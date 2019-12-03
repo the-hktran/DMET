@@ -95,6 +95,7 @@ private:
 	void NewtonRaphson();
 	void OptMu();
 	void OptLambda();
+	void LineSearch(Eigen::VectorXd&, Eigen::VectorXd);
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >);
 	std::vector<double> CalcCostChemPot();
