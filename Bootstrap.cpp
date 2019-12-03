@@ -297,6 +297,8 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 
 				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(bInd1Ref, bInd2Ref);
 				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) + bOneRDMIter.coeffRef(bInd1Iter, bInd2Iter);
+				std::cout << "aRef = " << aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) << std::endl;
+				std::cout << "aItr = " << aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) << std::endl;
 			}
 			else
 			{
@@ -349,6 +351,7 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 			}
 		}
 		Loss.push_back(PRef - PIter);
+		std::cout << PRef << "\t" << PIter << "\t" << PRef - PIter << std::endl;
 	}
 	return Loss;
 }
@@ -681,6 +684,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			FCI xFCIm(FCIsBase[x]);
 			xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 			xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
+			std::cout << "Lambda Opt Mu = " << aChemicalPotential << "\t" << bChemicalPotential << std::endl;
 			if (isOEI)
 			{
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
@@ -930,7 +934,6 @@ void Bootstrap::PrintBEPotential()
 // Optimization of the chemical potential using secant method.
 void Bootstrap::OptMu()
 {
-	double MuTol = 1E-6;
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
@@ -939,6 +942,13 @@ void Bootstrap::OptMu()
 	double aX1 = -0.001;
 	double bX1 = -0.001;
 
+	// if (fabs(aChemicalPotential) > MuTol)
+	// {
+	// 	aX2 = aChemicalPotential;
+	// 	bX2 = bChemicalPotential;
+	// 	aX1 = aX2 - 0.01;
+	// 	bX1 = bX2 - 0.01;
+	// }
 	std::vector<double> L1(2), L2(2);
 	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX1, bX1);
 	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -1024,17 +1034,23 @@ void Bootstrap::NewtonRaphson()
 
 	// Eigen::VectorXd f;
 
-	while (fabs(LMu[0]) > 1E-6 || fabs(LMu[1]) > 1E-6)
+	while (fabs(LMu[0]) > MuTol || fabs(LMu[1]) > MuTol)
 	// do
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
 		OptMu();
+		UpdateFCIs();
 		OptLambda();
+		for (int j = 0; j < NumFrag; j++)
+		{
+			std::cout << "aRDM " << j << std::endl;
+			std::cout << FCIs[j].aOneRDMs[FragState[j]] << std::endl;
+		}
 		
 		// Eigen::MatrixXd J;
 		// J = CalcJacobian(f);
-		// LMu = CalcCostChemPot();
+		LMu = CalcCostChemPot();
 		NRIteration++;
 	}
 	// while (fabs(f.sum()) > 1E-8);
@@ -1170,9 +1186,10 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// return;
 
 	OptMu();
-	// aChemicalPotential = 0.0028486200; bChemicalPotential = 0.0028486200;
+	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
-	// x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
+	// // x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
+	// x << -0.0004988821,-0.0014229979,-0.0004985315,-0.0014212909,-0.0014230472,-0.0004988732,-0.0004985309,-0.0014213258,-0.0014230368,-0.0004988654,-0.0004985473,-0.0014213229,-0.0014229710,-0.0004988727,-0.0004985547,-0.0014212512,-0.0014229484,-0.0004988830,-0.0004985439,-0.0014212074,-0.0014229747,-0.0004988907,-0.0014212326,-0.0004985321;
 	// VectorToBE(x);
 	UpdateFCIs();
 	double OneShotE = CalcBEEnergy();
@@ -1181,11 +1198,11 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// return;
 	NewtonRaphson();
 	UpdateFCIs();
-	// for (int j = 0; j < NumFrag; j++)
-	// {
-	// 	std::cout << "aRDM " << j << std::endl;
-	// 	std::cout << FCIs[j].aOneRDMs[FragState[j]] << std::endl;
-	// }
+	for (int j = 0; j < NumFrag; j++)
+	{
+		std::cout << "aRDM " << j << std::endl;
+		std::cout << FCIs[j].aOneRDMs[FragState[j]] << std::endl;
+	}
 	BEEnergy = CalcBEEnergy();
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	Output << "DMET Energy = " << BEEnergy << std::endl;
