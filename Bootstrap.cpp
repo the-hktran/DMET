@@ -292,8 +292,8 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 				int bInd1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, false);
 				int bInd2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, false);
 
-				Eigen::MatrixXd OneRDMRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])] + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])];
-				Eigen::MatrixXd OneRDMIter = aOneRDMIter + bOneRDMIter;
+				// Eigen::MatrixXd OneRDMRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])] + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])];
+				// Eigen::MatrixXd OneRDMIter = aOneRDMIter + bOneRDMIter;
 
 				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(bInd1Ref, bInd2Ref);
 				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) + bOneRDMIter.coeffRef(bInd1Iter, bInd2Iter);
@@ -987,16 +987,18 @@ void Bootstrap::OptMu()
 void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 {
 	double a = 1.0;
-	double da = 0.01;
+	double da = 0.1;
 	
 	Eigen::VectorXd f0 = Eigen::VectorXd::Zero(NumConditions);
 	Eigen::VectorXd fp = Eigen::VectorXd::Zero(NumConditions);
 	Eigen::VectorXd fm = Eigen::VectorXd::Zero(NumConditions);
 
-	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
-	std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
+	std::vector<Eigen::MatrixXd> aOneRDMs(NumFrag), bOneRDMs(NumFrag);
+	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	double aStep = 1.0;
+
+	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
 
 	while(fabs(aStep) > 1E-4)
 	{
@@ -1011,25 +1013,23 @@ void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 			UpdateFCIs();
 			for (int xx = 0; xx < NumFrag; xx++)
 			{
-				aOneRDMs.clear(); bOneRDMs.clear(); aaTwoRDMs.clear(); abTwoRDMs.clear(); bbTwoRDMs.clear();
-				aOneRDMs.push_back(FCIs[xx].aOneRDMs[FragState[xx]]);
-				bOneRDMs.push_back(FCIs[xx].bOneRDMs[FragState[xx]]);
-				aaTwoRDMs.push_back(FCIs[xx].aaTwoRDMs[FragState[xx]]);
-				abTwoRDMs.push_back(FCIs[xx].abTwoRDMs[FragState[xx]]);
-				bbTwoRDMs.push_back(FCIs[xx].bbTwoRDMs[FragState[xx]]);
-			}			
+				aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
+				bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
+				aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
+				abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
+				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
+			}
 			std::vector<double> Loss0 = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
 			
 			VectorToBE(BEVecP);
 			UpdateFCIs();
 			for (int xx = 0; xx < NumFrag; xx++)
 			{
-				aOneRDMs.clear(); bOneRDMs.clear(); aaTwoRDMs.clear(); abTwoRDMs.clear(); bbTwoRDMs.clear();
-				aOneRDMs.push_back(FCIs[xx].aOneRDMs[FragState[xx]]);
-				bOneRDMs.push_back(FCIs[xx].bOneRDMs[FragState[xx]]);
-				aaTwoRDMs.push_back(FCIs[xx].aaTwoRDMs[FragState[xx]]);
-				abTwoRDMs.push_back(FCIs[xx].abTwoRDMs[FragState[xx]]);
-				bbTwoRDMs.push_back(FCIs[xx].bbTwoRDMs[FragState[xx]]);
+				aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
+				bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
+				aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
+				abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
+				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
 			}			
 			std::vector<double> LossP = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
 
@@ -1037,12 +1037,11 @@ void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 			UpdateFCIs();
 			for (int xx = 0; xx < NumFrag; xx++)
 			{
-				aOneRDMs.clear(); bOneRDMs.clear(); aaTwoRDMs.clear(); abTwoRDMs.clear(); bbTwoRDMs.clear();
-				aOneRDMs.push_back(FCIs[xx].aOneRDMs[FragState[xx]]);
-				bOneRDMs.push_back(FCIs[xx].bOneRDMs[FragState[xx]]);
-				aaTwoRDMs.push_back(FCIs[xx].aaTwoRDMs[FragState[xx]]);
-				abTwoRDMs.push_back(FCIs[xx].abTwoRDMs[FragState[xx]]);
-				bbTwoRDMs.push_back(FCIs[xx].bbTwoRDMs[FragState[xx]]);
+				aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
+				bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
+				aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
+				abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
+				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
 			}			
 			std::vector<double> LossM = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
 			
@@ -1063,6 +1062,8 @@ void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 
 		a = a - d1L / d2L;
 		aStep = fabs(d1L / d2L);
+
+		std::cout << "BE-DMET: a = " << a << " and Lambda Loss = " << L0 << std::endl; 
 	}
 
 	// Update FCIs when done.
@@ -1085,14 +1086,15 @@ void Bootstrap::OptLambda()
 	}
 	while (sqrt(f.squaredNorm() / f.size()) > 1E-8)
 	{
-		// x = x - J.inverse() * f;
-		// VectorToBE(x); // Updates the BEPotential for the J and f update next.
-		// UpdateFCIs(); // Inputs potentials into the FCI that varies.
+		x = x - J.inverse() * f;
+		VectorToBE(x); // Updates the BEPotential for the J and f update next.
+		UpdateFCIs(); // Inputs potentials into the FCI that varies.
 
-		Eigen::VectorXd dx = -J.inverse() * f;
-		LineSearch(x, dx);
+		// Eigen::VectorXd dx = -J.inverse() * f;
+		// LineSearch(x, dx);
 
 		J = CalcJacobian(f); // Update here to check the loss.
+		J = 2.0 * J;
 
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
