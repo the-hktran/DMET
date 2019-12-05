@@ -1080,11 +1080,11 @@ void Bootstrap::OptLambda()
 
 	// int SitePotentialIteration = 0;
 	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
-	if (sqrt(f.squaredNorm() / f.size()) < 1E-8) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
+	if (sqrt(f.squaredNorm() / f.size()) < LambdaTol) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
 	{
 		UpdateFCIs();
 	}
-	while (sqrt(f.squaredNorm() / f.size()) > 1E-8)
+	while (sqrt(f.squaredNorm() / f.size()) > LambdaTol)
 	{
 		x = x - J.inverse() * f;
 		VectorToBE(x); // Updates the BEPotential for the J and f update next.
