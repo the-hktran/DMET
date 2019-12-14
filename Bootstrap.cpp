@@ -933,18 +933,11 @@ void Bootstrap::OptMu()
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
-	double aX2 = 0.001;
-	double bX2 = 0.001;
-	double aX1 = -0.001;
-	double bX1 = -0.001;
+	double aX2 = aChemicalPotential;
+	double bX2 = bChemicalPotential;
+	double aX1 = aChemicalPotential - 0.001;
+	double bX1 = bChemicalPotential - 0.001;
 
-	// if (fabs(aChemicalPotential) > MuTol)
-	// {
-	// 	aX2 = aChemicalPotential;
-	// 	bX2 = bChemicalPotential;
-	// 	aX1 = aX2 - 0.01;
-	// 	bX1 = bX2 - 0.01;
-	// }
 	std::vector<double> L1(2), L2(2);
 	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX1, bX1);
 	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -982,6 +975,106 @@ void Bootstrap::OptMu()
 	bChemicalPotential = bX2;
 	UpdateFCIs();
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
+}
+
+void Bootstrap::OptMu(std::vector<double> EndPoints)
+{
+	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
+	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+
+	double aX2 = EndPoints[1];
+	double bX2 = EndPoints[3];
+	double aX1 = EndPoints[0];
+	double bX1 = EndPoints[2];
+
+	std::vector<double> L1(2), L2(2);
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX1, bX1);
+	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	L2[0] = 1.0; L2[1] = 1.0;
+
+	while (true)
+	{
+		aOneRDMs.clear();
+		bOneRDMs.clear();
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX2, bX2);
+		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << "BE-DMET: Mu Loss = " << L2[0] << "\t" << L2[1] << std::endl;
+		if (fabs(L2[0]) < MuTol && fabs(L2[1]) < MuTol) break;
+
+		double tmpDouble;
+		
+		if (fabs(L2[0]) > MuTol)
+		{
+			tmpDouble = aX2;
+			aX2 = (aX1 * L2[0] - aX2 * L1[0]) / (L2[0] - L1[0]);
+			aX1 = tmpDouble;
+		}
+
+		if (fabs(L2[1]) > MuTol)
+		{
+			tmpDouble = bX2;
+			bX2 = (bX1 * L2[1] - bX2 * L1[1]) / (L2[1] - L1[1]);
+			bX1 = tmpDouble;
+		}
+
+		L1 = L2;
+	}
+
+	aChemicalPotential = aX2;
+	bChemicalPotential = bX2;
+	UpdateFCIs();
+	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
+}
+
+std::vector<double> Bootstrap::ScanMu()
+{
+	std::cout << "BE-DMET: Scanning chemical potential." << std::endl;
+	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+
+	std::vector<double> L1(2), L2(2);
+	std::vector<double> EndPoints(4);
+
+	int Steps = 100;
+	double StepSize = 0.01;
+	double aMu = -0.5;
+	double bMu = -0.5;
+
+	bool aDone = false;
+	bool bDone = false;
+
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu, bMu);
+	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+	for (int i = 0; i < Steps; i++)
+	{
+		aOneRDMs.clear();
+		bOneRDMs.clear();
+
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu, bMu);
+		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+		if (!aDone && (L1[0] * L2[0] < 0.0))
+		{
+			EndPoints[0] = aMu - StepSize;
+			EndPoints[1] = aMu;
+			aDone = true;
+		}
+		if (!bDone && (L1[1] * L2[1] < 0.0))
+		{
+			EndPoints[2] = bMu - StepSize;
+			EndPoints[3] = bMu;
+		}
+
+		if(aDone && bDone)
+		{
+			break;
+		}
+
+		aMu += StepSize;
+		bMu += StepSize;
+	}
+
+	return EndPoints;
 }
 
 void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
@@ -1094,7 +1187,7 @@ void Bootstrap::OptLambda()
 		// LineSearch(x, dx);
 
 		J = CalcJacobian(f); // Update here to check the loss.
-		J = 2.0 * J;
+		J = 10.0 * J;
 
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
@@ -1261,7 +1354,13 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	OptMu();
+	std::vector<double> EndPoints = ScanMu();
+	std::cout << "BE-DMET: Endpoints are " << std::endl;
+	for (int j = 0; j < EndPoints.size(); j++)
+	{
+		std::cout << "BE-DMET: -- " << EndPoints[j] << std::endl;
+	}
+	OptMu(EndPoints);
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
 	// // x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
@@ -1338,6 +1437,7 @@ double Bootstrap::CalcBEEnergy()
 		Energy += FragEnergy;
 		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
+		std::cout << "FCI Energy = " << FCIs[x].Energies[FragState[x]] << std::endl;
 	}
 	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;

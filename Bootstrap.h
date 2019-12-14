@@ -83,8 +83,8 @@ public:
 private:
 	double dLambda = 1E-6;
 	double dMu = 1E-6;
-	double MuTol = 1E-6;
-	double LambdaTol = 1E-6;
+	double MuTol = 1E-5;
+	double LambdaTol = 1E-5;
 	std::vector< double > FragmentLoss(std::vector< std::vector<Eigen::MatrixXd> >, std::vector<Eigen::MatrixXd>, int);
 	void CollectRDM(std::vector< Eigen::MatrixXd > &, std::vector< Eigen::MatrixXd > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &, std::vector< std::vector<double> > &,
                            std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >, double, double);
@@ -95,7 +95,9 @@ private:
 	Eigen::VectorXd BEToVector();
 	void NewtonRaphson();
 	void OptMu();
+	void OptMu(std::vector<double>);
 	void OptLambda();
+	std::vector<double> ScanMu();
 	void LineSearch(Eigen::VectorXd&, Eigen::VectorXd);
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >);
