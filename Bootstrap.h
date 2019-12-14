@@ -96,6 +96,7 @@ private:
 	void NewtonRaphson();
 	void OptMu();
 	void OptMu(std::vector<double>);
+	void OptMu_BisectionMethod();
 	void OptLambda();
 	std::vector<double> ScanMu();
 	void LineSearch(Eigen::VectorXd&, Eigen::VectorXd);

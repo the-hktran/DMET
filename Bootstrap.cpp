@@ -1077,6 +1077,78 @@ std::vector<double> Bootstrap::ScanMu()
 	return EndPoints;
 }
 
+void Bootstrap::OptMu_BisectionMethod()
+{
+	double aMu1 = -0.25;
+	double bMu1 = -0.25;
+	double aMu2 = 0.25;
+	double bMu2 = 0.25;
+
+	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
+	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+
+	std::vector<double> L1(2), L2(2);
+	L1[0] = 1.0; L1[1] = 1.0;
+	L2[0] = 1.0; L2[1] = 1.0;
+
+	while (L1[0] * L2[0] > 0.0 || L1[1] * L2[1] > 0.0)
+	{
+		aMu1 *= 2.0;
+		aMu2 *= 2.0;
+		bMu1 *= 2.0;
+		bMu2 *= 2.0;
+		aOneRDMs.clear();
+		bOneRDMs.clear();
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
+		L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		aOneRDMs.clear();
+		bOneRDMs.clear();
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
+		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	}
+
+	vector<double> LC(2);
+	LC[0] = 1.0; LC[1] = 1.0;
+
+	while (fabs(LC[0]) > MuTol && fabs(LC[1]) > MuTol)
+	{
+		double aMuC = (aMu2 + aMu1) / 2.0;
+		double bMuC = (bMu2 + bMu1) / 2.0;
+
+		aOneRDMs.clear(); bOneRDMs.clear();
+
+		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMuC, bMuC);
+		LC = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+
+		if (LC[0] * L1[0] > 0.0)
+		{
+			L1[0] = LC[0];
+			aMu1 = aMuC;
+		}
+		else
+		{
+			L2[0] = LC[0];
+			aMu2 = aMuC;
+		}
+
+		if ((LC[1] * L1[1]) > 0.0)
+		{
+			L1[1] = LC[1];
+			bMu1 = bMuC;
+		}
+		else
+		{
+			L2[1] = LC[1];
+			bMu2 = bMuC;
+		}
+
+		std::cout << "BE-DMET: Mu Loss = " << LC[0] << "\t" << LC[1] << std::endl;
+	}
+
+	aChemicalPotential = (aMu2 + aMu1) / 2.0;
+	bChemicalPotential = (bMu2 + bMu1) / 2.0;
+}
+
 void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 {
 	double a = 1.0;
@@ -1187,7 +1259,7 @@ void Bootstrap::OptLambda()
 		// LineSearch(x, dx);
 
 		J = CalcJacobian(f); // Update here to check the loss.
-		J = 10.0 * J;
+		J = 1.0 * J;
 
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
@@ -1354,13 +1426,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	std::vector<double> EndPoints = ScanMu();
-	std::cout << "BE-DMET: Endpoints are " << std::endl;
-	for (int j = 0; j < EndPoints.size(); j++)
-	{
-		std::cout << "BE-DMET: -- " << EndPoints[j] << std::endl;
-	}
-	OptMu(EndPoints);
+	OptMu_BisectionMethod();
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
 	// // x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
