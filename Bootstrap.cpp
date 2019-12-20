@@ -1053,22 +1053,24 @@ std::vector<double> Bootstrap::ScanMu()
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu, bMu);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
 
-		if (!aDone && (L1[0] * L2[0] < 0.0))
-		{
-			EndPoints[0] = aMu - StepSize;
-			EndPoints[1] = aMu;
-			aDone = true;
-		}
-		if (!bDone && (L1[1] * L2[1] < 0.0))
-		{
-			EndPoints[2] = bMu - StepSize;
-			EndPoints[3] = bMu;
-		}
+		// if (!aDone && (L1[0] * L2[0] < 0.0))
+		// {
+		// 	EndPoints[0] = aMu - StepSize;
+		// 	EndPoints[1] = aMu;
+		// 	aDone = true;
+		// }
+		// if (!bDone && (L1[1] * L2[1] < 0.0))
+		// {
+		// 	EndPoints[2] = bMu - StepSize;
+		// 	EndPoints[3] = bMu;
+		// }
 
-		if(aDone && bDone)
-		{
-			break;
-		}
+		// if(aDone && bDone)
+		// {
+		// 	break;
+		// }
+
+		std::cout << aMu << "\t" << L2[0] << std::endl;
 
 		aMu += StepSize;
 		bMu += StepSize;
@@ -1426,7 +1428,9 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	OptMu_BisectionMethod();
+	// OptMu_BisectionMethod();
+	ScanMu();
+	
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
 	// // x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
