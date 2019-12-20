@@ -1428,8 +1428,8 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	// OptMu_BisectionMethod();
-	ScanMu();
+	OptMu_BisectionMethod();
+	// ScanMu();
 	
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
