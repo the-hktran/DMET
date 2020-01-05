@@ -1093,6 +1093,7 @@ void Bootstrap::OptMu_BisectionMethod()
 	L1[0] = 1.0; L1[1] = 1.0;
 	L2[0] = 1.0; L2[1] = 1.0;
 
+	// Make sure we are bracketing the root by checcking that both end points have different signs, and stretching the end points until this happens.
 	while (L1[0] * L2[0] > 0.0 || L1[1] * L2[1] > 0.0)
 	{
 		aMu1 *= 2.0;
@@ -1145,10 +1146,12 @@ void Bootstrap::OptMu_BisectionMethod()
 		}
 
 		std::cout << "BE-DMET: Mu Loss = " << LC[0] << "\t" << LC[1] << std::endl;
+		if (fabs(aMu2 - aMu1) < 1E-5 && fabs(bMu2 - bMu1) < 1E-5) break; // It sometimes happens that we converge but do not get the small loss we want.
 	}
 
 	aChemicalPotential = (aMu2 + aMu1) / 2.0;
 	bChemicalPotential = (bMu2 + bMu1) / 2.0;
+	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 }
 
 void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
@@ -1239,6 +1242,67 @@ void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	UpdateFCIs();
 }
 
+double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
+{
+	
+	Eigen::VectorXd f0 = Eigen::VectorXd::Zero(NumConditions);
+	Eigen::VectorXd fp = Eigen::VectorXd::Zero(NumConditions);
+	Eigen::VectorXd fm = Eigen::VectorXd::Zero(NumConditions);
+
+	std::vector<Eigen::MatrixXd> aOneRDMs(NumFrag), bOneRDMs(NumFrag);
+	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
+
+	// Hard code the test multiplicative factors.
+	std::vector<double> TestFactors{1.000, 0.500, 0.250, 0.100};
+	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
+
+	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
+
+	for (int j = 0; j < TestFactors.size(); j++)
+	{
+		int fCount = 0;
+		for (int x = 0; x < NumFrag; x++)
+		{
+			Eigen::VectorXd BEVec0 = x0 + TestFactors[j] * dx;
+
+			VectorToBE(BEVec0);
+			UpdateFCIs();
+			for (int xx = 0; xx < NumFrag; xx++)
+			{
+				aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
+				bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
+				aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
+				abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
+				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
+			}
+			std::vector<double> Loss0 = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
+		
+			for (int i = 0; i < Loss0.size(); i++)
+			{
+				f0[fCount] = Loss0[i];
+				fCount++;
+			}
+		}
+		double L0 = sqrt(f0.squaredNorm() / f0.size());
+		Losses.push_back(L0);
+
+		std::cout << "BE-DMET: a = " << TestFactors[j] << " and Lambda Loss = " << L0 << std::endl; 
+	}
+
+	// Find the smallest loss and choose that factor.
+	double a = TestFactors[0];
+	double SmallestLoss = Losses[0];
+	for (int j = 1; j < TestFactors.size(); j++)
+	{
+		if (Losses[j] < SmallestLoss)
+		{
+			a = TestFactors[j];
+		}
+	}
+
+	return a;
+}
+
 void Bootstrap::OptLambda()
 {
 	Eigen::VectorXd x = BEToVector();
@@ -1253,15 +1317,18 @@ void Bootstrap::OptLambda()
 	}
 	while (sqrt(f.squaredNorm() / f.size()) > LambdaTol)
 	{
-		x = x - J.inverse() * f;
-		VectorToBE(x); // Updates the BEPotential for the J and f update next.
-		UpdateFCIs(); // Inputs potentials into the FCI that varies.
+		// x = x - J.inverse() * f;
+		// VectorToBE(x); // Updates the BEPotential for the J and f update next.
+		// UpdateFCIs(); // Inputs potentials into the FCI that varies.
 
-		// Eigen::VectorXd dx = -J.inverse() * f;
-		// LineSearch(x, dx);
+		Eigen::VectorXd dx = -J.inverse() * f;
+		double a = LineSearchCoarse(x, dx);
+		x = x + a * dx;
+		VectorToBE(x);
+		UpdateFCIs();
 
 		J = CalcJacobian(f); // Update here to check the loss.
-		J = 1.0 * J;
+		// J = 0.1 * J; // Hardcoded "linesearch"
 
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
@@ -1288,7 +1355,8 @@ void Bootstrap::NewtonRaphson()
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		OptMu();
+		// OptMu();
+		OptMu_BisectionMethod();
 		OptLambda();
 
 		// Eigen::MatrixXd J;
