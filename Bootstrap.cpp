@@ -1297,6 +1297,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 		if (Losses[j] < SmallestLoss)
 		{
 			a = TestFactors[j];
+			SmallestLoss = Losses[j];
 		}
 	}
 
