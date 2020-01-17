@@ -477,6 +477,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 void Bootstrap::UpdateFCIs()
 {
 	FCIs.clear();
+	FCIs.shrink_to_fit();
 	for (int x = 0; x < NumFrag; x++)
 	{
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
@@ -525,6 +526,7 @@ void Bootstrap::UpdateFCIs()
 void Bootstrap::UpdateFCIsE()
 {
 	FCIs.clear();
+	FCIs.shrink_to_fit();
 	for (int x = 0; x < NumFrag; x++)
 	{
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
@@ -1049,6 +1051,8 @@ std::vector<double> Bootstrap::ScanMu()
 	{
 		aOneRDMs.clear();
 		bOneRDMs.clear();
+		aOneRDMs.shrink_to_fit();
+		bOneRDMs.shrink_to_fit();
 
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu, bMu);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -1102,10 +1106,14 @@ void Bootstrap::OptMu_BisectionMethod()
 		bMu2 *= 2.0;
 		aOneRDMs.clear();
 		bOneRDMs.clear();
+		aOneRDMs.shrink_to_fit();
+		bOneRDMs.shrink_to_fit();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
 		L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
 		aOneRDMs.clear();
 		bOneRDMs.clear();
+		aOneRDMs.shrink_to_fit();
+		bOneRDMs.shrink_to_fit();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
 	}
@@ -1119,6 +1127,8 @@ void Bootstrap::OptMu_BisectionMethod()
 		double bMuC = (bMu2 + bMu1) / 2.0;
 
 		aOneRDMs.clear(); bOneRDMs.clear();
+		aOneRDMs.shrink_to_fit();
+		bOneRDMs.shrink_to_fit();
 
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMuC, bMuC);
 		LC = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -1253,7 +1263,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{1.000, 0.500, 0.250, 0.100};
+	std::vector<double> TestFactors{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
