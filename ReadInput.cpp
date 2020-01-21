@@ -113,6 +113,8 @@ void InputObj::Set()
                 OrbitalsOutsideThisFragment.push_back(j);
             }
         }
+        sort(OrbitalsOnThisFragment.begin(), OrbitalsOnThisFragment.end());
+        sort(OrbitalsOutsideThisFragment.begin(), OrbitalsOutsideThisFragment.end());
         FragmentOrbitals.push_back(OrbitalsOnThisFragment);
         EnvironmentOrbitals.push_back(OrbitalsOutsideThisFragment);
 

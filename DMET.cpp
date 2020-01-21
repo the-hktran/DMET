@@ -1393,7 +1393,9 @@ int main(int argc, char* argv[])
         // std::cout << "DMET: SCF calculation has converged with an energy of " << SCFEnergy << std::endl;
         // std::cout << DensityMatrix << std::endl;
 
-        Fragmenting FragObj(Input.NumFragments);
+        Fragmenting FragObj;
+        // FragObj.InitRing(Input.NumFragments);
+        FragObj.InitGrid(4, 3);
         Bootstrap BE;
         BE.InitFromFragmenting(FragObj, Output);
         if (!Unrestricted)

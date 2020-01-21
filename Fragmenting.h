@@ -21,7 +21,10 @@ class Fragmenting
         // Element 6-7 are the spins
         std::vector< std::vector< std::tuple<int, int, int, int, int, bool, bool> > > MatchingConditions;
 
-        Fragmenting(int);
+        void InitRing(int);
+        void InitGrid(int, int);
+
+        void PrintFrag();
         
     private:
         void OneCenterIteration();
