@@ -3342,6 +3342,7 @@ bool FCI::FCIman(const int N, const int No, const int Nstr,
     //     ha, hb, Vaa, Vab, Vbb, H0);
     GetH0(N, No, N0, N2, Max1, Max2, Nstr, Ex1, Ex2, Istr,
         ha, hb, Vaa, Vab, Vbb, H0);
+    //std::cout << "H0\n" << H0 << std::endl;
     eigh(H0, U0, E0);
 
 //  Big loop over states

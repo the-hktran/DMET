@@ -11,6 +11,7 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
+#include <ctime>
 #include "Bootstrap.h"
 #include "Functions.h"
 #include "NewtonRaphson.h"
@@ -405,7 +406,8 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
-		xFCI.runFCI();
+		if (doDavidson) xFCI.runFCI();
+		else xFCI.DirectFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
 		aOneRDMs.push_back(xFCI.aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(xFCI.bOneRDMs[FragState[x]]);
@@ -467,8 +469,18 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
-		xFCI.runFCI();
+		time_t start, end;
+		time(&start);
+		if (doDavidson) xFCI.runFCI();
+		else xFCI.DirectFCI();
+		time(&end);
+		double diff = difftime(end, start);
+		std::cout << "FCI Timing (ChemPotCollectRun): " << diff << std::endl;
+		time(&start);
 		xFCI.getSpecificRDM(FragState[x], false);
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (ChemPotCollectRDM): " << diff << std::endl;
 		aOneRDMs.push_back(xFCI.aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(xFCI.bOneRDMs[FragState[x]]);
 	}
@@ -480,7 +492,14 @@ void Bootstrap::UpdateFCIs()
 	FCIs.shrink_to_fit();
 	for (int x = 0; x < NumFrag; x++)
 	{
+		std::cout << "fci " << x << std::endl;
+		time_t start, end;
+		time(&start);
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
+		time(&end);
+		double diff = difftime(end, start);
+		std::cout << "FCI Timing (Init): " << diff << std::endl;
+		time(&start);
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
@@ -517,8 +536,20 @@ void Bootstrap::UpdateFCIs()
 				}
 			}
 		}
-		xFCI.runFCI();
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (Pot): " << diff << std::endl;
+		time(&start);
+		if (doDavidson) xFCI.runFCI();
+		else xFCI.DirectFCI();
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (Run):" << diff << std::endl;
+		time(&start);
 		xFCI.getSpecificRDM(FragState[x], true);
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (RDM): " << diff << std::endl;
 		FCIs.push_back(xFCI);
 	}
 }
@@ -566,7 +597,8 @@ void Bootstrap::UpdateFCIsE()
 				}
 			}
 		}
-		xFCI.runFCI();
+		if (doDavidson) xFCI.runFCI();
+		else xFCI.DirectFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
 		FCIs.push_back(xFCI);
 	}
@@ -713,9 +745,11 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, false, false);
 				}
 			}
-			xFCIp.runFCI();
+			if (doDavidson) xFCIp.runFCI();
+			else xFCIp.DirectFCI();
 			xFCIp.getSpecificRDM(FragState[x], !isOEI);
-			xFCIm.runFCI();
+			if (doDavidson) xFCIm.runFCI();
+			else xFCIm.DirectFCI();
 			xFCIm.getSpecificRDM(FragState[x], !isOEI);
 			// std::cout << "+\n" << xFCIp.aOneRDMs[FragState[x]] << "\n-\n" << xFCIm.aOneRDMs[FragState[x]] << std::endl;
 			std::vector<double> LossesPlus;
@@ -1121,7 +1155,7 @@ void Bootstrap::OptMu_BisectionMethod()
 	vector<double> LC(2);
 	LC[0] = 1.0; LC[1] = 1.0;
 
-	while (fabs(LC[0]) > MuTol && fabs(LC[1]) > MuTol)
+	while (fabs(LC[0]) > MuTol || fabs(LC[1]) > MuTol)
 	{
 		double aMuC = (aMu2 + aMu1) / 2.0;
 		double bMuC = (bMu2 + bMu1) / 2.0;
@@ -1156,7 +1190,7 @@ void Bootstrap::OptMu_BisectionMethod()
 		}
 
 		std::cout << "BE-DMET: Mu Loss = " << LC[0] << "\t" << LC[1] << std::endl;
-		if (fabs(aMu2 - aMu1) < 1E-5 && fabs(bMu2 - bMu1) < 1E-5) break; // It sometimes happens that we converge but do not get the small loss we want.
+		if (fabs(aMu2 - aMu1) < 1E-15 && fabs(bMu2 - bMu1) < 1E-15) break; // It sometimes happens that we converge but do not get the small loss we want.
 	}
 
 	aChemicalPotential = (aMu2 + aMu1) / 2.0;
@@ -1286,7 +1320,6 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
 			}
 			std::vector<double> Loss0 = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
-		
 			for (int i = 0; i < Loss0.size(); i++)
 			{
 				f0[fCount] = Loss0[i];
@@ -1431,6 +1464,8 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// Generate impurity FCI objects for each impurity.
 	for (int x = 0; x < NumFrag; x++)
 	{
+		time_t start, end;
+		time(&start);
 		std::vector<int> xaFragPos, xaBathPos, xbFragPos, xbBathPos;
 		GetCASPos(Input, x, xaFragPos, xaBathPos, true);
 		GetCASPos(Input, x, xbFragPos, xbBathPos, false);
@@ -1438,6 +1473,9 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		bFragPos.push_back(xbFragPos);
 		aBathPos.push_back(xaBathPos);
 		bBathPos.push_back(xbBathPos);
+		time(&end);
+		double diff = difftime(end, start);
+		std::cout << "FCI Timing (Pos): " << diff << std::endl;
 		// if (x > 3 && x < 8)
 		// {
 		// 	std::cout << "x = " << x << std::endl;
@@ -1459,14 +1497,36 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		// 	}
 		// }
 
+		time(&start);
 		std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
         GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
         GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (CAS): " << diff << std::endl;
 
+		time(&start);
 		FCI xFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (Init): " << diff << std::endl;
+		time(&start);
 		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
-		xFCI.runFCI();
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (Rotate): " << diff << std::endl;
+		time(&start);
+		if (doDavidson) xFCI.runFCI();
+		else xFCI.DirectFCI();
+		std::cout << xFCI.Energies[0] << std::endl;
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (Run): " << diff << std::endl;
+		time(&start);
 		xFCI.getSpecificRDM(FragState[x], true);
+		time(&end);
+		diff = difftime(end, start);
+		std::cout << "FCI Timing (RDM): " << diff << std::endl;
+		time(&start);
 		// if (x == 1 || x == 5)
 		// {
 		// 	std::cout << "xFCI " << x << std::endl;

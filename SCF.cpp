@@ -1072,7 +1072,7 @@ double SCF(std::vector< std::tuple< Eigen::MatrixXd, double, double > > &aBias, 
            Eigen::MatrixXd &aCoeffMatrix, Eigen::MatrixXd &bCoeffMatrix, std::vector<int> &aOccupiedOrbitals, std::vector<int> &bOccupiedOrbitals, std::vector<int> &aVirtualOrbitals, std::vector<int> &bVirtualOrbitals, 
            int &SCFCount, int MaxSCF, Eigen::MatrixXd DMETPotential, Eigen::VectorXd &aOrbitalEV, Eigen::VectorXd &bOrbitalEV)
 {
-	double SCFTol = 1E-5; // 1E-8; // SCF will terminate when the DIIS error is below this amount. 
+	double SCFTol = 1E-4; // 1E-8; // SCF will terminate when the DIIS error is below this amount. 
     std::cout << std::fixed << std::setprecision(10);
 
 	Output << "Beginning search for Solution " << SolnNum << std::endl;
