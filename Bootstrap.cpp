@@ -469,18 +469,9 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
-		time_t start, end;
-		time(&start);
 		if (doDavidson) xFCI.runFCI();
 		else xFCI.DirectFCI();
-		time(&end);
-		double diff = difftime(end, start);
-		std::cout << "FCI Timing (ChemPotCollectRun): " << diff << std::endl;
-		time(&start);
 		xFCI.getSpecificRDM(FragState[x], false);
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (ChemPotCollectRDM): " << diff << std::endl;
 		aOneRDMs.push_back(xFCI.aOneRDMs[FragState[x]]);
 		bOneRDMs.push_back(xFCI.bOneRDMs[FragState[x]]);
 	}
@@ -492,14 +483,7 @@ void Bootstrap::UpdateFCIs()
 	FCIs.shrink_to_fit();
 	for (int x = 0; x < NumFrag; x++)
 	{
-		std::cout << "fci " << x << std::endl;
-		time_t start, end;
-		time(&start);
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
-		time(&end);
-		double diff = difftime(end, start);
-		std::cout << "FCI Timing (Init): " << diff << std::endl;
-		time(&start);
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 		for (int i = 0; i < BEPotential[x].size(); i++)
 		{
@@ -536,20 +520,9 @@ void Bootstrap::UpdateFCIs()
 				}
 			}
 		}
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (Pot): " << diff << std::endl;
-		time(&start);
 		if (doDavidson) xFCI.runFCI();
 		else xFCI.DirectFCI();
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (Run):" << diff << std::endl;
-		time(&start);
 		xFCI.getSpecificRDM(FragState[x], true);
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (RDM): " << diff << std::endl;
 		FCIs.push_back(xFCI);
 	}
 }
@@ -1464,8 +1437,6 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// Generate impurity FCI objects for each impurity.
 	for (int x = 0; x < NumFrag; x++)
 	{
-		time_t start, end;
-		time(&start);
 		std::vector<int> xaFragPos, xaBathPos, xbFragPos, xbBathPos;
 		GetCASPos(Input, x, xaFragPos, xaBathPos, true);
 		GetCASPos(Input, x, xbFragPos, xbBathPos, false);
@@ -1473,9 +1444,6 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		bFragPos.push_back(xbFragPos);
 		aBathPos.push_back(xaBathPos);
 		bBathPos.push_back(xbBathPos);
-		time(&end);
-		double diff = difftime(end, start);
-		std::cout << "FCI Timing (Pos): " << diff << std::endl;
 		// if (x > 3 && x < 8)
 		// {
 		// 	std::cout << "x = " << x << std::endl;
@@ -1497,36 +1465,15 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		// 	}
 		// }
 
-		time(&start);
 		std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
         GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
         GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (CAS): " << diff << std::endl;
 
-		time(&start);
 		FCI xFCI(Input, Input.FragmentOrbitals[x].size(), Input.FragmentOrbitals[x].size(), aCoreList, aActiveList, aVirtualList, bCoreList, bActiveList, bVirtualList);
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (Init): " << diff << std::endl;
-		time(&start);
 		xFCI.ERIMapToArray(Input.Integrals, aRotationMatrices[x], bRotationMatrices[x], aActiveList, bActiveList);
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (Rotate): " << diff << std::endl;
-		time(&start);
 		if (doDavidson) xFCI.runFCI();
 		else xFCI.DirectFCI();
-		std::cout << xFCI.Energies[0] << std::endl;
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (Run): " << diff << std::endl;
-		time(&start);
 		xFCI.getSpecificRDM(FragState[x], true);
-		time(&end);
-		diff = difftime(end, start);
-		std::cout << "FCI Timing (RDM): " << diff << std::endl;
-		time(&start);
 		// if (x == 1 || x == 5)
 		// {
 		// 	std::cout << "xFCI " << x << std::endl;
