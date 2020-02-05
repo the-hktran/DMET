@@ -1207,7 +1207,7 @@ void Bootstrap::LineSearch(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
 			}
 			std::vector<double> Loss0 = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
-			
+
 			VectorToBE(BEVecP);
 			UpdateFCIs();
 			for (int xx = 0; xx < NumFrag; xx++)
@@ -1275,23 +1275,27 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
 
+	time_t start,end;
+	double diff;
 	for (int j = 0; j < TestFactors.size(); j++)
 	{
+		Eigen::VectorXd BEVec0 = x0 + TestFactors[j] * dx;
+
+		VectorToBE(BEVec0);
+		UpdateFCIs();
+
+		for (int xx = 0; xx < NumFrag; xx++)
+		{
+			aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
+			bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
+			aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
+			abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
+			bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
+		}
+
 		int fCount = 0;
 		for (int x = 0; x < NumFrag; x++)
 		{
-			Eigen::VectorXd BEVec0 = x0 + TestFactors[j] * dx;
-
-			VectorToBE(BEVec0);
-			UpdateFCIs();
-			for (int xx = 0; xx < NumFrag; xx++)
-			{
-				aOneRDMs[xx] = FCIs[xx].aOneRDMs[FragState[xx]];
-				bOneRDMs[xx] = FCIs[xx].bOneRDMs[FragState[xx]];
-				aaTwoRDMs[xx] = FCIs[xx].aaTwoRDMs[FragState[xx]];
-				abTwoRDMs[xx] = FCIs[xx].abTwoRDMs[FragState[xx]];
-				bbTwoRDMs[xx] = FCIs[xx].bbTwoRDMs[FragState[xx]];
-			}
 			std::vector<double> Loss0 = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[x].aOneRDMs[FragState[x]], FCIs[x].bOneRDMs[FragState[x]], FCIs[x].aaTwoRDMs[FragState[x]], FCIs[x].abTwoRDMs[FragState[x]], FCIs[x].bbTwoRDMs[FragState[x]], x);
 			for (int i = 0; i < Loss0.size(); i++)
 			{
@@ -1301,7 +1305,6 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 		}
 		double L0 = sqrt(f0.squaredNorm() / f0.size());
 		Losses.push_back(L0);
-
 		std::cout << "BE-DMET: a = " << TestFactors[j] << " and Lambda Loss = " << L0 << std::endl; 
 	}
 
@@ -1372,8 +1375,8 @@ void Bootstrap::NewtonRaphson()
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		// OptMu();
-		OptMu_BisectionMethod();
+		OptMu();
+		// OptMu_BisectionMethod();
 		OptLambda();
 
 		// Eigen::MatrixXd J;
@@ -1514,8 +1517,8 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	OptMu_BisectionMethod();
-	// ScanMu();
+	// OptMu_BisectionMethod();
+	OptMu();
 	
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
