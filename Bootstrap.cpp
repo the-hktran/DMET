@@ -1043,10 +1043,10 @@ std::vector<double> Bootstrap::ScanMu()
 	std::vector<double> L1(2), L2(2);
 	std::vector<double> EndPoints(4);
 
-	int Steps = 100;
+	int Steps = 20;
 	double StepSize = 0.01;
-	double aMu = -0.5;
-	double bMu = -0.5;
+	double aMu = -0.2;
+	double bMu = -0.2;
 
 	bool aDone = false;
 	bool bDone = false;
@@ -1097,20 +1097,36 @@ void Bootstrap::OptMu_BisectionMethod()
 	double aMu2 = 0.25;
 	double bMu2 = 0.25;
 
+	if (fabs(aChemicalPotential) > 1E-4 || fabs(bChemicalPotential) > 1E-4)
+	{
+		aMu1 = aChemicalPotential - 1E-2;
+		aMu2 = aChemicalPotential + 1E-2;
+		bMu1 = bChemicalPotential - 1E-2;
+		bMu2 = bChemicalPotential + 1E-2;
+	}
+
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
 	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
 	std::vector<double> L1(2), L2(2);
-	L1[0] = 1.0; L1[1] = 1.0;
-	L2[0] = 1.0; L2[1] = 1.0;
+	
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
+	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	aOneRDMs.clear(); bOneRDMs.clear();
+	aOneRDMs.shrink_to_fit(); bOneRDMs.shrink_to_fit();
+	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
+	L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+	aOneRDMs.clear(); bOneRDMs.clear();
+	aOneRDMs.shrink_to_fit(); bOneRDMs.shrink_to_fit();
 
 	// Make sure we are bracketing the root by checcking that both end points have different signs, and stretching the end points until this happens.
 	while (L1[0] * L2[0] > 0.0 || L1[1] * L2[1] > 0.0)
 	{
-		aMu1 *= 2.0;
-		aMu2 *= 2.0;
-		bMu1 *= 2.0;
-		bMu2 *= 2.0;
+		std::cout << "BE-DMET: Bad starting points" << std::endl;
+		aMu1 -= 1E-2;
+		aMu2 += 1E-2;
+		bMu1 -= 1E-2;
+		bMu2 += 1E-2;
 		aOneRDMs.clear();
 		bOneRDMs.clear();
 		aOneRDMs.shrink_to_fit();
@@ -1123,6 +1139,8 @@ void Bootstrap::OptMu_BisectionMethod()
 		bOneRDMs.shrink_to_fit();
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		std::cout << L1[0] << "\t" << L1[1] << std::endl;
+		std::cout << L2[0] << "\t" << L2[1] << std::endl;
 	}
 
 	vector<double> LC(2);
@@ -1162,8 +1180,29 @@ void Bootstrap::OptMu_BisectionMethod()
 			bMu2 = bMuC;
 		}
 
-		std::cout << "BE-DMET: Mu Loss = " << LC[0] << "\t" << LC[1] << std::endl;
-		if (fabs(aMu2 - aMu1) < 1E-15 && fabs(bMu2 - bMu1) < 1E-15) break; // It sometimes happens that we converge but do not get the small loss we want.
+		std::cout << "BE-DMET: Mu Loss =\t" << aMuC << "\t" << LC[0] << "\t" << bMuC << "\t" << LC[1] << std::endl;
+		if (fabs(aMu2 - aMu1) < 1E-12 && fabs(bMu2 - bMu1) < 1E-12) // It sometimes happens that we converge but do not get the small loss we want.
+		{
+			// aChemicalPotential = aMuC;
+			// bChemicalPotential = bMuC;
+			// OptMu();
+			// return;
+			
+			aMu1 = aMuC - 0.01; aMu2 = aMuC + 0.01;
+			bMu1 = bMuC - 0.01; bMu2 = bMuC + 0.01;
+			aOneRDMs.clear();
+			bOneRDMs.clear();
+			aOneRDMs.shrink_to_fit();
+			bOneRDMs.shrink_to_fit();
+			CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
+			L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+			aOneRDMs.clear();
+			bOneRDMs.clear();
+			aOneRDMs.shrink_to_fit();
+			bOneRDMs.shrink_to_fit();
+			CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
+			L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+		}
 	}
 
 	aChemicalPotential = (aMu2 + aMu1) / 2.0;
@@ -1270,7 +1309,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{2.000, 1.000, 0.100, 0.010};
+	std::vector<double> TestFactors{100., 10., 1., 0.1, 0.01, 0.001, 0.0001}; //{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
@@ -1375,8 +1414,8 @@ void Bootstrap::NewtonRaphson()
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		OptMu();
-		// OptMu_BisectionMethod();
+		// OptMu();
+		OptMu_BisectionMethod();
 		OptLambda();
 
 		// Eigen::MatrixXd J;
@@ -1517,8 +1556,9 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	// return;
 
-	// OptMu_BisectionMethod();
-	OptMu();
+	// ScanMu();
+	OptMu_BisectionMethod();
+	// OptMu();
 	
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
