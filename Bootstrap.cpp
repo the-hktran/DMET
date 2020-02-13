@@ -406,6 +406,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
+		if (x == 0) xFCI.PrintERI(true);
 		if (doDavidson) xFCI.runFCI();
 		else xFCI.DirectFCI();
 		xFCI.getSpecificRDM(FragState[x], true);
@@ -469,6 +470,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 				}
 			}
 		}
+		// if (x == 0) xFCI.PrintERI(false);
 		if (doDavidson) xFCI.runFCI();
 		else xFCI.DirectFCI();
 		xFCI.getSpecificRDM(FragState[x], false);
@@ -1043,10 +1045,10 @@ std::vector<double> Bootstrap::ScanMu()
 	std::vector<double> L1(2), L2(2);
 	std::vector<double> EndPoints(4);
 
-	int Steps = 20;
-	double StepSize = 0.01;
-	double aMu = -0.2;
-	double bMu = -0.2;
+	int Steps = 200;
+	double StepSize = 0.0001;
+	double aMu = -0.01;
+	double bMu = -0.01;
 
 	bool aDone = false;
 	bool bDone = false;
@@ -1092,10 +1094,10 @@ std::vector<double> Bootstrap::ScanMu()
 
 void Bootstrap::OptMu_BisectionMethod()
 {
-	double aMu1 = -0.25;
-	double bMu1 = -0.25;
-	double aMu2 = 0.25;
-	double bMu2 = 0.25;
+	double aMu1 = -0.02;
+	double bMu1 = -0.02;
+	double aMu2 = 0.02;
+	double bMu2 = 0.02;
 
 	if (fabs(aChemicalPotential) > 1E-4 || fabs(bChemicalPotential) > 1E-4)
 	{
@@ -1106,18 +1108,14 @@ void Bootstrap::OptMu_BisectionMethod()
 	}
 
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
-	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+	std::vector<Eigen::MatrixXd> aOneRDMs1, bOneRDMs1, aOneRDMs2, bOneRDMs2;
 
 	std::vector<double> L1(2), L2(2);
 	
-	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
-	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-	aOneRDMs.clear(); bOneRDMs.clear();
-	aOneRDMs.shrink_to_fit(); bOneRDMs.shrink_to_fit();
-	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
-	L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-	aOneRDMs.clear(); bOneRDMs.clear();
-	aOneRDMs.shrink_to_fit(); bOneRDMs.shrink_to_fit();
+	CollectRDM(aOneRDMs1, bOneRDMs1, BEPotential, aMu1, bMu1);
+	L1 = CalcCostChemPot(aOneRDMs1, bOneRDMs1, aBECenterPosition, bBECenterPosition);
+	CollectRDM(aOneRDMs2, bOneRDMs2, BEPotential, aMu2, bMu2);
+	L2 = CalcCostChemPot(aOneRDMs2, bOneRDMs2, aBECenterPosition, bBECenterPosition);
 
 	// Make sure we are bracketing the root by checcking that both end points have different signs, and stretching the end points until this happens.
 	while (L1[0] * L2[0] > 0.0 || L1[1] * L2[1] > 0.0)
@@ -1127,20 +1125,20 @@ void Bootstrap::OptMu_BisectionMethod()
 		aMu2 += 1E-2;
 		bMu1 -= 1E-2;
 		bMu2 += 1E-2;
-		aOneRDMs.clear();
-		bOneRDMs.clear();
-		aOneRDMs.shrink_to_fit();
-		bOneRDMs.shrink_to_fit();
-		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
-		L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		aOneRDMs.clear();
-		bOneRDMs.clear();
-		aOneRDMs.shrink_to_fit();
-		bOneRDMs.shrink_to_fit();
-		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
-		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << L1[0] << "\t" << L1[1] << std::endl;
-		std::cout << L2[0] << "\t" << L2[1] << std::endl;
+		aOneRDMs1.clear();
+		bOneRDMs1.clear();
+		aOneRDMs1.shrink_to_fit();
+		bOneRDMs1.shrink_to_fit();
+		CollectRDM(aOneRDMs1, bOneRDMs1, BEPotential, aMu1, bMu1);
+		L1 = CalcCostChemPot(aOneRDMs1, bOneRDMs1, aBECenterPosition, bBECenterPosition);
+		aOneRDMs2.clear();
+		bOneRDMs2.clear();
+		aOneRDMs2.shrink_to_fit();
+		bOneRDMs2.shrink_to_fit();
+		CollectRDM(aOneRDMs2, bOneRDMs2, BEPotential, aMu2, bMu2);
+		L2 = CalcCostChemPot(aOneRDMs2, bOneRDMs2, aBECenterPosition, bBECenterPosition);
+		std::cout << "BE-DMET: Mu Loss =\t" << aMu1 << "\t" << L1[0] << "\t" << bMu1 << "\t" << L1[1] << std::endl;
+		std::cout << "BE-DMET: Mu Loss =\t" << aMu2 << "\t" << L2[0] << "\t" << bMu2 << "\t" << L2[1] << std::endl;
 	}
 
 	vector<double> LC(2);
@@ -1151,9 +1149,7 @@ void Bootstrap::OptMu_BisectionMethod()
 		double aMuC = (aMu2 + aMu1) / 2.0;
 		double bMuC = (bMu2 + bMu1) / 2.0;
 
-		aOneRDMs.clear(); bOneRDMs.clear();
-		aOneRDMs.shrink_to_fit();
-		bOneRDMs.shrink_to_fit();
+		std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
 
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMuC, bMuC);
 		LC = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -1183,25 +1179,10 @@ void Bootstrap::OptMu_BisectionMethod()
 		std::cout << "BE-DMET: Mu Loss =\t" << aMuC << "\t" << LC[0] << "\t" << bMuC << "\t" << LC[1] << std::endl;
 		if (fabs(aMu2 - aMu1) < 1E-12 && fabs(bMu2 - bMu1) < 1E-12) // It sometimes happens that we converge but do not get the small loss we want.
 		{
-			// aChemicalPotential = aMuC;
-			// bChemicalPotential = bMuC;
-			// OptMu();
-			// return;
-			
-			aMu1 = aMuC - 0.01; aMu2 = aMuC + 0.01;
-			bMu1 = bMuC - 0.01; bMu2 = bMuC + 0.01;
-			aOneRDMs.clear();
-			bOneRDMs.clear();
-			aOneRDMs.shrink_to_fit();
-			bOneRDMs.shrink_to_fit();
-			CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu1, bMu1);
-			L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-			aOneRDMs.clear();
-			bOneRDMs.clear();
-			aOneRDMs.shrink_to_fit();
-			bOneRDMs.shrink_to_fit();
-			CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu2, bMu2);
-			L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
+			aChemicalPotential = aMuC;
+			bChemicalPotential = bMuC;
+			OptMu();
+			return;
 		}
 	}
 
@@ -1568,7 +1549,7 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	UpdateFCIs();
 	double OneShotE = CalcBEEnergy();
 	std::cout << "BE-DMET: BE0 Energy = " << OneShotE << std::endl;
-	Output << "DMET Energy = " << OneShotE << std::endl;
+	Output << "BE0 Energy = " << OneShotE << std::endl;
 	// return;
 	NewtonRaphson();
 	UpdateFCIs();

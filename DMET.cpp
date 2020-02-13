@@ -1347,6 +1347,7 @@ int main(int argc, char* argv[])
             aPOut << aDensityMatrix;
             bPOut << bDensityMatrix;
         }
+
         // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
         //for (int i = 0; i < NumSCFStates; i++)
@@ -1407,6 +1408,10 @@ int main(int argc, char* argv[])
                 SCFMDb1RDM.push_back(SCFMD1RDM[i]);
             }
         }
+        // std::vector<Eigen::MatrixXd> aPs, bPs;
+        // aPs.push_back(aDensityMatrix);
+        // bPs.push_back(bDensityMatrix);
+        // BE.doBootstrap(Input, aPs, bPs, Output);
         BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
         return 0;
 
