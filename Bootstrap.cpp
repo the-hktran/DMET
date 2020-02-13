@@ -267,6 +267,46 @@ std::vector<double> Bootstrap::CalcCostChemPot()
     return CF;
 }
 
+Eigen::MatrixXd Bootstrap::CalcJacobianChemPot(Eigen::VectorXd &Loss, double aMu, double bMu)
+{
+	Eigen::MatrixXd JMu(2, 2);
+	std::vector<double> L0;
+	std::vector<Eigen::MatrixXd> aOneRDMs0, bOneRDMs0;
+	CollectRDM(aOneRDMs0, bOneRDMs0, BEPotential, aMu, bMu);
+	L0 = CalcCostChemPot(aOneRDMs0, bOneRDMs0, aBECenterPosition, bBECenterPosition);
+
+	for (int i = 0; i < 2; i++)
+	{
+		double aMuP, bMuP, aMuM, bMuM;
+		if (i == 0)
+		{
+			aMuP = aMu + dMu; bMuP = bMu;
+			aMuM = aMu - dMu; bMuM = bMu;
+		}
+		if (i == 1)
+		{
+			aMuP = aMu; bMuP = bMu + dMu;
+			aMuP = aMu; bMuP = bMu - dMu;
+		}
+		std::vector<double> LP, LM;
+		std::vector<Eigen::MatrixXd> aOneRDMsP, bOneRDMsP, aOneRDMsM, bOneRDMsM;
+		CollectRDM(aOneRDMsP, bOneRDMsP, BEPotential, aMuP, bMuP);
+		LP = CalcCostChemPot(aOneRDMsP, bOneRDMsP, aBECenterPosition, bBECenterPosition);
+		CollectRDM(aOneRDMsM, bOneRDMsM, BEPotential, aMuM, bMuM);
+		LM = CalcCostChemPot(aOneRDMsM, bOneRDMsM, aBECenterPosition, bBECenterPosition);
+
+		double dLadMu = (LP[0] - LM[0]) / (dMu + dMu);
+		double dLbdMu = (LP[1] - LM[1]) / (dMu + dMu);
+
+		JMu(0, i) = dLadMu;
+		JMu(1, i) = dLbdMu;
+	}
+
+	Loss[0] = L0[0];
+	Loss[1] = L0[1];
+	return JMu;
+}
+
 std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneRDMRef, std::vector<Eigen::MatrixXd> bOneRDMRef, std::vector< std::vector<double> > aaTwoRDMRef, std::vector< std::vector<double> > abTwoRDMRef, std::vector< std::vector<double> > bbTwoRDMRef,
                                  Eigen::MatrixXd aOneRDMIter, Eigen::MatrixXd bOneRDMIter, std::vector<double> aaTwoRDMIter, std::vector<double> abTwoRDMIter, std::vector<double> bbTwoRDMIter, int FragmentIndex)
 {
@@ -942,50 +982,22 @@ void Bootstrap::PrintBEPotential()
 void Bootstrap::OptMu()
 {
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
-	std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
-
-	double aX2 = aChemicalPotential;
-	double bX2 = bChemicalPotential;
-	double aX1 = aChemicalPotential - 0.001;
-	double bX1 = bChemicalPotential - 0.001;
-
-	std::vector<double> L1(2), L2(2);
-	CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX1, bX1);
-	L1 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-	L2[0] = 1.0; L2[1] = 1.0;
-
-	while (true)
+	Eigen::VectorXd MuVec(2);
+	MuVec[0] = aChemicalPotential;
+	MuVec[1] = bChemicalPotential;
+	Eigen::VectorXd L(2);
+	Eigen::VectorXd NextL(2);
+	Eigen::MatrixXd J = CalcJacobianChemPot(L, MuVec[0], MuVec[1]);
+	while (fabs(L.squaredNorm() / L.size()) > MuTol)
 	{
-		aOneRDMs.clear();
-		bOneRDMs.clear();
-		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aX2, bX2);
-		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
-		std::cout << "BE-DMET: Mu Loss = " << L2[0] << "\t" << L2[1] << std::endl;
-		if (fabs(L2[0]) < MuTol && fabs(L2[1]) < MuTol) break;
-
-		double tmpDouble;
-		
-		if (fabs(L2[0]) > MuTol)
-		{
-			tmpDouble = aX2;
-			aX2 = (aX1 * L2[0] - aX2 * L1[0]) / (L2[0] - L1[0]);
-			aX1 = tmpDouble;
-		}
-
-		if (fabs(L2[1]) > MuTol)
-		{
-			tmpDouble = bX2;
-			bX2 = (bX1 * L2[1] - bX2 * L1[1]) / (L2[1] - L1[1]);
-			bX1 = tmpDouble;
-		}
-
-		L1 = L2;
+		MuVec = MuVec - J.inverse() * L;
+		J = CalcJacobianChemPot(L, MuVec[0], MuVec[1]);
+		std::cout << "BE-DMET: Mu Loss = \t" << MuVec[0] << "\t" << MuVec[1] << "\t" << L[0] << "\t" << L[1] << std::endl;
 	}
-
-	aChemicalPotential = aX2;
-	bChemicalPotential = bX2;
-	UpdateFCIs();
+	aChemicalPotential = MuVec[0];
+	bChemicalPotential = MuVec[1];
 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
+	UpdateFCIs();
 }
 
 void Bootstrap::OptMu(std::vector<double> EndPoints)
@@ -1395,8 +1407,8 @@ void Bootstrap::NewtonRaphson()
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
 		*Output << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl; 
-		// OptMu();
-		OptMu_BisectionMethod();
+		OptMu();
+		// OptMu_BisectionMethod();
 		OptLambda();
 
 		// Eigen::MatrixXd J;
@@ -1538,15 +1550,14 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	// return;
 
 	// ScanMu();
-	OptMu_BisectionMethod();
-	// OptMu();
+	// OptMu_BisectionMethod();
+	OptMu();
 	
 	// aChemicalPotential = 0.0014133736; bChemicalPotential = 0.0014133736;
 	// Eigen::VectorXd x(24);
 	// // x << -0.0023840008,-0.0023171942,-0.0023840011,-0.0023171963,-0.0023171948,-0.0023840010,-0.0023840008,-0.0023171976,-0.0023171959,-0.0023840006,-0.0023840009,-0.0023171974,-0.0023171959,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171953,-0.0023840005,-0.0023840009,-0.0023171980,-0.0023171955,-0.0023840004,-0.0023171969,-0.0023840013;
 	// x << -0.0004988821,-0.0014229979,-0.0004985315,-0.0014212909,-0.0014230472,-0.0004988732,-0.0004985309,-0.0014213258,-0.0014230368,-0.0004988654,-0.0004985473,-0.0014213229,-0.0014229710,-0.0004988727,-0.0004985547,-0.0014212512,-0.0014229484,-0.0004988830,-0.0004985439,-0.0014212074,-0.0014229747,-0.0004988907,-0.0014212326,-0.0004985321;
 	// VectorToBE(x);
-	UpdateFCIs();
 	double OneShotE = CalcBEEnergy();
 	std::cout << "BE-DMET: BE0 Energy = " << OneShotE << std::endl;
 	Output << "BE0 Energy = " << OneShotE << std::endl;

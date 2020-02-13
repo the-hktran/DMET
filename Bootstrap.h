@@ -105,6 +105,7 @@ private:
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);
 	std::vector<double> CalcCostChemPot(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector< std::vector< int > >, std::vector< std::vector < int > >);
 	std::vector<double> CalcCostChemPot();
+	Eigen::MatrixXd CalcJacobianChemPot(Eigen::VectorXd &, double, double);
 	std::vector<double> CalcCostLambda(std::vector<Eigen::MatrixXd>, std::vector<Eigen::MatrixXd>, std::vector<std::vector< double > >, std::vector<std::vector< double > >, std::vector<std::vector< double > >, 
 	Eigen::MatrixXd, Eigen::MatrixXd, std::vector<double>, std::vector<double>, std::vector<double>, int);
 	double CalcBEEnergy();
