@@ -277,26 +277,22 @@ Eigen::MatrixXd Bootstrap::CalcJacobianChemPot(Eigen::VectorXd &Loss, double aMu
 
 	for (int i = 0; i < 2; i++)
 	{
-		double aMuP, bMuP, aMuM, bMuM;
-		if (i == 0)
-		{
-			aMuP = aMu + dMu; bMuP = bMu;
-			aMuM = aMu - dMu; bMuM = bMu;
-		}
-		if (i == 1)
-		{
-			aMuP = aMu; bMuP = bMu + dMu;
-			aMuP = aMu; bMuP = bMu - dMu;
-		}
+		Eigen::VectorXd MuP(2), MuM(2);
+		MuP[0] = MuM[0] = aMu;
+		MuP[1] = MuM[1] = bMu;
+		
+		MuP[i] += dMu;
+		// MuM[i] -= dMu;
+
 		std::vector<double> LP, LM;
 		std::vector<Eigen::MatrixXd> aOneRDMsP, bOneRDMsP, aOneRDMsM, bOneRDMsM;
-		CollectRDM(aOneRDMsP, bOneRDMsP, BEPotential, aMuP, bMuP);
+		CollectRDM(aOneRDMsP, bOneRDMsP, BEPotential, MuP[0], MuP[1]);
 		LP = CalcCostChemPot(aOneRDMsP, bOneRDMsP, aBECenterPosition, bBECenterPosition);
-		CollectRDM(aOneRDMsM, bOneRDMsM, BEPotential, aMuM, bMuM);
+		CollectRDM(aOneRDMsM, bOneRDMsM, BEPotential, MuM[0], MuM[1]);
 		LM = CalcCostChemPot(aOneRDMsM, bOneRDMsM, aBECenterPosition, bBECenterPosition);
 
-		double dLadMu = (LP[0] - LM[0]) / (dMu + dMu);
-		double dLbdMu = (LP[1] - LM[1]) / (dMu + dMu);
+		double dLadMu = (LP[0] - LM[0]) / (dMu);
+		double dLbdMu = (LP[1] - LM[1]) / (dMu);
 
 		JMu(0, i) = dLadMu;
 		JMu(1, i) = dLbdMu;
@@ -988,11 +984,11 @@ void Bootstrap::OptMu()
 	Eigen::VectorXd L(2);
 	Eigen::VectorXd NextL(2);
 	Eigen::MatrixXd J = CalcJacobianChemPot(L, MuVec[0], MuVec[1]);
-	while (fabs(L.squaredNorm() / L.size()) > MuTol)
+	while (sqrt(L.squaredNorm() / L.size()) > MuTol)
 	{
 		MuVec = MuVec - J.inverse() * L;
 		J = CalcJacobianChemPot(L, MuVec[0], MuVec[1]);
-		std::cout << "BE-DMET: Mu Loss = \t" << MuVec[0] << "\t" << MuVec[1] << "\t" << L[0] << "\t" << L[1] << std::endl;
+		std::cout << "BE-DMET: Mu Loss = \t" << MuVec[0] << "\t" << L[0] << "\t" << MuVec[1] << "\t" << L[1] << std::endl;
 	}
 	aChemicalPotential = MuVec[0];
 	bChemicalPotential = MuVec[1];
