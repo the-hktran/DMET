@@ -871,6 +871,7 @@ int main(int argc, char* argv[])
     bool useRefP = false;
     std::ifstream FragPFile("FragP_1");
     bool doScan = FragPFile.good();
+    bool noUHF = false;
     
     // Begin by defining some variables.
     std::vector< std::tuple< Eigen::MatrixXd, double, double > > EmptyBias; // This code is capable of metadynamics, but this isn't utilized. We will use an empty bias to do standard SCF.
@@ -900,10 +901,13 @@ int main(int argc, char* argv[])
     }
     std::ifstream aPInit("aP.txt");
     std::ifstream bPInit("bP.txt");
+    Eigen::MatrixXd aP0(NumAO, NumAO), bP0(NumAO, NumAO);
     if (aPInit.good() && bPInit.good())
     {
         aDensityMatrix = ReadMatrixFromFile("aP.txt", Input.NumAO);
         bDensityMatrix = ReadMatrixFromFile("bP.txt", Input.NumAO);
+        aP0 = aDensityMatrix;
+        bP0 = bDensityMatrix;
     }
 
     std::vector< Eigen::MatrixXd > FullDensities(NumSCFStates);
@@ -1338,15 +1342,15 @@ int main(int argc, char* argv[])
             POut << DensityMatrix;
         }
 
-        if (aPInit.good() && bPInit.good())
-        {
-            std::remove("aP.txt");
-            std::remove("bP.txt");
-            std::ofstream aPOut("aP.txt");
-            std::ofstream bPOut("bP.txt");
-            aPOut << aDensityMatrix;
-            bPOut << bDensityMatrix;
-        }
+        // if (aPInit.good() && bPInit.good())
+        // {
+        //     std::remove("aP.txt");
+        //     std::remove("bP.txt");
+        //     std::ofstream aPOut("aP.txt");
+        //     std::ofstream bPOut("bP.txt");
+        //     aPOut << aDensityMatrix;
+        //     bPOut << bDensityMatrix;
+        // }
 
         // break; // Skips to the end to initiate BE or otherwise.
         // ***** OLD LOCKED ORBITALS METHOD
@@ -1408,10 +1412,14 @@ int main(int argc, char* argv[])
                 SCFMDb1RDM.push_back(SCFMD1RDM[i]);
             }
         }
-        // std::vector<Eigen::MatrixXd> aPs, bPs;
-        // aPs.push_back(aDensityMatrix);
-        // bPs.push_back(bDensityMatrix);
-        // BE.doBootstrap(Input, aPs, bPs, Output);
+        if (noUHF)
+        {
+            std::vector<Eigen::MatrixXd> aPs, bPs;
+            aPs.push_back(aP0);
+            bPs.push_back(bP0);
+            BE.doBootstrap(Input, aPs, bPs, Output);
+            return 0;
+        }
         BE.doBootstrap(Input, SCFMDa1RDM, SCFMDb1RDM, Output);
         return 0;
 
