@@ -62,8 +62,10 @@ void Fragmenting::OneCenterMatching(bool Match2RDM)
     for (int x = 0; x < AdjacencyMatrix.cols(); x++)
     {
         std::vector< std::tuple<int, int, int, int, int, bool, bool> > tmpVec;
-        for (int i = 1; i < Fragments[x].size(); i++)
+        for (int i = 0; i < Fragments[x].size(); i++)
         {
+            // Center pieces should not be matched here.
+            if (Fragments[x][i] == CenterPosition[x][0]) continue;
             int FragMatch;
             // Find which other fragment has this element as the center.
             for (int y = 0; y < CenterPosition.size(); y++)

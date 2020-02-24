@@ -788,8 +788,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
-				// std::cout << "j = " << j << std::endl;
-				// std::cout << LossesPlus[j] << "\n" << LossesMins[j] << std::endl;
+				// J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
 			}
 
 			// Add in chemical potential portion.
@@ -1298,7 +1297,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{100., 10., 1., 0.1, 0.01, 0.001, 0.0001}; //{2.000, 1.000, 0.100, 0.010};
+	std::vector<double> TestFactors{2., 1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
