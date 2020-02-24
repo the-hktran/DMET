@@ -973,7 +973,7 @@ void Bootstrap::PrintBEPotential()
 // 	std::cout << "BE-DMET: Chemical Potential = " << aChemicalPotential << " and " << bChemicalPotential << std::endl;
 // }
 
-// Optimization of the chemical potential using secant method.
+// Optimization of the chemical potential using Newton's method.
 void Bootstrap::OptMu()
 {
 	std::cout << "BE-DMET: Optimizing chemical potential." << std::endl;
@@ -1369,7 +1369,8 @@ void Bootstrap::OptLambda()
 		// UpdateFCIs(); // Inputs potentials into the FCI that varies.
 
 		Eigen::VectorXd dx = -J.inverse() * f;
-		double a = LineSearchCoarse(x, dx);
+		double a = 1.0;
+		if (doLineSearch) a = LineSearchCoarse(x, dx);
 		x = x + a * dx;
 		VectorToBE(x);
 		UpdateFCIs();
@@ -1379,7 +1380,7 @@ void Bootstrap::OptLambda()
 
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
-	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << f.sum() << std::endl;
+	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << sqrt(f.squaredNorm() / f.size()) << std::endl;
 }
 
 void Bootstrap::NewtonRaphson()
@@ -1397,7 +1398,7 @@ void Bootstrap::NewtonRaphson()
 
 	// Eigen::VectorXd f;
 
-	while (fabs(LMu[0]) > MuTol || fabs(LMu[1]) > MuTol)
+	while (sqrt((LMu[0] * LMu[0] + LMu[1] * LMu[1]) / 2.0) > MuTol)
 	// do
 	{
 		std::cout << "BE-DMET: -- Running Newton-Raphson iteration " << NRIteration << "." << std::endl;
@@ -1409,6 +1410,11 @@ void Bootstrap::NewtonRaphson()
 		// Eigen::MatrixXd J;
 		// J = CalcJacobian(f);
 		LMu = CalcCostChemPot();
+		std::cout << "BE-DMET: -- -- Newton-Raphson error = " << sqrt((LMu[0] * LMu[0] + LMu[1] * LMu[1]) / 2.0) << std::endl;
+		*Output << "BE-DMET: -- -- Newton-Raphson error = " << sqrt((LMu[0] * LMu[0] + LMu[1] * LMu[1]) / 2.0) << std::endl;
+		double BEEnergy = CalcBEEnergy();
+		std::cout << "BE-DMET: -- -- BE Energy for iteration " << NRIteration << " is " << BEEnergy << std::endl;
+		*Output << "BE-DMET: -- -- BE Energy for iteration " << NRIteration << " is " << BEEnergy << std::endl;
 		NRIteration++;
 	}
 	// while (fabs(f.sum()) > 1E-8);
