@@ -17,18 +17,26 @@
 #include "FCI.h"
 #include "Fragmenting.h"
 
-void Fragmenting::InitRing(int N)
+void Fragmenting::InitRing(int N, int BEDegree)
 {
-    // This is a test.
+    int BEDeg = BEDegree;
+    if (BEDeg % 2 != 1)
+    {
+        std::cout << "BE-DMET: Improper bootstrap degree! Setting degree to " << BEDegree + 1 << std::endl;
+        BEDeg++;
+    }
+    int Neighbors = (BEDeg - 1) / 2;
+
     AdjacencyMatrix = Eigen::MatrixXi::Zero(N, N);
     for (int i = 0; i < N; i++)
     {
-        AdjacencyMatrix(i, (i + 1) % N) = 1;
-        AdjacencyMatrix((i + 1) % N, i) = 1;
-        AdjacencyMatrix(i, (i + N - 1) % N) = 1;
-        AdjacencyMatrix((i + N - 1) % N, i) = 1;
+        for (int j = 0; j < Neighbors; j++)
+        {
+            AdjacencyMatrix(i, (i + (j + 1)) % N) = 1;
+            AdjacencyMatrix(i, (i + N - (j + 1)) % N) = 1;
+        }
     }
-    // end test.
+    std::cout << AdjacencyMatrix << std::endl;
 
     OneCenterIteration();
     OneCenterMatching(false);
@@ -126,34 +134,22 @@ void Fragmenting::InitGrid(int Nx, int Ny)
 
 void Fragmenting::PrintFrag()
 {
-    Fragmenting Frag;
-    Frag.InitRing(12);
-    for (int x = 0; x < Frag.Fragments.size(); x++)
+    for (int x = 0; x < Fragments.size(); x++)
     {
         std::cout << "Frag " << x << std::endl;
-        for (int i = 0; i < Frag.Fragments[x].size(); i++)
+        for (int i = 0; i < Fragments[x].size(); i++)
         {
-            std::cout << Frag.Fragments[x][i] << "\t";
-        }
-        std::cout << std::endl;
-    }
-
-    for (int x = 0; x < Frag.Fragments.size(); x++)
-    {
-        std::cout << "Frag " << x << std::endl;
-        for (int i = 0; i < Frag.Fragments[x].size(); i++)
-        {
-            std::cout << Frag.Fragments[x][i] << "\t";
+            std::cout << Fragments[x][i] << "\t";
         }
         std::cout << std::endl;
     }
 
     std::cout << "Matching Conditions" << std::endl;
-    for (int x = 0; x < Frag.MatchingConditions.size(); x++)
+    for (int x = 0; x < MatchingConditions.size(); x++)
     {
-        for (int i = 0; i < Frag.MatchingConditions[x].size(); i++)
+        for (int i = 0; i < MatchingConditions[x].size(); i++)
         {
-            std::cout << x << "\t" << i << "\t" << std::get<0>(Frag.MatchingConditions[x][i]) << "\t" << std::get<1>(Frag.MatchingConditions[x][i]) << "\t" << std::get<2>(Frag.MatchingConditions[x][i]) << std::endl;
+            std::cout << x << "\t" << i << "\t" << std::get<0>(MatchingConditions[x][i]) << "\t" << std::get<1>(MatchingConditions[x][i]) << "\t" << std::get<2>(MatchingConditions[x][i]) << std::endl;
         }
     }
 }

@@ -865,7 +865,7 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = false;
+    bool Unrestricted = true;
     bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
@@ -1399,7 +1399,7 @@ int main(int argc, char* argv[])
         // std::cout << DensityMatrix << std::endl;
 
         Fragmenting FragObj;
-        FragObj.InitRing(Input.NumFragments);
+        FragObj.InitRing(Input.NumFragments, 3);
         // FragObj.InitGrid(4, 3);
         Bootstrap BE;
         BE.InitFromFragmenting(FragObj, Output);

@@ -34,8 +34,8 @@ public:
 	std::vector<int> NumFragCond;
 	bool isTS = false;
 	bool MatchFullP = true;
-	bool doDavidson = false;
-	bool doLineSearch = false;
+	bool doDavidson = true;
+	bool doLineSearch = true;
 
 	double aChemicalPotential = 0.0;
 	double bChemicalPotential = 0.0;

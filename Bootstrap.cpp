@@ -1184,12 +1184,31 @@ void Bootstrap::OptMu_BisectionMethod()
 		}
 
 		std::cout << "BE-DMET: Mu Loss =\t" << aMuC << "\t" << LC[0] << "\t" << bMuC << "\t" << LC[1] << std::endl;
-		if (fabs(aMu2 - aMu1) < 1E-12 && fabs(bMu2 - bMu1) < 1E-12) // It sometimes happens that we converge but do not get the small loss we want.
+		if (fabs(aMu2 - aMu1) < 1E-10 && fabs(bMu2 - bMu1) < 1E-10) // It sometimes happens that we converge but do not get the small loss we want.
 		{
-			aChemicalPotential = aMuC;
-			bChemicalPotential = bMuC;
-			OptMu();
-			return;
+			break;
+		// 	aMu1 -= 1E-3;
+		// 	aMu2 += 1E-3;
+		// 	bMu1 -= 1E-3;
+		// 	bMu2 += 1E-3;
+		// 	// aChemicalPotential = aMuC;
+		// 	// bChemicalPotential = bMuC;
+		// 	// OptMu();
+		// 	// return;
+		// 	aOneRDMs1.clear();
+		// 	bOneRDMs1.clear();
+		// 	aOneRDMs1.shrink_to_fit();
+		// 	bOneRDMs1.shrink_to_fit();
+		// 	CollectRDM(aOneRDMs1, bOneRDMs1, BEPotential, aMu1, bMu1);
+		// 	L1 = CalcCostChemPot(aOneRDMs1, bOneRDMs1, aBECenterPosition, bBECenterPosition);
+		// 	aOneRDMs2.clear();
+		// 	bOneRDMs2.clear();
+		// 	aOneRDMs2.shrink_to_fit();
+		// 	bOneRDMs2.shrink_to_fit();
+		// 	CollectRDM(aOneRDMs2, bOneRDMs2, BEPotential, aMu2, bMu2);
+		// 	L2 = CalcCostChemPot(aOneRDMs2, bOneRDMs2, aBECenterPosition, bBECenterPosition);
+		// 	std::cout << "BE-DMET: Mu Loss =\t" << aMu1 << "\t" << L1[0] << "\t" << bMu1 << "\t" << L1[1] << std::endl;
+		// 	std::cout << "BE-DMET: Mu Loss =\t" << aMu2 << "\t" << L2[0] << "\t" << bMu2 << "\t" << L2[1] << std::endl;
 		}
 	}
 
