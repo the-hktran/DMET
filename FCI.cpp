@@ -1173,6 +1173,9 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
     }
 
     N = bActive;
+    __s1 = N;
+	__s2 = N * N;
+	__s3 = N * N * N;
 
     for (int i = 0; i < bFragPos.size(); i++)
     {
@@ -1186,9 +1189,9 @@ double FCI::calcImpurityEnergy(int ImpState, std::vector<int> aFragPos, std::vec
                     if (doUnrestricted)
                     {
                         ImpEnergy += 1.0 * bbG[ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)]
-                                   + 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                                   + 0.5 * abG[ind4(k, l, iIdx, j)] * abTEI[ind4(k, l, iIdx, j)];
                         bbE2 += 1.0 * bbG[ind4(iIdx, j, k, l)] * bbTEI[ind4(iIdx, j, k, l)];
-                        abE2 += 0.5 * abG[ind4(iIdx, j, k, l)] * abTEI[ind4(iIdx, j, k, l)];
+                        abE2 += 0.5 * abG[ind4(k, l, iIdx, j)] * abTEI[ind4(k, l, iIdx, j)];
                     }
                     else
                     {

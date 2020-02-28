@@ -32,7 +32,7 @@ public:
 
 	int NumConditions;
 	std::vector<int> NumFragCond;
-	bool isTS = true;
+	bool isTS = false;
 	bool MatchFullP = true;
 	bool doDavidson = false;
 	bool doLineSearch = true;

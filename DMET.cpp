@@ -865,7 +865,7 @@ int main(int argc, char* argv[])
     NumFCIStates++;
     Input.NumberOfEV = NumFCIStates;
 
-    bool Unrestricted = false;
+    bool Unrestricted = true;
     bool DeltaSCF = false;
     bool HalfUnrestricted = false;
     bool useRefP = false;
