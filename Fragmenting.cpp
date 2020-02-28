@@ -11,6 +11,7 @@
 #include <algorithm> // std::sort
 #include <iomanip>
 #include <queue>
+#include <utility>
 #include "Bootstrap.h"
 #include "Functions.h"
 #include "NewtonRaphson.h"
@@ -36,10 +37,11 @@ void Fragmenting::InitRing(int N, int BEDegree)
             AdjacencyMatrix(i, (i + N - (j + 1)) % N) = 1;
         }
     }
-    std::cout << AdjacencyMatrix << std::endl;
 
     OneCenterIteration();
     OneCenterMatching(false);
+    isTS = true;
+    RingAnalogue();
 }
 
 void Fragmenting::OneCenterIteration()
@@ -94,6 +96,18 @@ void Fragmenting::OneCenterMatching(bool Match2RDM)
             }
         }
         MatchingConditions.push_back(tmpVec);
+    }
+}
+
+void Fragmenting::RingAnalogue()
+{
+    int NumFrag = AdjacencyMatrix.cols();
+    for (int x = 0; x < NumFrag; x++)
+    {
+        for (int i = 0; i < Fragments[x].size(); i++)
+        {
+            OrbitalAnalog[std::make_pair(x, Fragments[x][i])] = (NumFrag + (Fragments[x][i] - x)) % NumFrag;
+        }
     }
 }
 

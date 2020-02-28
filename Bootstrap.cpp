@@ -17,6 +17,7 @@
 #include "NewtonRaphson.h"
 #include "FCI.h"
 #include "Fragmenting.h"
+#include <utility>
 
 // This is a debug function for the time being
 //void Bootstrap::debugInit(InputObj Inp, std::ofstream &OutStream)
@@ -93,20 +94,12 @@ void Bootstrap::InitFromFragmenting(Fragmenting Frag, std::ofstream &OutStream)
 {
 	Output = &OutStream;
 	NumFrag = Frag.MatchingConditions.size();
-	if (isTS)
-	{
-		TrueNumFrag = NumFrag;
-		NumFrag = 3;
-	}
+	TrueNumFrag = NumFrag;
 	NumFragCond.clear();
 	BEPotential.clear();
 	NumConditions = 0;
 	for (int x = 0; x < Frag.MatchingConditions.size(); x++)
 	{
-		if (isTS && x > 2)
-		{
-			break;
-		}
 		NumFragCond.push_back(Frag.MatchingConditions[x].size());
 		NumConditions += NumFragCond[x];
 		std::vector< std::tuple<int, int, int, int, int, double, bool, bool> > tmpVec;
@@ -119,6 +112,7 @@ void Bootstrap::InitFromFragmenting(Fragmenting Frag, std::ofstream &OutStream)
 	}
 
 	aBECenterPosition = bBECenterPosition = Frag.CenterPosition;
+	OrbitalAnalogs = Frag.OrbitalAnalog;
 }
 
 void Bootstrap::PrintOneRDMs(std::vector< std::vector<Eigen::MatrixXd> > OneRDMs)
@@ -159,11 +153,6 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
     double CF = 0;
     for(int x = 0; x < Frag1RDMs.size(); x++) // sum over fragments
     {
-		if (x > 0 && isTS)
-		{
-			CF *= NumFrag;
-			break;
-		}
         std::vector< int > FragPos;
         std::vector< int > BathPos;
         GetCASPos(Inp, x , FragPos, BathPos);
@@ -172,6 +161,10 @@ double Bootstrap::CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> > Fr
             CF += Frag1RDMs[x][FragSt[x]](FragPos[BECenter[x][i]], FragPos[BECenter[x][i]]);
         }
     }
+	if (isTS)
+	{
+		CF *= TrueNumFrag;
+	}
     CF -= Inp.NumElectrons;
     CF = CF * CF;
     return CF;
@@ -185,23 +178,6 @@ std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFra
 	
     for(int x = 0; x < aFrag1RDMs.size(); x++) // sum over fragments
     {
-		if (isTS)
-		{
-			for (int i = 0; i < aBECenter[1].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
-			{
-				int CenterIdx = OrbitalToReducedIndex(aBECenter[1][i], 1, true);
-				aCF += aFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
-			}
-			for (int i = 0; i < bBECenter[x].size(); i++)
-			{
-				int CenterIdx = OrbitalToReducedIndex(bBECenter[1][i], 1, false);
-				bCF += bFrag1RDMs[1].coeffRef(CenterIdx, CenterIdx);
-			}
-			aCF *= TrueNumFrag;
-			bCF *= TrueNumFrag;
-			break;
-		}
-
         for (int i = 0; i < aBECenter[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
         {
 			int CenterIdx = OrbitalToReducedIndex(aBECenter[x][i], x, true);
@@ -213,6 +189,11 @@ std::vector<double> Bootstrap::CalcCostChemPot(std::vector<Eigen::MatrixXd> aFra
             bCF += bFrag1RDMs[x].coeffRef(CenterIdx, CenterIdx);
 		}
     }
+	if (isTS)
+	{
+		aCF *= TrueNumFrag;
+		bCF *= TrueNumFrag;
+	}
     aCF -= Input.aNumElectrons;
 	bCF -= Input.bNumElectrons;
 	// aCF = aCF * aCF;
@@ -230,23 +211,6 @@ std::vector<double> Bootstrap::CalcCostChemPot()
 
     for(int x = 0; x < NumFrag; x++) // sum over fragments
     {
-		if (isTS)
-		{
-			for (int i = 0; i < aBECenterPosition[1].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
-			{ 
-				int CenterIdx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
-				aCF += FCIs[1].aOneRDMs[FragState[1]].coeffRef(CenterIdx, CenterIdx);
-			}
-			for (int i = 0; i < bBECenterPosition[1].size(); i++)
-			{
-				int CenterIdx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
-				bCF += FCIs[1].bOneRDMs[FragState[1]].coeffRef(CenterIdx, CenterIdx);
-			}
-			aCF *= TrueNumFrag;
-			bCF *= TrueNumFrag;
-			break;
-		}
-
         for (int i = 0; i < aBECenterPosition[x].size(); i++) // sum over diagonal matrix elements belonging to the fragment orbitals.
         {
 			int CenterIdx = OrbitalToReducedIndex(aBECenterPosition[x][i], x, true);
@@ -258,6 +222,11 @@ std::vector<double> Bootstrap::CalcCostChemPot()
             bCF += FCIs[x].bOneRDMs[FragState[x]].coeffRef(CenterIdx, CenterIdx);
 		}
     }
+	if (isTS)
+	{
+		aCF *= TrueNumFrag;
+		bCF *= TrueNumFrag;
+	}
     aCF -= Input.aNumElectrons;
 	bCF -= Input.bNumElectrons;
 	// aCF = aCF * aCF;
@@ -317,6 +286,13 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 		{
 			int Ind1Ref = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind2Ref = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
+			if (isTS)
+			{
+				int Orb1 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<1>(BEPotential[FragmentIndex][i]))];
+				int Orb2 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<2>(BEPotential[FragmentIndex][i]))];
+				Ind1Ref = OrbitalToReducedIndex(Orb1, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+				Ind2Ref = OrbitalToReducedIndex(Orb2, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+			}
 
 			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
@@ -325,6 +301,13 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 			{
 				int bInd1Ref = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), false);
 				int bInd2Ref = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), false);
+				if (isTS)
+				{
+					int Orb1 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<1>(BEPotential[FragmentIndex][i]))];
+					int Orb2 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<2>(BEPotential[FragmentIndex][i]))];
+					bInd1Ref = OrbitalToReducedIndex(Orb1, FragmentIndex, false);
+					bInd2Ref = OrbitalToReducedIndex(Orb2, FragmentIndex, false);
+				}
 
 				int bInd1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, false);
 				int bInd2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, false);
@@ -332,19 +315,29 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 				// Eigen::MatrixXd OneRDMRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])] + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])];
 				// Eigen::MatrixXd OneRDMIter = aOneRDMIter + bOneRDMIter;
 
-				PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(bInd1Ref, bInd2Ref);
+				if (isTS)
+				{
+					PRef = aOneRDMRef[FragmentIndex].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[FragmentIndex].coeffRef(bInd1Ref, bInd2Ref);
+				}
+				else
+				{
+					PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref) + bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(bInd1Ref, bInd2Ref);
+				}
+				
 				PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter) + bOneRDMIter.coeffRef(bInd1Iter, bInd2Iter);
 			}
 			else
 			{
 				if (std::get<6>(BEPotential[FragmentIndex][i]))
 				{
-					PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+					if (isTS) PRef = aOneRDMRef[FragmentIndex].coeffRef(Ind1Ref, Ind2Ref);
+					else PRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
 					PIter = aOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
 				}
 				else
 				{
-					PRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
+					if (isTS) PRef = bOneRDMRef[FragmentIndex].coeffRef(Ind1Ref, Ind2Ref);
+					else PRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].coeffRef(Ind1Ref, Ind2Ref);
 					PIter = bOneRDMIter.coeffRef(Ind1Iter, Ind2Iter);
 				}
 			}
@@ -355,6 +348,17 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 			int Ind2Ref = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind3Ref = OrbitalToReducedIndex(std::get<3>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<7>(BEPotential[FragmentIndex][i]));
 			int Ind4Ref = OrbitalToReducedIndex(std::get<4>(BEPotential[FragmentIndex][i]), std::get<0>(BEPotential[FragmentIndex][i]), std::get<7>(BEPotential[FragmentIndex][i]));
+			if (isTS)
+			{
+				int Orb1 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<1>(BEPotential[FragmentIndex][i]))];
+				int Orb2 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<2>(BEPotential[FragmentIndex][i]))];
+				int Orb3 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<3>(BEPotential[FragmentIndex][i]))];
+				int Orb4 = OrbitalAnalogs[std::make_pair(std::get<0>(BEPotential[FragmentIndex][i]), std::get<4>(BEPotential[FragmentIndex][i]))];
+				Ind1Ref = OrbitalToReducedIndex(Orb1, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+				Ind2Ref = OrbitalToReducedIndex(Orb2, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+				Ind3Ref = OrbitalToReducedIndex(Orb3, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+				Ind4Ref = OrbitalToReducedIndex(Orb4, FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
+			}
 
 			int Ind1Iter = OrbitalToReducedIndex(std::get<1>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
 			int Ind2Iter = OrbitalToReducedIndex(std::get<2>(BEPotential[FragmentIndex][i]), FragmentIndex, std::get<6>(BEPotential[FragmentIndex][i]));
@@ -363,23 +367,48 @@ std::vector<double> Bootstrap::CalcCostLambda(std::vector<Eigen::MatrixXd> aOneR
 
 			if (std::get<6>(BEPotential[FragmentIndex][i]) && std::get<7>(BEPotential[FragmentIndex][i]))
 			{
-				int NRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
-				PRef = aaTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				if (isTS)
+				{
+					int NRef = aOneRDMRef[FragmentIndex].rows();
+					PRef = aaTwoRDMRef[FragmentIndex][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				}
+				else
+				{
+					int NRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					PRef = aaTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				}
 				int NIter = aOneRDMIter.rows();
 				PIter = aaTwoRDMIter[Ind1Iter * NIter * NIter * NIter + Ind2Iter * NIter * NIter + Ind3Iter * NIter + Ind4Iter];
 			}
 			else if (!std::get<6>(BEPotential[FragmentIndex][i]) && !std::get<7>(BEPotential[FragmentIndex][i]))
 			{
-				int NRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
-				PRef = bbTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				if (isTS)
+				{
+					int NRef = bOneRDMRef[FragmentIndex].rows();
+					PRef = bbTwoRDMRef[FragmentIndex][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				}
+				else
+				{
+					int NRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					PRef = bbTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * NRef * NRef * NRef + Ind2Ref * NRef * NRef + Ind3Ref * NRef + Ind4Ref];
+				}
 				int NIter = bOneRDMIter.rows();
 				PIter = bbTwoRDMIter[Ind1Iter * NIter * NIter * NIter + Ind2Iter * NIter * NIter + Ind3Iter * NIter + Ind4Iter];
 			}
 			else
 			{
-				int aNRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
-				int bNRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
-				PRef = abTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * aNRef * bNRef * bNRef + Ind2Ref * bNRef * bNRef + Ind3Ref * bNRef + Ind4Ref];
+				if (isTS)
+				{
+					int aNRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					int bNRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					PRef = abTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * aNRef * bNRef * bNRef + Ind2Ref * bNRef * bNRef + Ind3Ref * bNRef + Ind4Ref];
+				}
+				else
+				{
+					int aNRef = aOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					int bNRef = bOneRDMRef[std::get<0>(BEPotential[FragmentIndex][i])].rows();
+					PRef = abTwoRDMRef[std::get<0>(BEPotential[FragmentIndex][i])][Ind1Ref * aNRef * bNRef * bNRef + Ind2Ref * bNRef * bNRef + Ind3Ref * bNRef + Ind4Ref];
+				}
 				int aNIter = aOneRDMIter.rows();
 				int bNIter = bOneRDMIter.rows();
 				PIter = bbTwoRDMIter[Ind1Iter * aNIter * bNIter * bNIter + Ind2Iter * bNIter * bNIter + Ind3Iter * bNIter + Ind4Iter];
@@ -395,13 +424,6 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 {
 	for (int x = 0; x < NumFrag; x++)
 	{
-		if (x > 0 && isTS)
-		{
-			aOneRDMs.push_back(aOneRDMs[0]);
-			bOneRDMs.push_back(bOneRDMs[0]);
-			continue;
-		}
-
 		FCI xFCI(FCIsBase[x]);
 		
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aMu, bMu);
@@ -459,13 +481,6 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 {
 	for (int x = 0; x < NumFrag; x++)
 	{
-		if (x > 0 && isTS)
-		{
-			aOneRDMs.push_back(aOneRDMs[0]);
-			bOneRDMs.push_back(bOneRDMs[0]);
-			continue;
-		}
-
 		FCI xFCI(FCIsBase[x]);
 		
 		xFCI.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aMu, bMu);
@@ -685,30 +700,6 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 	int fCount = 0;
 	for (int x = 0; x < NumFrag; x++)
 	{
-		if (isTS)
-		{
-			if (x == 0)
-			{
-				JCol += NumFragCond[0];
-				fCount += NumFragCond[0];
-				continue;
-			}
-			if (x == 2)
-			{
-				for (int i = 0; i < NumFragCond[0]; i++)
-				{
-					f[i] = f[i + NumFragCond[0]];
-					f[i + 2 * NumFragCond[0]] = f[i + NumFragCond[0]];
-					for (int j = 0; j < NumFragCond[0]; j++)
-					{
-						J(i, j) = J(i + NumFragCond[0], j + NumFragCond[0]);
-						J(i + 2 *NumFragCond[0], j + 2 * NumFragCond[0]) = J(i + NumFragCond[0], j + NumFragCond[0]);
-					}
-				}
-				break;
-			}
-		}
-
 		std::vector<double> LossesBase = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, aOneRDMs[x], bOneRDMs[x], aaTwoRDMs[x], abTwoRDMs[x], bbTwoRDMs[x], x);
 
 		int JRow = 0;
@@ -1481,16 +1472,36 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	aBathPos.clear();
 	bBathPos.clear();
 
-	// This will hold all of our impurity densities, calculated from using the BE potential.
-	std::vector< Eigen::MatrixXd > ImpurityDensities(NumFrag);
-	std::vector< Eigen::Tensor<double, 4> > Impurity2RDM(NumFrag);
-	std::vector< Eigen::VectorXd > ImpurityEigenstates(NumFrag);
-
 	CollectSchmidt(aMFDensity, bMFDensity, Output); // Runs a function to collect all rotational matrices in corresponding to each fragment.
+
+	/* If the system is translationally symmetric, we commence by redefining the number of fragments and matching conditions. Specifically, we will
+	   reduce the number of fragments to one and redefine the matching condition in the scope of that one fragment. Then we will multiply the energy
+	   at the end by the appropriate amount. */
+	if (isTS)
+	{
+		TrueNumFrag = NumFrag;
+		NumFrag = 1;
+		
+		NumFragCond.clear(); NumFragCond.shrink_to_fit();
+		NumFragCond.push_back(BEPotential[0].size());
+		NumConditions = BEPotential[0].size();
+
+		std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > BEPotentialTS = BEPotential[0];
+		BEPotential.clear(); BEPotential.shrink_to_fit();
+		BEPotential.push_back(BEPotentialTS);
+
+		auto BECenterPosition0 = aBECenterPosition[0];
+		aBECenterPosition.clear(); aBECenterPosition.shrink_to_fit();
+		aBECenterPosition.push_back(BECenterPosition0);
+
+		BECenterPosition0 = bBECenterPosition[0];
+		bBECenterPosition.clear(); bBECenterPosition.shrink_to_fit();
+		bBECenterPosition.push_back(BECenterPosition0);
+	}
 
 	FCIs.clear();
 	// Generate impurity FCI objects for each impurity.
-	for (int x = 0; x < NumFrag; x++)
+	for (int x = 0; x < TrueNumFrag; x++)
 	{
 		std::vector<int> xaFragPos, xaBathPos, xbFragPos, xbBathPos;
 		GetCASPos(Input, x, xaFragPos, xaBathPos, true);
@@ -1499,27 +1510,10 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		bFragPos.push_back(xbFragPos);
 		aBathPos.push_back(xaBathPos);
 		bBathPos.push_back(xbBathPos);
-		// if (x > 3 && x < 8)
-		// {
-		// 	std::cout << "x = " << x << std::endl;
-		// 	for (int i = 0; i < xaFragPos.size(); i++)
-		// 	{
-		// 		std::cout << "aFrag = " << xaFragPos[i] << std::endl;
-		// 	}
-		// 	for (int i = 0; i < xaBathPos.size(); i++)
-		// 	{
-		// 		std::cout << "aBath = " << xaBathPos[i] << std::endl;
-		// 	}
-		// 	for (int i = 0; i < xbFragPos.size(); i++)
-		// 	{
-		// 		std::cout << "bFrag = " << xbFragPos[i] << std::endl;
-		// 	}
-		// 	for (int i = 0; i < xbBathPos.size(); i++)
-		// 	{
-		// 		std::cout << "bBath = " << xbBathPos[i] << std::endl;
-		// 	}
-		// }
+	}
 
+	for (int x = 0; x < NumFrag; x++)
+	{
 		std::vector<int> aActiveList, aVirtualList, aCoreList, bActiveList, bVirtualList, bCoreList;
         GetCASList(Input, x, aActiveList, aCoreList, aVirtualList, true);
         GetCASList(Input, x, bActiveList, bCoreList, bVirtualList, false);
@@ -1606,32 +1600,9 @@ double Bootstrap::CalcBEEnergy()
 	std::cout << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	*Output << "BE-DMET: Calculating DMET Energy..." << std::endl;
 	double FragEnergy;
-	if (isTS)
-	{
-		// std::vector<int> aBECenterIndex, bBECenterIndex;
-		// for (int i = 0; i < aBECenterPosition[1].size(); i++)
-		// {
-		// 	int idx = OrbitalToReducedIndex(aBECenterPosition[1][i], 1, true);
-		// 	aBECenterIndex.push_back(idx);
-		// }
-		// for (int i = 0; i < bBECenterPosition[1].size(); i++)
-		// {
-		// 	int idx = OrbitalToReducedIndex(bBECenterPosition[1][i], 1, false);
-		// 	bBECenterIndex.push_back(idx);
-		// }
-		FragEnergy = FCIsBase[1].calcImpurityEnergy(FragState[1], aBECenterIndex[1], bBECenterIndex[1], FCIs[1].aOneRDMs[FragState[1]], FCIs[1].bOneRDMs[FragState[1]], FCIs[1].aaTwoRDMs[FragState[1]], FCIs[1].abTwoRDMs[FragState[1]], FCIs[1].bbTwoRDMs[FragState[1]]);
-
-		return FragEnergy * TrueNumFrag + Input.Integrals["0 0 0 0"];
-	}
 
 	for (int x = 0; x < NumFrag; x++)
 	{
-		if (x > 0 && isTS)
-		{
-			Energy += FragEnergy;
-			continue;
-		}
-		
 		std::vector<Eigen::MatrixXd> OneRDM;
 		// std::vector<int> aBECenterIndex, bBECenterIndex;
 		// for (int i = 0; i < aBECenterPosition[x].size(); i++)
@@ -1650,6 +1621,7 @@ double Bootstrap::CalcBEEnergy()
 		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 		std::cout << "FCI Energy = " << FCIs[x].Energies[FragState[x]] << std::endl;
 	}
+	if (isTS) Energy *= TrueNumFrag;
 	Energy += Input.Integrals["0 0 0 0"];
 	return Energy;
 }

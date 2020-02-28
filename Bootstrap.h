@@ -32,9 +32,9 @@ public:
 
 	int NumConditions;
 	std::vector<int> NumFragCond;
-	bool isTS = false;
+	bool isTS = true;
 	bool MatchFullP = true;
-	bool doDavidson = true;
+	bool doDavidson = false;
 	bool doLineSearch = true;
 
 	double aChemicalPotential = 0.0;
@@ -49,6 +49,11 @@ public:
 	std::vector<int> FragState;
 	std::vector<int> BathState;
 	int MaxState = 6;
+
+	// This is a translator which describes how each center corresponds to centers on each other fragment.
+	// For the key: First pair is the fragment number and orbital we wish to convert and second integer is the fragment we want to translate that pair into.
+	// For the value: The value is the corresponding orbital on the fragment specified by the second index (integer).
+	std::map<std::pair<int, int>, int> OrbitalAnalogs;
 
 	// Each element of this vector corresponds to a tuple for the BE FCI potential on each fragment.
 	// Each vector is a different fragment.
