@@ -1335,12 +1335,12 @@ int main(int argc, char* argv[])
             Output << "Reference Energy = " << SCFEnergy << std::endl;
         }
 
-        if (PInit.good())
-        {
-            std::remove("P.txt");
-            std::ofstream POut("P.txt");
-            POut << DensityMatrix;
-        }
+        // if (PInit.good())
+        // {
+        //     std::remove("P.txt");
+        //     std::ofstream POut("P.txt");
+        //     POut << DensityMatrix;
+        // }
 
         // if (aPInit.good() && bPInit.good())
         // {

@@ -1387,7 +1387,6 @@ void Bootstrap::OptLambda()
 
 		J = CalcJacobian(f); // Update here to check the loss.
 		// J = 0.1 * J; // Hardcoded "linesearch"
-
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << sqrt(f.squaredNorm() / f.size()) << std::endl;
