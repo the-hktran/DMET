@@ -533,7 +533,7 @@ void Bootstrap::CollectRDM(std::vector< Eigen::MatrixXd > &aOneRDMs, std::vector
 void Bootstrap::UpdateFCIs()
 {
 	FCIs.clear();
-	FCIs.shrink_to_fit();
+	std::vector<FCI>().swap(FCIs);
 	for (int x = 0; x < NumFrag; x++)
 	{
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
@@ -583,7 +583,7 @@ void Bootstrap::UpdateFCIs()
 void Bootstrap::UpdateFCIsE()
 {
 	FCIs.clear();
-	FCIs.shrink_to_fit();
+	std::vector<FCI>().swap(FCIs);
 	for (int x = 0; x < NumFrag; x++)
 	{
 		FCI xFCI(FCIsBase[x]); // First, reset FCI
@@ -676,6 +676,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
+		std::cout << x << "\na\n" << FCIs[x].aOneRDMs[FragState[x]] << "\nb\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 	}
 
 	// double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
@@ -776,8 +777,10 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// dLmdl = (dLmdl - LMu) / dLambda;
 			
 			// Fill in J
+			std::cout << x << "\t" << i << std::endl;
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
+				std::cout << LossesPlus[j] << "\t" << LossesBase[j] << "\t" << LossesMins[j] << std::endl;
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
 				// J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
 			}
@@ -1058,8 +1061,8 @@ std::vector<double> Bootstrap::ScanMu()
 	{
 		aOneRDMs.clear();
 		bOneRDMs.clear();
-		aOneRDMs.shrink_to_fit();
-		bOneRDMs.shrink_to_fit();
+		std::vector<Eigen::MatrixXd>().swap(aOneRDMs);
+		std::vector<Eigen::MatrixXd>().swap(bOneRDMs);
 
 		CollectRDM(aOneRDMs, bOneRDMs, BEPotential, aMu, bMu);
 		L2 = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition);
@@ -1125,14 +1128,14 @@ void Bootstrap::OptMu_BisectionMethod()
 		bMu2 += 1E-2;
 		aOneRDMs1.clear();
 		bOneRDMs1.clear();
-		aOneRDMs1.shrink_to_fit();
-		bOneRDMs1.shrink_to_fit();
+		std::vector<Eigen::MatrixXd>().swap(aOneRDMs1);
+		std::vector<Eigen::MatrixXd>().swap(bOneRDMs1);
 		CollectRDM(aOneRDMs1, bOneRDMs1, BEPotential, aMu1, bMu1);
 		L1 = CalcCostChemPot(aOneRDMs1, bOneRDMs1, aBECenterPosition, bBECenterPosition);
 		aOneRDMs2.clear();
 		bOneRDMs2.clear();
-		aOneRDMs2.shrink_to_fit();
-		bOneRDMs2.shrink_to_fit();
+		std::vector<Eigen::MatrixXd>().swap(aOneRDMs2);
+		std::vector<Eigen::MatrixXd>().swap(bOneRDMs2);
 		CollectRDM(aOneRDMs2, bOneRDMs2, BEPotential, aMu2, bMu2);
 		L2 = CalcCostChemPot(aOneRDMs2, bOneRDMs2, aBECenterPosition, bBECenterPosition);
 		std::cout << "BE-DMET: Mu Loss =\t" << aMu1 << "\t" << L1[0] << "\t" << bMu1 << "\t" << L1[1] << std::endl;
@@ -1307,7 +1310,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{2., 1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
+	std::vector<double> TestFactors{10., 2., 1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
@@ -1366,7 +1369,6 @@ void Bootstrap::OptLambda()
 	Eigen::VectorXd f;
 	Eigen::MatrixXd J = CalcJacobian(f);
 
-	// int SitePotentialIteration = 0;
 	std::cout << "BE-DMET: Optimizing site potential" << std::endl;
 	if (sqrt(f.squaredNorm() / f.size()) < LambdaTol) // If the chemical potential optimization did not cause a need to change, we still need to update the FCIs with it.
 	{
@@ -1377,7 +1379,6 @@ void Bootstrap::OptLambda()
 		// x = x - J.inverse() * f;
 		// VectorToBE(x); // Updates the BEPotential for the J and f update next.
 		// UpdateFCIs(); // Inputs potentials into the FCI that varies.
-
 		Eigen::VectorXd dx = -J.inverse() * f;
 		double a = 1.0;
 		if (doLineSearch) a = LineSearchCoarse(x, dx);
@@ -1388,6 +1389,8 @@ void Bootstrap::OptLambda()
 		J = CalcJacobian(f); // Update here to check the loss.
 		// J = 0.1 * J; // Hardcoded "linesearch"
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
+		std::cout << f << std::endl;
+		std::cout << J << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << sqrt(f.squaredNorm() / f.size()) << std::endl;
 }
@@ -1481,20 +1484,20 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 		TrueNumFrag = NumFrag;
 		NumFrag = 1;
 		
-		NumFragCond.clear(); NumFragCond.shrink_to_fit();
+		NumFragCond.clear(); std::vector<int>().swap(NumFragCond);
 		NumFragCond.push_back(BEPotential[0].size());
 		NumConditions = BEPotential[0].size();
 
 		std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > BEPotentialTS = BEPotential[0];
-		BEPotential.clear(); BEPotential.shrink_to_fit();
+		BEPotential.clear(); std::vector< std::vector< std::tuple< int, int, int, int, int, double, bool, bool > > >().swap(BEPotential);
 		BEPotential.push_back(BEPotentialTS);
 
 		auto BECenterPosition0 = aBECenterPosition[0];
-		aBECenterPosition.clear(); aBECenterPosition.shrink_to_fit();
+		aBECenterPosition.clear(); std::vector< std::vector< int > >().swap(aBECenterPosition);
 		aBECenterPosition.push_back(BECenterPosition0);
 
 		BECenterPosition0 = bBECenterPosition[0];
-		bBECenterPosition.clear(); bBECenterPosition.shrink_to_fit();
+		bBECenterPosition.clear(); std::vector< std::vector< int > >().swap(bBECenterPosition);
 		bBECenterPosition.push_back(BECenterPosition0);
 	}
 
