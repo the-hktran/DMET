@@ -88,7 +88,7 @@ public:
 	void InitFromFragmenting(Fragmenting, std::ofstream&);
 
 private:
-	double dLambda = 1E-8;
+	double dLambda = 1E-12;
 	double dMu = 1E-6;
 	double MuTol = 1E-5;
 	double LambdaTol = 1E-4;
@@ -106,6 +106,7 @@ private:
 	void OptMu_BisectionMethod();
 	void OptLambda();
 	std::vector<double> ScanMu();
+	void ScanLambda(int, int);
 	void LineSearch(Eigen::VectorXd&, Eigen::VectorXd);
 	double LineSearchCoarse(Eigen::VectorXd&, Eigen::VectorXd);
 	double CalcCostChemPot(std::vector< std::vector<Eigen::MatrixXd> >, std::vector< std::vector< int > >, std::vector<int>, InputObj&);

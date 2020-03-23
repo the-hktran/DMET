@@ -1093,6 +1093,45 @@ std::vector<double> Bootstrap::ScanMu()
 	return EndPoints;
 }
 
+void Bootstrap::ScanLambda(int n, int FragIndex)
+{
+	Eigen::VectorXd BEVec = BEToVector();
+	Eigen::VectorXd BEVec0 = BEVec;
+	
+	double Range = 2E-6;
+	double Steps = 100;
+	double StepSize = Range / Steps;
+	double Start = BEVec[n] - Range / 2;
+
+	std::cout << "BE-DMET: Beginning Lambda Scan.." << std::endl;
+
+	for (int j = 0; j < Steps; j++)
+	{
+		BEVec[n] = Start + j * StepSize;
+		VectorToBE(BEVec);
+
+		UpdateFCIs();
+		std::vector<Eigen::MatrixXd> aOneRDMs, bOneRDMs;
+		std::vector< std::vector<double> > aaTwoRDMs, abTwoRDMs, bbTwoRDMs, tmpVecVecDouble;
+		for (int x = 0; x < NumFrag; x++)
+		{
+			aOneRDMs.push_back(FCIs[x].aOneRDMs[FragState[x]]);
+			bOneRDMs.push_back(FCIs[x].bOneRDMs[FragState[x]]);
+			aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
+			abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
+			bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
+		}
+		std::vector<double> Loss = CalcCostLambda(aOneRDMs, bOneRDMs, aaTwoRDMs, abTwoRDMs, bbTwoRDMs, FCIs[FragIndex].aOneRDMs[FragState[FragIndex]], FCIs[FragIndex].bOneRDMs[FragState[FragIndex]], 
+		                                          FCIs[FragIndex].aaTwoRDMs[FragState[FragIndex]],  FCIs[FragIndex].abTwoRDMs[FragState[FragIndex]],  FCIs[FragIndex].bbTwoRDMs[FragState[FragIndex]], FragIndex);
+		std::cout << Start + j * StepSize << "\t";
+		for (int jj = 0; jj < Loss.size(); jj++)
+		{
+			std::cout << Loss[jj] << "\t";
+		}
+		std::cout << std::endl;
+	}
+}
+
 void Bootstrap::OptMu_BisectionMethod()
 {
 	double aMu1 = -0.02;
@@ -1310,13 +1349,11 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{10., 2., 1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
+	std::vector<double> TestFactors{1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
 
-	time_t start,end;
-	double diff;
 	for (int j = 0; j < TestFactors.size(); j++)
 	{
 		Eigen::VectorXd BEVec0 = x0 + TestFactors[j] * dx;
