@@ -757,6 +757,29 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// std::cout << "+\n" << xFCIp.aOneRDMs[FragState[x]] << "\n-\n" << xFCIm.aOneRDMs[FragState[x]] << std::endl;
 			std::vector<double> LossesPlus;
 			std::vector<double> LossesMins;
+			std::vector<Eigen::MatrixXd> aOneRDMsP, bOneRDMsP, aOneRDMsM, bOneRDMsM;
+			std::vector< std::vector<double> > aaTwoRDMsP, abTwoRDMsP, bbTwoRDMsP, aaTwoRDMsM, abTwoRDMsM, bbTwoRDMsM;
+
+			aOneRDMsP = aOneRDMsM = aOneRDMs;
+			bOneRDMsP = bOneRDMsM = bOneRDMs;
+			aaTwoRDMsP = aaTwoRDMsM = aaTwoRDMs;
+			abTwoRDMsP = abTwoRDMsM = abTwoRDMs;
+			bbTwoRDMsP = bbTwoRDMsM = bbTwoRDMs;
+
+			aOneRDMsP[x] = xFCIp.aOneRDMs[FragState[x]];
+			aOneRDMsM[x] = xFCIm.aOneRDMs[FragState[x]];
+			bOneRDMsP[x] = xFCIp.bOneRDMs[FragState[x]];
+			bOneRDMsM[x] = xFCIm.bOneRDMs[FragState[x]];
+			if (!isOEI)
+			{
+				aaTwoRDMsP[x] = xFCIp.aaTwoRDMs[FragState[x]];
+				aaTwoRDMsM[x] = xFCIm.aaTwoRDMs[FragState[x]];
+				abTwoRDMsP[x] = xFCIp.abTwoRDMs[FragState[x]];
+				abTwoRDMsM[x] = xFCIm.abTwoRDMs[FragState[x]];	
+				bbTwoRDMsP[x] = xFCIp.bbTwoRDMs[FragState[x]];
+				bbTwoRDMsM[x] = xFCIm.bbTwoRDMs[FragState[x]];	
+			}
+
 			if (isOEI)
 			{
 				std::vector<double> EmptyRDM;
