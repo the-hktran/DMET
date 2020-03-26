@@ -88,7 +88,7 @@ public:
 	void InitFromFragmenting(Fragmenting, std::ofstream&);
 
 private:
-	double dLambda = 1E-12;
+	double dLambda = 1E-6;
 	double dMu = 1E-6;
 	double MuTol = 1E-5;
 	double LambdaTol = 1E-4;

@@ -727,6 +727,8 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
 					xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, false);
 					xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, false);
 				}
@@ -742,9 +744,13 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
+					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, false);
+					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, false);
 					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, true, false);
-					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, false, false);
 					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, true, false);
+					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
+					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
+					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, false, false);
 					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, false, false);
 				}
 			}
@@ -803,9 +809,13 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			std::cout << x << "\t" << i << std::endl;
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				std::cout << LossesPlus[j] << "\t" << LossesBase[j] << "\t" << LossesMins[j] << std::endl;
+				std::cout << LossesMins[j] << "\t" << LossesBase[j] << "\t" << LossesPlus[j] << std::endl;
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
 				// J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
+			}
+			if (x == 0 && i == 0)
+			{
+				ScanLambda(0, 0);
 			}
 
 			// Add in chemical potential portion.
@@ -1121,7 +1131,7 @@ void Bootstrap::ScanLambda(int n, int FragIndex)
 	Eigen::VectorXd BEVec = BEToVector();
 	Eigen::VectorXd BEVec0 = BEVec;
 	
-	double Range = 2E-6;
+	double Range = 2.0 * dLambda;
 	double Steps = 100;
 	double StepSize = Range / Steps;
 	double Start = BEVec[n] - Range / 2;
