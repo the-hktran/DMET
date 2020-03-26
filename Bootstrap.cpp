@@ -716,8 +716,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// Collect all the density matrices for this iteration.
 			FCI xFCIp(FCIs[x]);
 			FCI xFCIm(FCIs[x]);
-			// xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
-			// xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
+
 			if (isOEI)
 			{
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
@@ -740,18 +739,18 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 				int Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
 				int Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, std::get<7>(BEPotential[x][i]));
 
-				xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
-				xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+				xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4,  dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
+				xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, -dLambda, std::get<6>(BEPotential[x][i]), std::get<7>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
 					Ind3 = OrbitalToReducedIndex(std::get<3>(BEPotential[x][i]), x, false);
 					Ind4 = OrbitalToReducedIndex(std::get<4>(BEPotential[x][i]), x, false);
-					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, true, false);
-					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, true, false);
+					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4,  dLambda, true, false);
+					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, -dLambda, true, false);
 					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
 					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
-					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) + dLambda, false, false);
-					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, std::get<5>(BEPotential[x][i]) - dLambda, false, false);
+					xFCIp.AddPotential(Ind1, Ind2, Ind3, Ind4,  dLambda, false, false);
+					xFCIm.AddPotential(Ind1, Ind2, Ind3, Ind4, -dLambda, false, false);
 				}
 			}
 			if (doDavidson) xFCIp.runFCI();
@@ -760,15 +759,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			if (doDavidson) xFCIm.runFCI();
 			else xFCIm.DirectFCI();
 			xFCIm.getSpecificRDM(FragState[x], !isOEI);
-			if (x == 0 && i == 0)
-			{
-				std::cout << "Check J" << std::endl;
-				std::cout << "Lambdas : " << std::get<5>(BEPotential[x][i]) - dLambda << "\t" << std::get<5>(BEPotential[x][i]) + dLambda << std::endl;
-				std::cout << "aPm\n" << xFCIm.aOneRDMs[FragState[x]] << "\nbPm\n" << xFCIm.bOneRDMs[FragState[x]] << std::endl;
-				std::cout << "aPp\n" << xFCIp.aOneRDMs[FragState[x]] << "\nbPp\n" << xFCIp.bOneRDMs[FragState[x]] << std::endl;
-				// std::cout << "aP\n" << aOneRDMs[1] << "\nbP\n" << bOneRDMs[1] << std::endl;
-			}
-			// std::cout << "+\n" << xFCIp.aOneRDMs[FragState[x]] << "\n-\n" << xFCIm.aOneRDMs[FragState[x]] << std::endl;
+
 			std::vector<double> LossesPlus;
 			std::vector<double> LossesMins;
 			std::vector<Eigen::MatrixXd> aOneRDMsP, bOneRDMsP, aOneRDMsM, bOneRDMsM;
@@ -814,16 +805,10 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			// dLmdl = (dLmdl - LMu) / dLambda;
 			
 			// Fill in J
-			std::cout << x << "\t" << i << std::endl;
 			for (int j = 0; j < LossesPlus.size(); j++)
 			{
-				std::cout << LossesMins[j] << "\t" << LossesBase[j] << "\t" << LossesPlus[j] << std::endl;
 				J(JRow + j, JCol) = (LossesPlus[j] - LossesMins[j]) / (dLambda + dLambda);
 				// J(JRow + j, JCol) = (LossesPlus[j] - LossesBase[j]) / (dLambda);
-			}
-			if (x == 0 && i == 0)
-			{
-				ScanLambda(0, 0);
 			}
 
 			// Add in chemical potential portion.
@@ -1394,7 +1379,7 @@ double Bootstrap::LineSearchCoarse(Eigen::VectorXd& x0, Eigen::VectorXd dx)
 	std::vector< std::vector<double> > aaTwoRDMs(NumFrag), abTwoRDMs(NumFrag), bbTwoRDMs(NumFrag);
 
 	// Hard code the test multiplicative factors.
-	std::vector<double> TestFactors{1., 0.1, 0.01, 0.001}; //{2.000, 1.000, 0.100, 0.010};
+	std::vector<double> TestFactors{2., 1., 0.1, 0.01}; //{2.000, 1.000, 0.100, 0.010};
 	std::vector<double> Losses; // Holds the loss from each test factor so we can pick the smallest
 
 	std::cout << "BE-DMET: -- Starting Linesearch" << std::endl;
@@ -1471,8 +1456,6 @@ void Bootstrap::OptLambda()
 		J = CalcJacobian(f); // Update here to check the loss.
 		// J = 0.1 * J; // Hardcoded "linesearch"
 		std::cout << "BE-DMET: Lambda Loss = " << sqrt(f.squaredNorm() / f.size()) << std::endl;
-		std::cout << f << std::endl;
-		std::cout << J << std::endl;
 	}
 	std::cout << "BE-DMET: Site potential obtained\n" << x << "\nBE-DMET: with loss \n" << sqrt(f.squaredNorm() / f.size()) << std::endl;
 }
