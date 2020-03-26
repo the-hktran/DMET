@@ -676,7 +676,7 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 		aaTwoRDMs.push_back(FCIs[x].aaTwoRDMs[FragState[x]]);
 		abTwoRDMs.push_back(FCIs[x].abTwoRDMs[FragState[x]]);
 		bbTwoRDMs.push_back(FCIs[x].bbTwoRDMs[FragState[x]]);
-		std::cout << x << "\na\n" << FCIs[x].aOneRDMs[FragState[x]] << "\nb\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
+		// std::cout << x << "\na\n" << FCIs[x].aOneRDMs[FragState[x]] << "\nb\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 	}
 
 	// double LMu = CalcCostChemPot(aOneRDMs, bOneRDMs, aBECenterPosition, bBECenterPosition, FragState);
@@ -714,23 +714,23 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			bool isOEI = (std::get<3>(BEPotential[x][i]) == -1);
 
 			// Collect all the density matrices for this iteration.
-			FCI xFCIp(FCIsBase[x]);
-			FCI xFCIm(FCIsBase[x]);
-			xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
-			xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
+			FCI xFCIp(FCIs[x]);
+			FCI xFCIm(FCIs[x]);
+			// xFCIp.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
+			// xFCIm.AddChemicalPotentialGKLC(aBECenterIndex[x], bBECenterIndex[x], aChemicalPotential, bChemicalPotential);
 			if (isOEI)
 			{
 				int Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
 				int Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, std::get<6>(BEPotential[x][i]));
 
-				xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, std::get<6>(BEPotential[x][i]));
-				xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, std::get<6>(BEPotential[x][i]));
+				xFCIp.AddPotential(Ind1, Ind2,  dLambda, std::get<6>(BEPotential[x][i]));
+				xFCIm.AddPotential(Ind1, Ind2, -dLambda, std::get<6>(BEPotential[x][i]));
 				if (MatchFullP)
 				{
 					Ind1 = OrbitalToReducedIndex(std::get<1>(BEPotential[x][i]), x, false);
 					Ind2 = OrbitalToReducedIndex(std::get<2>(BEPotential[x][i]), x, false);
-					xFCIp.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) + dLambda, false);
-					xFCIm.AddPotential(Ind1, Ind2, std::get<5>(BEPotential[x][i]) - dLambda, false);
+					xFCIp.AddPotential(Ind1, Ind2,  dLambda, false);
+					xFCIm.AddPotential(Ind1, Ind2, -dLambda, false);
 				}
 			}
 			else
@@ -760,6 +760,14 @@ Eigen::MatrixXd Bootstrap::CalcJacobian(Eigen::VectorXd &f)
 			if (doDavidson) xFCIm.runFCI();
 			else xFCIm.DirectFCI();
 			xFCIm.getSpecificRDM(FragState[x], !isOEI);
+			if (x == 0 && i == 0)
+			{
+				std::cout << "Check J" << std::endl;
+				std::cout << "Lambdas : " << std::get<5>(BEPotential[x][i]) - dLambda << "\t" << std::get<5>(BEPotential[x][i]) + dLambda << std::endl;
+				std::cout << "aPm\n" << xFCIm.aOneRDMs[FragState[x]] << "\nbPm\n" << xFCIm.bOneRDMs[FragState[x]] << std::endl;
+				std::cout << "aPp\n" << xFCIp.aOneRDMs[FragState[x]] << "\nbPp\n" << xFCIp.bOneRDMs[FragState[x]] << std::endl;
+				// std::cout << "aP\n" << aOneRDMs[1] << "\nbP\n" << bOneRDMs[1] << std::endl;
+			}
 			// std::cout << "+\n" << xFCIp.aOneRDMs[FragState[x]] << "\n-\n" << xFCIm.aOneRDMs[FragState[x]] << std::endl;
 			std::vector<double> LossesPlus;
 			std::vector<double> LossesMins;
@@ -1132,13 +1140,13 @@ void Bootstrap::ScanLambda(int n, int FragIndex)
 	Eigen::VectorXd BEVec0 = BEVec;
 	
 	double Range = 2.0 * dLambda;
-	double Steps = 100;
+	double Steps = 10;
 	double StepSize = Range / Steps;
 	double Start = BEVec[n] - Range / 2;
 
 	std::cout << "BE-DMET: Beginning Lambda Scan.." << std::endl;
 
-	for (int j = 0; j < Steps; j++)
+	for (int j = 0; j < Steps + 1; j++)
 	{
 		BEVec[n] = Start + j * StepSize;
 		VectorToBE(BEVec);
@@ -1162,6 +1170,10 @@ void Bootstrap::ScanLambda(int n, int FragIndex)
 			std::cout << Loss[jj] << "\t";
 		}
 		std::cout << std::endl;
+		if (j == 0 || j == Steps - 1)
+		{
+			std::cout << "a\n" << FCIs[FragIndex].aOneRDMs[FragState[FragIndex]] << "\nb\n" << FCIs[FragIndex].bOneRDMs[FragState[FragIndex]] << std::endl;
+		}
 	}
 }
 
