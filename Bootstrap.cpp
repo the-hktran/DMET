@@ -1686,6 +1686,10 @@ double Bootstrap::CalcBEEnergy()
 		Energy += FragEnergy;
 		std::cout << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
 		*Output << "BE-DMET: -- Energy of Fragment " << x << " is " << FragEnergy << std::endl;
+		std::cout << "BE-DMET: -- Alpha Density of Fragment " << x << " is\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
+		std::cout << "BE-DMET: --  Beta Density of Fragment " << x << " is\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
+		*Output << "BE-DMET: -- Alpha Density of Fragment " << x << " is\n" << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
+		*Output << "BE-DMET: --  Beta Density of Fragment " << x << " is\n" << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
 		std::cout << "FCI Energy = " << FCIs[x].Energies[FragState[x]] << std::endl;
 	}
 	if (isTS) Energy *= TrueNumFrag;
