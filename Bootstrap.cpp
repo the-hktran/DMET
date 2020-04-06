@@ -1646,6 +1646,20 @@ void Bootstrap::doBootstrap(InputObj &Inp, std::vector<Eigen::MatrixXd> &aMFDens
 	NewtonRaphson();
 	UpdateFCIs();
 	BEEnergy = CalcBEEnergy();
+	std::cout << "BE-DMET: Fragment Alpha 1RDMs:\n";
+	Output << "BE-DMET: Fragment Alpha 1RDMs:\n";
+	for (int x = 0; x < NumFrag; x++)
+	{
+		std::cout << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
+		Output << FCIs[x].aOneRDMs[FragState[x]] << std::endl;
+	}
+	std::cout << "BE-DMET: Fragment Beta 1RDMs:\n";
+	Output << "BE-DMET: Fragment Beta 1RDMs:\n";
+	for (int x = 0; x < NumFrag; x++)
+	{
+		std::cout << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
+		Output << FCIs[x].bOneRDMs[FragState[x]] << std::endl;
+	}
 	std::cout << "BE-DMET: DMET Energy = " << BEEnergy << std::endl;
 	Output << "DMET Energy = " << BEEnergy << std::endl;
 }
